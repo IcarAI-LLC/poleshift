@@ -4,8 +4,8 @@ import React, { useRef, useMemo, useCallback} from 'react';
 import Globe, {GlobeMethods} from 'react-globe.gl';
 import globeImage from '../assets/globe.jpg';
 import { DateTime } from 'luxon';
-import useData from '../hooks/useData';
-import useUI from '../hooks/useUI';
+import useData from '../old_hooks/useData';
+import useUI from '../old_hooks/useUI';
 
 // Optional: Define the type for a point to improve type safety
 interface GlobePoint {

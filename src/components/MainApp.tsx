@@ -3,9 +3,9 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { IconButton, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import useAuth from '../hooks/useAuth';
-import useData from '../hooks/useData';
-import useUI from '../hooks/useUI';
+import useAuth from '../old_hooks/useAuth';
+import useData from '../old_hooks/useData';
+import useUI from '../old_hooks/useUI';
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
 import DropBoxes from './DropBoxes/DropBoxes';

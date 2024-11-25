@@ -1,7 +1,7 @@
 // src/renderer/contexts/AuthContext.tsx
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import supabase from '../utils/supabaseClient';
+import supabase from '../old_utils/supabaseClient';
 
 export interface AuthContextType {
   user: any; // Replace `any` with your user type

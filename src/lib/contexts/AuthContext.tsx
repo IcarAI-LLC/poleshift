@@ -1,9 +1,9 @@
 // lib/contexts/AuthContext.tsx
 
 import { createContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserProfile, Organization, mapSupabaseUser } from '../types/auth';
+import { User, UserProfile, Organization, mapSupabaseUser } from '../types';
 import { api } from '../api';
-import supabase from '../../utils/supabaseClient';
+import supabase from '../../old_utils/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
 export interface AuthContextType {

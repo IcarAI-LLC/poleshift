@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Box, Typography, Theme } from '@mui/material';
 import type { Dispatch, SetStateAction } from 'react';
-import { SampleGroup } from '../utils/sampleGroupUtils';
-import supabase from '../utils/supabaseClient';
+import { SampleGroup } from '../old_utils/sampleGroupUtils';
+import supabase from '../old_utils/supabaseClient';
 import {
   addPendingOperation,
   addOrUpdateSampleGroup, PendingOperation,
-} from '../utils/offlineStorage';
+} from '../old_utils/offlineStorage';
 
 interface LocationFieldsProps {
   sampleGroup: SampleGroup;

@@ -1,7 +1,7 @@
 // src/renderer/hooks/useData.ts
 
 import { useContext } from 'react';
-import { DataContextType, DataContext } from '../contexts/DataContext';
+import { DataContextType, DataContext } from '../old_contexts/DataContext';
 
 const useData = (): DataContextType => {
   const context = useContext(DataContext);

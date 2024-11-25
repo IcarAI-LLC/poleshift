@@ -18,3 +18,14 @@ export class SyncError extends Error {
         this.name = 'SyncError';
     }
 }
+
+export class ValidationError extends Error {
+    constructor(
+        message: string,
+        public validationErrors: ValidationError[],
+        public originalError?: any
+    ) {
+        super(message);
+        this.name = 'ValidationError';
+    }
+}

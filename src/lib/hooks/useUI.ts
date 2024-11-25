@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useAppState } from '../contexts/AppContext';
-import { TreeItem, Location } from '../types';
+import { TreeItem, ResearchLocation } from '../types';
 
 export function useUI() {
     const { state, dispatch } = useAppState();
@@ -12,7 +12,7 @@ export function useUI() {
         dispatch({ type: 'SET_SELECTED_LEFT_ITEM', payload: item });
     }, [dispatch]);
 
-    const setSelectedRightItem = useCallback((item: Location | null) => {
+    const setSelectedRightItem = useCallback((item: ResearchLocation | null) => {
         dispatch({ type: 'SET_SELECTED_RIGHT_ITEM', payload: item });
     }, [dispatch]);
 

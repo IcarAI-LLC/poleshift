@@ -1,16 +1,17 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useAppState } from '../contexts/AppContext';
 import { api } from '../api';
-import type { Location } from '../types/location.ts'; // Use explicit type import
+import type { ResearchLocation } from '../types/researchLocation.ts';
 import { storage } from '../storage';
 
 export interface LocationsHookResult {
-    locations: Location[];
-    allLocations: Location[];
-    getLocationById: (id: string | null) => Location | null;
-    getLocationByCharId: (charId: string) => Location | null;
+    locations: ResearchLocation[];
+    allLocations: ResearchLocation[];
+    getLocationById: (id: string | null) => ResearchLocation | null;
+    getLocationByCharId: (charId: string) => ResearchLocation | null;
     isLoading: boolean;
     error: string | null;
+    synchronizeLocations: () => Promise<void>;
 }
 
 export function useLocations(): LocationsHookResult {
@@ -18,6 +19,8 @@ export function useLocations(): LocationsHookResult {
     const { locations } = state.data;
 
     const synchronizeLocations = useCallback(async () => {
+        if (state.data.isSyncing) return;
+
         dispatch({ type: 'SET_SYNCING', payload: true });
 
         try {
@@ -50,8 +53,26 @@ export function useLocations(): LocationsHookResult {
         } finally {
             dispatch({ type: 'SET_SYNCING', payload: false });
         }
-    }, [dispatch]);
+    }, [dispatch, state.data.isSyncing]);
 
+    // Initial sync on mount and when coming back online
+    useEffect(() => {
+        const handleOnline = () => {
+            synchronizeLocations();
+        };
+
+        // Initial sync
+        if (locations.length === 0) {
+            synchronizeLocations();
+        }
+
+        // Listen for online events
+        window.addEventListener('online', handleOnline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+        };
+    }, [synchronizeLocations, locations.length]);
 
     const getLocationById = useCallback((id: string | null) => {
         if (!id) return null;
@@ -64,21 +85,24 @@ export function useLocations(): LocationsHookResult {
     );
 
     const locationsByCharId = useMemo(() =>
-            locations.reduce<Record<string, Location>>((acc, location) => {
+            locations.reduce<Record<string, ResearchLocation>>((acc, location) => {
                 acc[location.char_id] = location;
                 return acc;
             }, {}),
         [locations]
     );
 
+    const getLocationByCharId = useCallback((charId: string) =>
+            locationsByCharId[charId] ?? null,
+        [locationsByCharId]
+    );
+
     return {
         locations: getEnabledLocations,
         allLocations: locations,
         getLocationById,
-        getLocationByCharId: useCallback((charId: string) =>
-                locationsByCharId[charId] ?? null,
-            [locationsByCharId]
-        ),
+        getLocationByCharId,
+        synchronizeLocations,
         isLoading: state.data.isSyncing,
         error: state.data.error
     };

@@ -7,12 +7,12 @@ import {
   upsertData,
   subscribeToTable,
   removeSubscription,
-} from '../utils/supabaseUtils';
+} from '../old_utils/supabaseUtils';
 import useAuth from './useAuth';
 import { useOnlineStatus } from './useOnlineStatus';
 import { TreeItem } from '../components/LeftSidebar/LeftSidebarTree.tsx';
 import { load } from '@tauri-apps/plugin-store';
-import {SampleGroup} from "../utils/sampleGroupUtils.ts";
+import {SampleGroup} from "../old_utils/sampleGroupUtils.ts";
 
 // Define an extended TreeItem to include SampleGroup data
 interface TreeItemWithSampleGroupData extends TreeItem {

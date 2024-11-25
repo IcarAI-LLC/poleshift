@@ -4,9 +4,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
 import { DateTime } from 'luxon'; // For date comparisons
-import useUI from '../hooks/useUI';
-import useData from '../hooks/useData';
-import { SampleGroup } from '../utils/sampleGroupUtils';
+import useUI from '../old_hooks/useUI';
+import useData from '../old_hooks/useData';
+import { SampleGroup } from '../old_utils/sampleGroupUtils';
 import {
   Box,
   Card,
@@ -15,7 +15,7 @@ import {
   Grid,
   Divider,
 } from '@mui/material';
-import useProcessedData from "../hooks/useProcessedData.ts";
+import useProcessedData from "../old_hooks/useProcessedData.ts";
 
 const RightSidebar: React.FC = () => {
   const {

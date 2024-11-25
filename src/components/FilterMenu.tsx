@@ -15,8 +15,8 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
-import useUI from '../hooks/useUI';
-import { useLocations } from '../hooks/useLocations';
+import useUI from '../old_hooks/useUI';
+import { useLocations } from '../old_hooks/useLocations';
 
 interface FilterMenuProps {
   onApply: () => void;

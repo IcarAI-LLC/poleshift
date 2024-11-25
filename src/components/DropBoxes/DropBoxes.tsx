@@ -8,21 +8,21 @@ import React, {
 } from 'react';
 import {Box, SelectChangeEvent, Typography} from '@mui/material';
 import dropboxConfig, { DropboxConfigItem } from '../../config/dropboxConfig';
-import useUI from '../../hooks/useUI';
-import useData from '../../hooks/useData';
+import useUI from '../../old_hooks/useUI';
+import useData from '../../old_hooks/useData';
 import Modal from '../Modal';
 import DataTable from '../DataTable';
 import DataChart from '../DataChart';
-import { useLocations } from '../../hooks/useLocations';
+import { useLocations } from '../../old_hooks/useLocations';
 import DropBox from './DropBox';
 import {
   processCTDDataForModal,
   processKrakenDataForModal,
-} from '../../utils/dataProcessingUtils';
-import { SampleGroup } from '../../utils/sampleGroupUtils';
+} from '../../old_utils/dataProcessingUtils';
+import { SampleGroup } from '../../old_utils/sampleGroupUtils';
 import NutrientAmmoniaView from '../NutrientAmmoniaView';
 import KrakenVisualization from '../KrakenVisualization/KrakenVisualization';
-import useProcessedData from "../../hooks/useProcessedData.ts";
+import useProcessedData from "../../old_hooks/useProcessedData.ts";
 
 interface ModalState {
   isOpen: boolean;

@@ -7,7 +7,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import supabase from '../../utils/supabaseClient';
+import supabase from '../../old_utils/supabaseClient';
 
 interface LoginProps {
   onNavigate: (view: 'signup' | 'reset-password') => void;

@@ -1,7 +1,7 @@
 // src/lib/api/data.ts
 
 import { apiClient } from './client';
-import { SampleGroup, Location } from '../types';
+import { SampleGroup, ResearchLocation } from '../types';
 
 export const data = {
     async getSampleGroups(orgId: string): Promise<SampleGroup[]> {
@@ -50,7 +50,7 @@ export const data = {
         if (error) throw error;
     },
 
-    async getLocations(): Promise<Location[]> {
+    async getLocations(): Promise<ResearchLocation[]> {
         const { data, error } = await apiClient
             .getClient()
             .from('sample_locations')

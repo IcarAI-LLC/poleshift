@@ -1,7 +1,7 @@
 // src/renderer/components/ContextMenu.tsx
 
 import React, { useEffect } from 'react';
-import useUI from '../hooks/useUI';
+import useUI from '../old_hooks/useUI';
 import './ContextMenu.css';
 
 interface ContextMenuProps {

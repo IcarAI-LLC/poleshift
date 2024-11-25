@@ -1,7 +1,7 @@
 // src/utils/sampleGroupUtils.ts
 
 import supabase from './supabaseClient';
-import { LocationOption } from '../hooks/useLocations';
+import { LocationOption } from '../old_hooks/useLocations';
 
 export interface SampleGroup {
   id: string;

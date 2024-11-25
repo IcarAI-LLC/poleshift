@@ -10,8 +10,8 @@ import {
   useTheme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import useUI from '../../hooks/useUI';
-import useAuth from '../../hooks/useAuth';
+import useUI from '../../old_hooks/useUI';
+import useAuth from '../../old_hooks/useAuth';
 
 const AccountActions: React.FC = () => {
   const { showAccountActions, setShowAccountActions } = useUI();

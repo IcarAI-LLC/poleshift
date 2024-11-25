@@ -10,8 +10,8 @@ import {
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import { DropboxConfigItem } from '../../config/dropboxConfig';
-import { SampleGroup } from '../../utils/sampleGroupUtils';
-import { ProcessedDataContext } from '../../contexts/ProcessedDataContext';
+import { SampleGroup } from '../../old_utils/sampleGroupUtils';
+import { ProcessedDataContext } from '../../old_contexts/ProcessedDataContext';
 import ProgressTracker from './ProgressTracker';
 
 interface DropBoxProps {

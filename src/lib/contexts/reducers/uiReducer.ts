@@ -1,6 +1,8 @@
 // src/lib/contexts/reducers/uiReducer.ts
 
 import { UIState, AppAction } from '../../types';
+// @ts-ignore
+import { ResearchLocation } from '../../types'
 
 const initialUIState: UIState = {
     selectedLeftItem: null,

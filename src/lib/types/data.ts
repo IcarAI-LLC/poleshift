@@ -1,5 +1,5 @@
 // src/lib/types/data.ts
-import { Location } from './location';
+import { ResearchLocation } from './researchLocation.ts';
 
 export interface TreeItem {
     id: string;
@@ -81,7 +81,7 @@ export interface ProcessingCheckpoint {
 export interface DataState {
     fileTree: TreeItem[];
     sampleGroups: Record<string, SampleGroup>;
-    locations: Location[];
+    locations: ResearchLocation[];
     processingJobs: Record<string, ProcessingJob>;
     isSyncing: boolean;
     lastSynced: number | null;
@@ -96,4 +96,4 @@ export interface PendingOperation {
     timestamp: number;
 }
 
-export * from './location';
+export * from './researchLocation.ts';

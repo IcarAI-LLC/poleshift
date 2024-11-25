@@ -5,9 +5,9 @@ import { Tree, NodeApi, CursorProps } from 'react-arborist';
 import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import ScienceIcon from '@mui/icons-material/Science';
-import useUI from '../../hooks/useUI';
+import useUI from '../../old_hooks/useUI';
 import CustomCursor from './CustomCursor';
-import useData from '../../hooks/useData';
+import useData from '../../old_hooks/useData';
 
 export interface TreeItem {
   id: string;

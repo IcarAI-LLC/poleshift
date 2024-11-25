@@ -1,7 +1,7 @@
 // src/renderer/hooks/useAuth.ts
 
 import { useContext } from 'react';
-import { AuthContext, AuthContextType } from '../contexts/AuthContext';
+import { AuthContext, AuthContextType } from '../old_contexts/AuthContext';
 
 const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);

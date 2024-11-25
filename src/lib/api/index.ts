@@ -2,10 +2,11 @@
 
 import { auth } from './auth';
 import { data } from './data';
-import { storage } from './storage';
-
+import { fileStorage } from './storage';
+import { fileTree } from "./fileTree.ts";
 export const api = {
     auth,
     data,
-    storage
+    fileStorage,
+    fileTree
 };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import supabase from '../utils/supabaseClient';
+import supabase from '../old_utils/supabaseClient';
 import { load } from '@tauri-apps/plugin-store';
 import { useOnlineStatus } from './useOnlineStatus';
 

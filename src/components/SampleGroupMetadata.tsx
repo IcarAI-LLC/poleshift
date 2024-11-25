@@ -15,14 +15,14 @@ import {
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { SampleGroup } from '../utils/sampleGroupUtils';
-import supabase from '../utils/supabaseClient';
+import { SampleGroup } from '../old_utils/sampleGroupUtils';
+import supabase from '../old_utils/supabaseClient';
 import LocationFields from './LocationFields';
 import {
   addPendingOperation,
   addOrUpdateSampleGroup, PendingOperation,
-} from '../utils/offlineStorage';
-import useData from "../hooks/useData.ts";
+} from '../old_utils/offlineStorage';
+import useData from "../old_hooks/useData.ts";
 
 interface SampleGroupMetadataProps {
   sampleGroup: SampleGroup;

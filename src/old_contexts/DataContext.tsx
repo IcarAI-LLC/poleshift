@@ -7,8 +7,8 @@ import React, {
   useEffect, useMemo,
   useState,
 } from 'react';
-import useAuth from '../hooks/useAuth';
-import { useFileTreeData } from '../hooks/useFileTreeData';
+import useAuth from '../old_hooks/useAuth';
+import { useFileTreeData } from '../old_hooks/useFileTreeData';
 import {
   fetchData,
   subscribeToTable,
@@ -19,15 +19,15 @@ import {
   listAllFiles,
   fetchSampleMetadataEntries,
   deleteSampleMetadataEntries,
-} from '../utils/supabaseUtils';
-import { useLocations, LocationOption } from '../hooks/useLocations';
+} from '../old_utils/supabaseUtils';
+import { useLocations, LocationOption } from '../old_hooks/useLocations';
 import {
   processCreateSampleGroup,
   SampleGroup,
-} from '../utils/sampleGroupUtils';
-import { processCreateFolder } from '../utils/folderUtils';
-import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import supabase from '../utils/supabaseClient';
+} from '../old_utils/sampleGroupUtils';
+import { processCreateFolder } from '../old_utils/folderUtils';
+import { useOnlineStatus } from '../old_hooks/useOnlineStatus';
+import supabase from '../old_utils/supabaseClient';
 import {
   addPendingOperation,
   getAllPendingOperations,
@@ -35,8 +35,8 @@ import {
   addOrUpdateSampleGroup,
   getAllSampleGroups,
   deleteSampleGroup,
-} from '../utils/offlineStorage';
-import { PendingOperation } from '../utils/offlineStorage';
+} from '../old_utils/offlineStorage';
+import { PendingOperation } from '../old_utils/offlineStorage';
 import { v4 as uuidv4 } from 'uuid';
 import { TreeItem } from '../components/LeftSidebar/LeftSidebarTree.tsx';
 import { load } from '@tauri-apps/plugin-store';

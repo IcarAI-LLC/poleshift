@@ -50,7 +50,7 @@ export function dataReducer(state: DataState = initialDataState, action: AppActi
         }
 
         case 'SET_LOCATIONS':
-            return {
+            return <DataState>{
                 ...state,
                 locations: action.payload
             };

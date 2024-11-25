@@ -1,8 +1,7 @@
-// src/lib/api/storage.ts
-
+// lib/api/storage.ts
 import { apiClient } from './client';
 
-export const storage = {
+export const fileStorage = {
     async uploadFile(bucket: string, path: string, file: File): Promise<string> {
         const { data, error } = await apiClient
             .getClient()

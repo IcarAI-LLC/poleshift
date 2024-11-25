@@ -1,7 +1,7 @@
 // src/renderer/hooks/useUI.ts
 
 import { useContext } from 'react';
-import { UIContext, UIContextType } from '../contexts/UIContext';
+import { UIContext, UIContextType } from '../old_contexts/UIContext';
 
 const useUI = (): UIContextType => {
   const context = useContext(UIContext);

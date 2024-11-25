@@ -1,7 +1,7 @@
 // lib/contexts/UIContext.tsx
 
 import React, { createContext, useState, ReactNode, useMemo, useCallback } from 'react';
-import { TreeItem, Location } from '../types';
+import { TreeItem, ResearchLocation } from '../types';
 import { UIState } from '../types';
 
 // Define the structure for modal state
@@ -35,8 +35,8 @@ export interface UIContextType {
     // Sidebar States
     selectedLeftItem: TreeItem | null;
     setSelectedLeftItem: React.Dispatch<React.SetStateAction<TreeItem | null>>;
-    selectedRightItem: Location | null;
-    setSelectedRightItem: React.Dispatch<React.SetStateAction<Location | null>>;
+    selectedRightItem: ResearchLocation | null;
+    setSelectedRightItem: React.Dispatch<React.SetStateAction<ResearchLocation | null>>;
     isSidebarCollapsed: boolean;
     toggleSidebar: () => void;
     isRightSidebarCollapsed: boolean;
@@ -78,7 +78,7 @@ interface UIProviderProps {
 export function UIProvider({ children }: UIProviderProps) {
     // Sidebar States
     const [selectedLeftItem, setSelectedLeftItem] = useState<TreeItem | null>(null);
-    const [selectedRightItem, setSelectedRightItem] = useState<Location | null>(null);
+    const [selectedRightItem, setSelectedRightItem] = useState<ResearchLocation | null>(null);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
     const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState<boolean>(true);
 

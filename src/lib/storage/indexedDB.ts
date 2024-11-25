@@ -1,22 +1,27 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { SampleGroup, TreeItem, ProcessingJob, Location } from '../types';
+import { SampleGroup, ProcessingJob, ResearchLocation } from '../types';
+import { FileNode } from '../types/fileTree';
 
 interface AppDB extends DBSchema {
     sampleGroups: {
         key: string;
         value: SampleGroup;
     };
-    fileTree: {
+    fileNodes: {
         key: string;
-        value: TreeItem;
+        value: FileNode;
+        indexes: {
+            'org_id': string;
+            'sample_group_id': string;
+        };
     };
     processingJobs: {
         key: string;
         value: ProcessingJob;
     };
     locations: {
-        key: string;  // Using location id as key
-        value: Location;
+        key: string;
+        value: ResearchLocation;
     };
     pendingOperations: {
         key: string;
@@ -36,7 +41,7 @@ export interface PendingOperation {
 }
 
 const DB_NAME = 'appDB';
-const DB_VERSION = 2; // Increment version for new store
+const DB_VERSION = 1;
 
 class StorageManager {
     private db: IDBPDatabase<AppDB> | null = null;
@@ -55,34 +60,71 @@ class StorageManager {
         if (!this.db) {
             this.db = await openDB<AppDB>(DB_NAME, DB_VERSION, {
                 upgrade(db) {
-                    // Create stores
-                    if (!db.objectStoreNames.contains('sampleGroups')) {
-                        db.createObjectStore('sampleGroups', { keyPath: 'id' });
-                    }
+                    // Create FileNodes store with indexes
+                    const fileNodesStore = db.createObjectStore('fileNodes', { keyPath: 'id' });
+                    fileNodesStore.createIndex('org_id', 'org_id');
+                    fileNodesStore.createIndex('sample_group_id', 'sample_group_id');
 
-                    if (!db.objectStoreNames.contains('fileTree')) {
-                        db.createObjectStore('fileTree', { keyPath: 'id' });
-                    }
+                    // Create other stores
+                    db.createObjectStore('sampleGroups', { keyPath: 'id' });
+                    db.createObjectStore('processingJobs', { keyPath: 'id' });
+                    db.createObjectStore('locations', { keyPath: 'id' });
 
-                    if (!db.objectStoreNames.contains('processingJobs')) {
-                        db.createObjectStore('processingJobs', { keyPath: 'id' });
-                    }
-
-                    if (!db.objectStoreNames.contains('locations')) {
-                        db.createObjectStore('locations', { keyPath: 'id' });
-                    }
-
-                    if (!db.objectStoreNames.contains('pendingOperations')) {
-                        const store = db.createObjectStore('pendingOperations', { keyPath: 'id' });
-                        store.createIndex('timestamp', 'timestamp');
-                    }
+                    // Create pending operations store with timestamp index
+                    const pendingOpsStore = db.createObjectStore('pendingOperations', { keyPath: 'id' });
+                    pendingOpsStore.createIndex('timestamp', 'timestamp');
                 },
             });
         }
         return this.db;
     }
 
-    // Sample Groups
+    // FileNode methods
+    async saveFileNode(node: FileNode): Promise<void> {
+        const db = await this.getDB();
+        await db.put('fileNodes', node);
+    }
+
+    async saveFileNodes(nodes: FileNode[]): Promise<void> {
+        const db = await this.getDB();
+        const tx = db.transaction('fileNodes', 'readwrite');
+        await Promise.all(nodes.map(node => tx.store.put(node)));
+        await tx.done;
+    }
+
+    async getFileNode(id: string): Promise<FileNode | undefined> {
+        const db = await this.getDB();
+        return db.get('fileNodes', id);
+    }
+
+    async getFileNodesByOrg(orgId: string): Promise<FileNode[]> {
+        const db = await this.getDB();
+        return db.getAllFromIndex('fileNodes', 'org_id', orgId);
+    }
+
+    async getFileNodesBySampleGroup(sampleGroupId: string): Promise<FileNode[]> {
+        const db = await this.getDB();
+        return db.getAllFromIndex('fileNodes', 'sample_group_id', sampleGroupId);
+    }
+
+    async getAllFileNodes(): Promise<FileNode[]> {
+        const db = await this.getDB();
+        return db.getAll('fileNodes');
+    }
+
+    async deleteFileNode(id: string): Promise<void> {
+        const db = await this.getDB();
+        await db.delete('fileNodes', id);
+    }
+
+    async deleteFileNodes(ids: string[]): Promise<void> {
+        const db = await this.getDB();
+        const tx = db.transaction('fileNodes', 'readwrite');
+        await Promise.all(ids.map(id => tx.store.delete(id)));
+        await tx.done;
+    }
+
+    // Sample Group methods
     async saveSampleGroup(sampleGroup: SampleGroup): Promise<void> {
         const db = await this.getDB();
         await db.put('sampleGroups', sampleGroup);
@@ -103,28 +145,7 @@ class StorageManager {
         await db.delete('sampleGroups', id);
     }
 
-    // File Tree
-    async saveTreeItem(item: TreeItem): Promise<void> {
-        const db = await this.getDB();
-        await db.put('fileTree', item);
-    }
-
-    async getTreeItem(id: string): Promise<TreeItem | undefined> {
-        const db = await this.getDB();
-        return db.get('fileTree', id);
-    }
-
-    async getAllTreeItems(): Promise<TreeItem[]> {
-        const db = await this.getDB();
-        return db.getAll('fileTree');
-    }
-
-    async deleteTreeItem(id: string): Promise<void> {
-        const db = await this.getDB();
-        await db.delete('fileTree', id);
-    }
-
-    // Processing Jobs
+    // Processing Job methods
     async saveProcessingJob(job: ProcessingJob): Promise<void> {
         const db = await this.getDB();
         await db.put('processingJobs', job);
@@ -145,14 +166,38 @@ class StorageManager {
         await db.delete('processingJobs', id);
     }
 
-    // Pending Operations
+    // Location methods
+    async saveLocations(locations: ResearchLocation[]): Promise<void> {
+        const db = await this.getDB();
+        const tx = db.transaction('locations', 'readwrite');
+        await tx.store.clear();
+        await Promise.all(locations.map(location => tx.store.add(location)));
+        await tx.done;
+    }
+
+    async getLocations(): Promise<ResearchLocation[]> {
+        const db = await this.getDB();
+        return db.getAll('locations');
+    }
+
+    async getLocation(id: string): Promise<ResearchLocation | undefined> {
+        const db = await this.getDB();
+        return db.get('locations', id);
+    }
+
+    async updateLocation(location: ResearchLocation): Promise<void> {
+        const db = await this.getDB();
+        await db.put('locations', location);
+    }
+
+    // Pending Operations methods
     async addPendingOperation(operation: Omit<PendingOperation, 'id'>): Promise<void> {
         const db = await this.getDB();
         const id = crypto.randomUUID();
         await db.add('pendingOperations', {
             ...operation,
             id,
-            timestamp: Date.now(),
+            timestamp: Date.now()
         });
     }
 
@@ -166,39 +211,9 @@ class StorageManager {
         await db.delete('pendingOperations', id);
     }
 
-    async clearAllPendingOperations(): Promise<void> {
+    async clearPendingOperations(): Promise<void> {
         const db = await this.getDB();
         await db.clear('pendingOperations');
-    }
-
-    // Updated Locations methods
-    async saveLocations(locations: Location[]): Promise<void> {
-        const db = await this.getDB();
-        const tx = db.transaction('locations', 'readwrite');
-        const store = tx.objectStore('locations');
-
-        // Clear existing locations
-        await store.clear();
-
-        // Add all new locations
-        await Promise.all(locations.map(location => store.add(location)));
-
-        await tx.done;
-    }
-
-    async getLocations(): Promise<Location[]> {
-        const db = await this.getDB();
-        return db.getAll('locations');
-    }
-
-    async getLocation(id: string): Promise<Location | undefined> {
-        const db = await this.getDB();
-        return db.get('locations', id);
-    }
-
-    async updateLocation(location: Location): Promise<void> {
-        const db = await this.getDB();
-        await db.put('locations', location);
     }
 }
 

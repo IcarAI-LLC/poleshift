@@ -7,8 +7,8 @@ import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import Modal from '../Modal';
 import AccountButton from './AccountButton';
 import LeftSidebarTree from './LeftSidebarTree';
-import useData from '../../hooks/useData';
-import useUI from '../../hooks/useUI';
+import useData from '../../old_hooks/useData';
+import useUI from '../../old_hooks/useUI';
 import { DropboxConfigItem } from '../../config/dropboxConfig';
 
 interface ModalState {

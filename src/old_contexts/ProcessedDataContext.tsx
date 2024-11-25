@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 // import pako from 'pako';
 import { DropboxConfigItem } from '../config/dropboxConfig';
-import { SampleGroup } from '../utils/sampleGroupUtils';
+import { SampleGroup } from '../old_utils/sampleGroupUtils';
 
 // Import offline storage utilities (for future use)
 // import {
