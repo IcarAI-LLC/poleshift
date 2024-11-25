@@ -12,11 +12,19 @@ import useAuth from './useAuth';
 import { useOnlineStatus } from './useOnlineStatus';
 import { TreeItem } from '../components/LeftSidebar/LeftSidebarTree.tsx';
 import { load } from '@tauri-apps/plugin-store';
+import {SampleGroup} from "../utils/sampleGroupUtils.ts";
 
+// Define an extended TreeItem to include SampleGroup data
+interface TreeItemWithSampleGroupData extends TreeItem {
+  sampleGroupData?: SampleGroup;
+  children?: TreeItemWithSampleGroupData[];
+}
+
+// Adjust the buildTree function to work with the extended TreeItem
 const buildTree = (
-    nodes: TreeItem[],
+    nodes: TreeItemWithSampleGroupData[],
     parentId: string | null,
-): TreeItem[] => {
+): TreeItemWithSampleGroupData[] => {
   return nodes
       .filter((node) => node.parent_id === parentId)
       .map((node) => ({
@@ -27,82 +35,88 @@ const buildTree = (
 
 export const useFileTreeData = () => {
   const { user, userOrgId } = useAuth();
-  const [fileTreeData, setFileTreeData] = useState<TreeItem[]>([]);
+  const [fileTreeData, setFileTreeData] = useState<TreeItemWithSampleGroupData[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const store = load('fileTreeData20.json', { autoSave: false });
 
   // Load tree data from the database
   const loadTreeData = useCallback(async () => {
     if (!user || !userOrgId) return;
 
     try {
-      // Fetch folders from 'file_nodes' table
-      const folderData = await fetchData('file_nodes', { org_id: userOrgId });
+      // Fetch all nodes from 'file_nodes' table
+      const nodeData = await fetchData('file_nodes', { org_id: userOrgId });
 
-      const folders: TreeItem[] = folderData.map((node: any) => ({
+      // Map nodeData to TreeItems
+      const nodes: TreeItemWithSampleGroupData[] = nodeData.map((node: any) => ({
         id: node.id,
         text: node.name,
-        droppable: true,
-        type: 'folder',
+        droppable: node.type === 'folder',
+        type: node.type,
         parent_id: node.parent_id || null,
       }));
 
-      // Fetch sampleGroups from 'sample_group_metadata' table
-      const sampleGroupData = await fetchData('sample_group_metadata', {
-        org_id: userOrgId,
+      // Get IDs of sampleGroups
+      const sampleGroupIds = nodeData
+          .filter((node: any) => node.type === 'sampleGroup')
+          .map((node: any) => node.id);
+
+      // Fetch SampleGroup data for sampleGroups
+      let sampleGroupDataMap = new Map<string, SampleGroup>();
+      if (sampleGroupIds.length > 0) {
+        const sampleGroupData = await fetchData('sample_group_metadata', {
+          id: sampleGroupIds,
+        });
+
+        // Create a map of sampleGroupData
+        sampleGroupData.forEach((sg: SampleGroup) => {
+          sampleGroupDataMap.set(sg.id, sg);
+        });
+      }
+
+      // Attach SampleGroup data to nodes
+      nodes.forEach((node) => {
+        if (node.type === 'sampleGroup') {
+          const sgData = sampleGroupDataMap.get(node.id);
+          if (sgData) {
+            node.sampleGroupData = sgData;
+          }
+        }
       });
 
-      const sampleGroups: TreeItem[] = sampleGroupData.map((sg: any) => ({
-        id: sg.id,
-        text: sg.human_readable_sample_id,
-        droppable: false,
-        type: 'sampleGroup',
-        parent_id: sg.parent_id || null, // Ensure this field exists in your schema
-      }));
-
-      // Combine folders and sampleGroups
-      const allNodes = [...folders, ...sampleGroups];
-
       // Build the tree structure
-      const tree = buildTree(allNodes, null);
+      const tree = buildTree(nodes, null);
       setFileTreeData(tree);
 
       // Store in Tauri store
-      const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
-      await store.set('fileTreeData', tree);
-      await store.save();
+      await (await store).set('fileTreeData', tree);
+      await (await store).save();
     } catch (error) {
       console.error('Error loading tree data:', error);
       // Load from Tauri store
-      const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
-      const localData = await store.get<TreeItem[]>('fileTreeData');
+      const localData = await (await store).get<TreeItemWithSampleGroupData[]>('fileTreeData');
       setFileTreeData(localData || []);
     }
   }, [user, userOrgId]);
 
   // Save tree data to the database
   const saveTreeData = useCallback(
-      async (updatedNodes: TreeItem[]) => {
+      async (updatedNodes: TreeItemWithSampleGroupData[]) => {
         if (!user || !userOrgId || !updatedNodes) return;
 
         setIsSyncing(true);
 
         try {
-          // Separate folders and sampleGroups
-          const folders = updatedNodes.filter((node) => node.type === 'folder');
-          const sampleGroups = updatedNodes.filter(
-              (node) => node.type === 'sampleGroup',
-          );
-
-          // Save folders to 'file_nodes' table
+          // Save all nodes (folders and sampleGroups) to 'file_nodes' table
           await Promise.all(
-              folders.map((folder) =>
+              updatedNodes.map((node) =>
                   upsertData(
                       'file_nodes',
                       {
-                        id: folder.id,
-                        name: folder.text,
-                        type: 'folder',
-                        parent_id: folder.parent_id,
+                        id: node.id,
+                        name: node.text,
+                        type: node.type,
+                        parent_id: node.parent_id,
                         org_id: userOrgId,
                       },
                       'id',
@@ -110,32 +124,32 @@ export const useFileTreeData = () => {
               ),
           );
 
-          // Save sampleGroups' parent_id to 'sample_group_metadata' table
+          // Save sampleGroups to 'sample_group_metadata' table with full data
+          const sampleGroups = updatedNodes.filter(
+              (node): node is TreeItemWithSampleGroupData => node.type === 'sampleGroup',
+          );
+
           await Promise.all(
-              sampleGroups.map((sg) =>
-                  upsertData(
-                      'sample_group_metadata',
-                      {
-                        id: sg.id,
-                        parent_id: sg.parent_id,
-                      },
-                      'id',
-                  ),
-              ),
+              sampleGroups.map((node) => {
+                if (node.sampleGroupData) {
+                  return upsertData('sample_group_metadata', node.sampleGroupData, 'id');
+                } else {
+                  console.warn(`No sampleGroupData for sampleGroup id ${node.id}`);
+                  return Promise.resolve();
+                }
+              }),
           );
 
           // Clear changes flag in Tauri store and save the latest tree
-          const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
-          await store.delete('fileTreeDataChanges');
-          await store.set('fileTreeData', fileTreeData);
-          await store.save();
+          await (await store).delete('fileTreeDataChanges');
+          await (await store).set('fileTreeData', fileTreeData);
+          await (await store).save();
         } catch (error) {
           console.error('Error saving tree data:', error);
           // Set changes flag in Tauri store and save the latest tree
-          const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
-          await store.set('fileTreeDataChanges', true);
-          await store.set('fileTreeData', fileTreeData);
-          await store.save();
+          await (await store).set('fileTreeDataChanges', true);
+          await (await store).set('fileTreeData', fileTreeData);
+          await (await store).save();
         } finally {
           setIsSyncing(false);
         }
@@ -144,7 +158,7 @@ export const useFileTreeData = () => {
   );
 
   const debouncedSaveTreeData = useCallback(
-      debounce((updatedNodes: TreeItem[]) => saveTreeData(updatedNodes), 500),
+      debounce((updatedNodes: TreeItemWithSampleGroupData[]) => saveTreeData(updatedNodes), 500),
       [saveTreeData],
   );
 
@@ -157,9 +171,9 @@ export const useFileTreeData = () => {
   useEffect(() => {
     if (user && userOrgId && fileTreeData !== null) {
       const flattenTree = (
-          nodes: TreeItem[],
+          nodes: TreeItemWithSampleGroupData[],
           parentId: string | null,
-          result: TreeItem[],
+          result: TreeItemWithSampleGroupData[],
       ) => {
         nodes.forEach((node) => {
           result.push({
@@ -170,7 +184,7 @@ export const useFileTreeData = () => {
         });
       };
 
-      const flatNodes: TreeItem[] = [];
+      const flatNodes: TreeItemWithSampleGroupData[] = [];
       flattenTree(fileTreeData, null, flatNodes);
 
       debouncedSaveTreeData(flatNodes);
@@ -181,12 +195,11 @@ export const useFileTreeData = () => {
   }, [fileTreeData, debouncedSaveTreeData, user, userOrgId]);
 
   const synchronizeData = useCallback(async () => {
-    const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
-    const hasChanges = await store.get<boolean>('fileTreeDataChanges');
+    const hasChanges = await (await store).get<boolean>('fileTreeDataChanges');
     if (hasChanges) {
-      const localData = await store.get<TreeItem[]>('fileTreeData');
-      const flatNodes: TreeItem[] = [];
-      const flattenTree = (nodes: TreeItem[], parentId: string | null) => {
+      const localData = await (await store).get<TreeItemWithSampleGroupData[]>('fileTreeData');
+      const flatNodes: TreeItemWithSampleGroupData[] = [];
+      const flattenTree = (nodes: TreeItemWithSampleGroupData[], parentId: string | null) => {
         nodes.forEach((node) => {
           flatNodes.push({
             ...node,

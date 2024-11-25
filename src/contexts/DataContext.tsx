@@ -4,7 +4,7 @@ import React, {
   createContext,
   ReactNode,
   useCallback,
-  useEffect,
+  useEffect, useMemo,
   useState,
 } from 'react';
 import useAuth from '../hooks/useAuth';
@@ -98,7 +98,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             latitude_recorded: group.latitude_recorded,
             longitude_recorded: group.longitude_recorded,
             notes: group.notes || null,
-            data: {},
           };
 
           // Save to IndexedDB
@@ -261,7 +260,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
               collection_date: sampleGroup.collection_date,
               collection_datetime_utc:
                   sampleGroup.collection_datetime_utc || undefined,
-              data: {},
               latitude_recorded: sampleGroup.latitude_recorded || null,
               longitude_recorded: sampleGroup.longitude_recorded || null,
               notes: sampleGroup.notes || null,
@@ -356,14 +354,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           throw error;
         }
       },
-      [
-        setSampleGroupData,
-        setFileTreeData,
-        user,
-        userOrgId,
-        userOrgShortId,
-        locations,
-      ],
+      [user, userOrgId, userOrgShortId, locations, setSampleGroupData, setFileTreeData],
   );
 
   const deleteItem = useCallback(
@@ -467,7 +458,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           throw error;
         }
       },
-      [setSampleGroupData, setFileTreeData, sampleGroupData],
+      [setSampleGroupData, setFileTreeData],
   );
 
   useEffect(() => {
@@ -524,20 +515,34 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
   const isOnline = useOnlineStatus(synchronizeData);
 
+  // Memoize the context value
+  const contextValue = useMemo(
+      () => ({
+        fileTreeData: fileTreeData || [],
+        setFileTreeData,
+        sampleGroupData,
+        setSampleGroupData,
+        addItem,
+        deleteItem,
+        isSyncing,
+        locations,
+        isOnline,
+      }),
+      [
+        fileTreeData,
+        setFileTreeData,
+        sampleGroupData,
+        setSampleGroupData,
+        addItem,
+        deleteItem,
+        isSyncing,
+        locations,
+        isOnline,
+      ],
+  );
+
   return (
-      <DataContext.Provider
-          value={{
-            fileTreeData: fileTreeData || [],
-            setFileTreeData,
-            sampleGroupData,
-            setSampleGroupData,
-            addItem,
-            deleteItem,
-            isSyncing,
-            locations,
-            isOnline,
-          }}
-      >
+      <DataContext.Provider value={contextValue}>
         {children}
       </DataContext.Provider>
   );

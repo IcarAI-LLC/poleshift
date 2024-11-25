@@ -54,34 +54,8 @@ const MainApp: React.FC = () => {
   const sampleGroup = sampleGroupId ? sampleGroupData[sampleGroupId] : null;
 
   const handleDataProcessed = useCallback(
-    (_insertData: any, configItem: any, processedData: any) => {
-      if (selectedLeftItem?.type === 'sampleGroup') {
-        const sampleGroupId = selectedLeftItem.id;
-
-        // Ensure existingGroup includes all required properties
-        const existingGroup = sampleGroup;
-        if (!existingGroup){
-          return
-        }
-
-        // Update sampleGroupData
-        setSampleGroupData((prevData) => ({
-          ...prevData,
-          [sampleGroupId]: {
-            ...existingGroup,
-            data: {
-              ...existingGroup.data,
-              [configItem.id]: processedData,
-            },
-          },
-        }));
-
-        setLocalErrorMessage('');
-      } else {
-        setLocalErrorMessage(
-          'Please select a sample group before uploading data.',
-        );
-      }
+    (_insertData: any, /* configItem: any, processedData: any */) => {
+      return
     },
     [
       selectedLeftItem,

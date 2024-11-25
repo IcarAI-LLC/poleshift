@@ -11,7 +11,6 @@ export interface SampleGroup {
   storage_folder: string;
   collection_date: string;
   collection_datetime_utc?: string;
-  data?: any;
   user_id: string;
   org_id: string;
   latitude_recorded: number | null;
@@ -127,7 +126,6 @@ export const processCreateSampleGroup = async (
       latitude_recorded: null,
       longitude_recorded: null,
       notes: null,
-      data: {},
     };
 
     return newSampleGroup;

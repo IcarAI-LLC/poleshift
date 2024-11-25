@@ -127,7 +127,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         const { data: organization, error: organizationError } = await supabase
-            .from('organization')
+            .from('organizations')
             .select('id, name, org_short_id')
             .eq('id', userProfile.organization_id)
             .single();

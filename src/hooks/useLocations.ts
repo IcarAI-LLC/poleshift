@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import supabase from '../utils/supabaseClient';
-import { LazyStore } from '@tauri-apps/plugin-store';
+import { load } from '@tauri-apps/plugin-store';
 import { useOnlineStatus } from './useOnlineStatus';
 
 export interface LocationOption {
@@ -13,8 +13,10 @@ export interface LocationOption {
 
 export const useLocations = () => {
   const [locations, setLocations] = useState<LocationOption[]>([]);
+  const store = load('locations20.json', { autoSave: false });
 
   const synchronizeData = async () => {
+
     try {
       const { data, error } = await supabase
           .from('sample_locations')
@@ -23,21 +25,19 @@ export const useLocations = () => {
 
       if (error || !data) {
         console.error('Error fetching sample locations:', error?.message);
-
         // Fallback to local storage if fetching from Supabase fails
-        const localData = await getLocationsFromLazyStore();
-        setLocations(localData);
+        const localData = (await store).get<LocationOption[]>('locations');
+        setLocations(Array.isArray(localData) ? localData : []);
       } else {
         setLocations(data);
-
         // Save fetched data to local storage
-        await saveLocationsToLazyStore(data);
+        (await store).set('locations', data);
+        await (await store).save();
       }
     } catch (err) {
       console.error('Unexpected error during synchronization:', err);
-
-      const localData = await getLocationsFromLazyStore();
-      setLocations(localData);
+      const localData = (await store).get<LocationOption[]>('locations');
+      setLocations(Array.isArray(localData) ? localData : []);
     }
   };
 
@@ -45,14 +45,12 @@ export const useLocations = () => {
 
   useEffect(() => {
     const fetchLocations = async () => {
-      try {
-        if (!isOnline) {
-          // Fetch from local storage if offline
-          const localData = await getLocationsFromLazyStore();
-          setLocations(localData);
-        }
-      } catch (error) {
-        console.error('Error fetching locations:', error);
+      const store = await load('locations.json', { autoSave: false, createNew: true });
+
+      if (!isOnline) {
+        // Fetch from local storage if offline
+        const localData = store.get<LocationOption[]>('locations');
+        setLocations(Array.isArray(localData) ? localData : []);
       }
     };
 
@@ -63,52 +61,6 @@ export const useLocations = () => {
   const getLocationById = (loc_id: string | null) => {
     if (!loc_id) return null;
     return locations.find((location) => location.id === loc_id) || null;
-  };
-
-  // Function to save locations to store
-  const saveLocationsToLazyStore = async (data: LocationOption[]) => {
-    try {
-      const store = new LazyStore('store.json');
-
-      // First, clear existing location keys in the store
-      const keys = await store.keys();
-      const locationKeys = keys.filter((key) => key.startsWith('locations.'));
-      for (const key of locationKeys) {
-        await store.delete(key);
-      }
-
-      // Save each item under a unique key
-      for (const item of data) {
-        await store.set(`locations.${item.id}`, item);
-      }
-
-      await store.save();
-    } catch (error) {
-      console.error('Error saving locations to store:', error);
-    }
-  };
-
-  // Function to get locations from the store
-  const getLocationsFromLazyStore = async (): Promise<LocationOption[]> => {
-    try {
-      const store = new LazyStore('store.json');
-
-      const keys = await store.keys();
-      const locationKeys = keys.filter((key) => key.startsWith('locations.'));
-      const localData: LocationOption[] = [];
-
-      for (const key of locationKeys) {
-        const item = await store.get<LocationOption>(key);
-        if (item) {
-          localData.push(item);
-        }
-      }
-
-      return localData;
-    } catch (error) {
-      console.error('Error getting locations from store:', error);
-      return [];
-    }
   };
 
   return { locations, getLocationById };

@@ -11,7 +11,7 @@ export const processCreateFolder = async (
     throw new Error('Folder name is required to create a folder.');
   }
 
-  const newId = `folder-${uuidv4()}`;
+  const newId = uuidv4();
   return {
     id: newId,
     text: name,

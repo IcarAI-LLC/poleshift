@@ -143,9 +143,11 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
   });
 
   // Memoize functions to prevent them from being recreated on every render
-  const toggleSidebar = useCallback(() => {
+  const toggleSidebar = () => {
+    console.log('toggleSidebar called');
     setIsSidebarCollapsed((prev) => !prev);
-  }, []);
+    console.log('isSidebarCollapsed is now:', !isSidebarCollapsed);
+  };
 
   const toggleRightSidebar = useCallback(() => {
     setIsRightSidebarCollapsed((prev) => !prev);
