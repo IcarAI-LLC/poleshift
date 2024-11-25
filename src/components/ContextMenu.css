@@ -1,0 +1,47 @@
+/* ===================================== */
+/*        CONTEXT MENU STYLES            */
+/* ===================================== */
+
+.context-menu {
+  position: absolute;
+  background-color: var(--color-sidebar);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+  color: var(--color-text);
+  z-index: 1000;
+  display: none;
+  min-width: 150px;
+  border-radius: 4px;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.context-menu--visible {
+  display: block;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.context-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 5px 0;
+}
+
+.context-menu__item {
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+  display: flex;
+  align-items: center;
+  transition: background-color var(--transition-fast);
+}
+
+.context-menu__item:hover {
+  background-color: var(--color-sidebar-hover);
+}
+
+.context-menu__icon {
+  margin-right: 8px;
+  font-size: var(--font-size-context-icon);
+  color: var(--color-white);
+}
