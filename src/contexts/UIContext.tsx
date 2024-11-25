@@ -36,7 +36,7 @@ interface ConfirmState {
   isOpen: boolean;
   title: string;
   message: string;
-  callback: (() => void) | null;
+  callback: () => void;
 }
 
 // Define the structure for context menus
@@ -117,7 +117,8 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
     isOpen: false,
     title: '',
     message: '',
-    callback: null,
+    callback(): void {
+    }
   });
 
   // Context Menu States

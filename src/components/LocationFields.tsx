@@ -5,7 +5,7 @@ import { SampleGroup } from '../utils/sampleGroupUtils';
 import supabase from '../utils/supabaseClient';
 import {
   addPendingOperation,
-  addOrUpdateSampleGroup,
+  addOrUpdateSampleGroup, PendingOperation,
 } from '../utils/offlineStorage';
 
 interface LocationFieldsProps {
@@ -20,10 +20,8 @@ interface LocationFieldsProps {
 
 const LocationFields: React.FC<LocationFieldsProps> = ({
   sampleGroup,
-  theme,
   metadataItemStyles,
   labelStyles,
-  valueStyles,
   darkFieldStyles,
   setSampleGroupData,
 }) => {
@@ -59,7 +57,6 @@ const LocationFields: React.FC<LocationFieldsProps> = ({
 
     try {
       const numericValue = newLatitude ? parseFloat(newLatitude) : null;
-      const updateData = { latitude_recorded: numericValue };
 
       // Update local state immediately
       setSampleGroupData((prev) => ({
@@ -86,13 +83,14 @@ const LocationFields: React.FC<LocationFieldsProps> = ({
         if (error) throw error;
       } else {
         // Offline: Queue the operation
-        const pendingOperation = {
-          type: 'update',
+        const pendingOperation: PendingOperation = {
+          id: sampleGroup.id,
+          type: "update",
           table: 'sample_group_metadata',
           data: {
             id: sampleGroup.id,
             updateData: { latitude_recorded: numericValue },
-          },
+          }
         };
         await addPendingOperation(pendingOperation);
       }
@@ -109,7 +107,6 @@ const LocationFields: React.FC<LocationFieldsProps> = ({
 
     try {
       const numericValue = newLongitude ? parseFloat(newLongitude) : null;
-      const updateData = { longitude_recorded: numericValue };
 
       // Update local state immediately
       setSampleGroupData((prev) => ({
@@ -136,8 +133,9 @@ const LocationFields: React.FC<LocationFieldsProps> = ({
         if (error) throw error;
       } else {
         // Offline: Queue the operation
-        const pendingOperation = {
-          type: 'update',
+        const pendingOperation: PendingOperation = {
+          id: sampleGroup.id,
+          type: "update",
           table: 'sample_group_metadata',
           data: {
             id: sampleGroup.id,

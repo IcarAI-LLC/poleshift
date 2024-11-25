@@ -1,7 +1,7 @@
 // src/renderer/components/MainApp.tsx
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { IconButton, Box, Tooltip } from '@mui/material';
+import { IconButton, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import useAuth from '../hooks/useAuth';
 import useData from '../hooks/useData';
@@ -14,11 +14,9 @@ import GlobeComponent from './GlobeComponent';
 import ConfirmDialog from './ConfirmDialog';
 import ContextMenu from './ContextMenu';
 import AccountActions from './Account/AccountActions';
-import ErrorBoundary from './ErrorBoundary';
 import SampleGroupMetadata from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning'; // Import the new component
-import { ExtendedTreeItem } from '../hooks/useFileTreeData';
 
 const MainApp: React.FC = () => {
   const {
@@ -37,7 +35,6 @@ const MainApp: React.FC = () => {
   const {
     selectedLeftItem,
     setSelectedLeftItem,
-    contextMenuState,
     confirmState,
     setConfirmState,
     showAccountActions,
@@ -57,24 +54,15 @@ const MainApp: React.FC = () => {
   const sampleGroup = sampleGroupId ? sampleGroupData[sampleGroupId] : null;
 
   const handleDataProcessed = useCallback(
-    (insertData: any, configItem: any, processedData: any) => {
+    (_insertData: any, configItem: any, processedData: any) => {
       if (selectedLeftItem?.type === 'sampleGroup') {
         const sampleGroupId = selectedLeftItem.id;
 
         // Ensure existingGroup includes all required properties
-        const existingGroup = sampleGroup || {
-          id: sampleGroupId,
-          name: selectedLeftItem.text,
-          human_readable_sample_id:
-            sampleGroup?.human_readable_sample_id || selectedLeftItem.text,
-          org_id: sampleGroup?.org_id || '',
-          user_id: sampleGroup?.user_id || '',
-          loc_id: sampleGroup?.loc_id || null,
-          storage_folder: sampleGroup?.storage_folder || '',
-          collection_date: sampleGroup?.collection_date || null,
-          collection_datetime_utc: sampleGroup?.collection_datetime_utc || null,
-          data: {},
-        };
+        const existingGroup = sampleGroup;
+        if (!existingGroup){
+          return
+        }
 
         // Update sampleGroupData
         setSampleGroupData((prevData) => ({
@@ -87,34 +75,6 @@ const MainApp: React.FC = () => {
             },
           },
         }));
-
-        // Function to update dropBoxHasData in the fileTreeData
-        const updateDropBoxHasDataInTree = (
-          treeData: ExtendedTreeItem[],
-        ): ExtendedTreeItem[] => {
-          return treeData.map((node) => {
-            if (node.id === sampleGroupId) {
-              const dropBoxHasData = node.dropBoxHasData || [];
-              if (!dropBoxHasData.includes(configItem.id)) {
-                dropBoxHasData.push(configItem.id);
-              }
-              return {
-                ...node,
-                dropBoxHasData,
-              };
-            }
-            if (node.children) {
-              return {
-                ...node,
-                children: updateDropBoxHasDataInTree(node.children),
-              };
-            }
-            return node;
-          });
-        };
-
-        // Update fileTreeData
-        setFileTreeData(updateDropBoxHasDataInTree(fileTreeData));
 
         setLocalErrorMessage('');
       } else {
@@ -146,9 +106,6 @@ const MainApp: React.FC = () => {
     },
     [deleteItem, selectedLeftItem, setSelectedLeftItem],
   );
-
-  const itemName = selectedLeftItem?.text || null;
-  const uploadedData = sampleGroup?.data || {};
 
   const displayedError = errorMessage || localErrorMessage;
 
@@ -214,7 +171,6 @@ const MainApp: React.FC = () => {
 
   return (
     <div id="app">
-      <ErrorBoundary>
         <div className="app-container">
           <LeftSidebar userTier={userTier} />
 
@@ -295,7 +251,6 @@ const MainApp: React.FC = () => {
           setConfirmState={setConfirmState}
         />
         <ContextMenu deleteItem={handleDeleteItem} userTier={userTier} />
-      </ErrorBoundary>
     </div>
   );
 };

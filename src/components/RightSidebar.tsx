@@ -1,13 +1,12 @@
 // src/renderer/components/RightSidebar.tsx
 
-import React, { useCallback, useEffect, useMemo, useState, useContext } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
 import { DateTime } from 'luxon'; // For date comparisons
 import useUI from '../hooks/useUI';
 import useData from '../hooks/useData';
 import { SampleGroup } from '../utils/sampleGroupUtils';
-import { ProcessedDataContext } from '../contexts/ProcessedDataContext';
 import {
   Box,
   Card,
@@ -16,6 +15,7 @@ import {
   Grid,
   Divider,
 } from '@mui/material';
+import useProcessedData from "../hooks/useProcessedData.ts";
 
 const RightSidebar: React.FC = () => {
   const {
@@ -26,7 +26,7 @@ const RightSidebar: React.FC = () => {
     filters,
   } = useUI();
   const { sampleGroupData } = useData();
-  const { processedData, fetchProcessedData } = useContext(ProcessedDataContext);
+  const { processedData, fetchProcessedData } = useProcessedData()
 
   const [averageTemperature, setAverageTemperature] = useState<number | null>(
     null,

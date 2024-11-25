@@ -1,43 +1,33 @@
+// useFileTreeData.ts
+
 import { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
 import {
   fetchData,
   upsertData,
   subscribeToTable,
-  removeSubscription, deleteData
+  removeSubscription,
 } from '../utils/supabaseUtils';
 import useAuth from './useAuth';
 import { useOnlineStatus } from './useOnlineStatus';
-
-export interface ExtendedTreeItem {
-  id: string;
-  text: string;
-  droppable: boolean;
-  type: 'folder' | 'sampleGroup' | string;
-  children?: ExtendedTreeItem[];
-  dropBoxHasData?: string[];
-}
+import { TreeItem } from '../components/LeftSidebar/LeftSidebarTree.tsx';
+import { load } from '@tauri-apps/plugin-store';
 
 const buildTree = (
-  nodes: any[],
-  parentId: string | null,
-): ExtendedTreeItem[] => {
+    nodes: TreeItem[],
+    parentId: string | null,
+): TreeItem[] => {
   return nodes
-    .filter((node) => node.parent_id === parentId)
-    .map((node) => ({
-      id: node.id,
-      text: node.name,
-      droppable: node.type === 'folder',
-      type: node.type,
-      children: buildTree(nodes, node.id), // Recursively build children
-    }));
+      .filter((node) => node.parent_id === parentId)
+      .map((node) => ({
+        ...node,
+        children: buildTree(nodes, node.id),
+      }));
 };
 
 export const useFileTreeData = () => {
   const { user, userOrgId } = useAuth();
-  const [fileTreeData, setFileTreeData] = useState<ExtendedTreeItem[] | null>(
-    null,
-  );
+  const [fileTreeData, setFileTreeData] = useState<TreeItem[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Load tree data from the database
@@ -45,83 +35,117 @@ export const useFileTreeData = () => {
     if (!user || !userOrgId) return;
 
     try {
-      const data = await fetchData('file_nodes', { org_id: userOrgId });
-      const tree = buildTree(data, null); // Build the tree from flat data
+      // Fetch folders from 'file_nodes' table
+      const folderData = await fetchData('file_nodes', { org_id: userOrgId });
+
+      const folders: TreeItem[] = folderData.map((node: any) => ({
+        id: node.id,
+        text: node.name,
+        droppable: true,
+        type: 'folder',
+        parent_id: node.parent_id || null,
+      }));
+
+      // Fetch sampleGroups from 'sample_group_metadata' table
+      const sampleGroupData = await fetchData('sample_group_metadata', {
+        org_id: userOrgId,
+      });
+
+      const sampleGroups: TreeItem[] = sampleGroupData.map((sg: any) => ({
+        id: sg.id,
+        text: sg.human_readable_sample_id,
+        droppable: false,
+        type: 'sampleGroup',
+        parent_id: sg.parent_id || null, // Ensure this field exists in your schema
+      }));
+
+      // Combine folders and sampleGroups
+      const allNodes = [...folders, ...sampleGroups];
+
+      // Build the tree structure
+      const tree = buildTree(allNodes, null);
       setFileTreeData(tree);
-      window.electron.store.set('fileTreeData', tree);
+
+      // Store in Tauri store
+      const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
+      await store.set('fileTreeData', tree);
+      await store.save();
     } catch (error) {
       console.error('Error loading tree data:', error);
-      const localData = window.electron.store.get('fileTreeData');
+      // Load from Tauri store
+      const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
+      const localData = await store.get<TreeItem[]>('fileTreeData');
       setFileTreeData(localData || []);
     }
   }, [user, userOrgId]);
 
   // Save tree data to the database
   const saveTreeData = useCallback(
-    async (updatedNodes: any[]) => {
-      if (!user || !userOrgId || !updatedNodes) return;
+      async (updatedNodes: TreeItem[]) => {
+        if (!user || !userOrgId || !updatedNodes) return;
 
-      setIsSyncing(true);
+        setIsSyncing(true);
 
-      try {
-        // Fetch all existing nodes from the database
-        const existingNodes = await fetchData('file_nodes', { org_id: userOrgId });
-        const existingNodeIds = new Set(existingNodes.map((node) => node.id));
-
-        // Extract updated node IDs
-        const updatedNodeIds = new Set(updatedNodes.map((node) => node.id));
-
-        // Determine which nodes have been deleted
-        const deletedNodeIds = Array.from(existingNodeIds).filter(
-          (id) => !updatedNodeIds.has(id),
-        );
-
-        // Perform deletions
-        if (deletedNodeIds.length > 0) {
-          await Promise.all(
-            deletedNodeIds.map((id) => deleteData('file_nodes', { id })),
+        try {
+          // Separate folders and sampleGroups
+          const folders = updatedNodes.filter((node) => node.type === 'folder');
+          const sampleGroups = updatedNodes.filter(
+              (node) => node.type === 'sampleGroup',
           );
+
+          // Save folders to 'file_nodes' table
+          await Promise.all(
+              folders.map((folder) =>
+                  upsertData(
+                      'file_nodes',
+                      {
+                        id: folder.id,
+                        name: folder.text,
+                        type: 'folder',
+                        parent_id: folder.parent_id,
+                        org_id: userOrgId,
+                      },
+                      'id',
+                  ),
+              ),
+          );
+
+          // Save sampleGroups' parent_id to 'sample_group_metadata' table
+          await Promise.all(
+              sampleGroups.map((sg) =>
+                  upsertData(
+                      'sample_group_metadata',
+                      {
+                        id: sg.id,
+                        parent_id: sg.parent_id,
+                      },
+                      'id',
+                  ),
+              ),
+          );
+
+          // Clear changes flag in Tauri store and save the latest tree
+          const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
+          await store.delete('fileTreeDataChanges');
+          await store.set('fileTreeData', fileTreeData);
+          await store.save();
+        } catch (error) {
+          console.error('Error saving tree data:', error);
+          // Set changes flag in Tauri store and save the latest tree
+          const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
+          await store.set('fileTreeDataChanges', true);
+          await store.set('fileTreeData', fileTreeData);
+          await store.save();
+        } finally {
+          setIsSyncing(false);
         }
-
-        // Upsert updated nodes
-        await Promise.all(
-          updatedNodes.map(async (node) => {
-            const existingNode = await fetchData('file_nodes', { id: node.id });
-
-            if (
-              existingNode &&
-              existingNode[0]?.version !== undefined &&
-              existingNode[0]?.version > node.version
-            ) {
-              // Conflict detected, handle resolution
-              console.warn('Conflict detected for node:', node.id);
-
-              // Strategy: Always prefer the latest version in the database
-              node = {
-                ...node,
-                ...existingNode[0], // Overwrite local changes with the latest data
-              };
-            }
-
-            // Upsert the resolved node
-            return upsertData('file_nodes', node, 'id');
-          }),
-        );
-
-        window.electron.store.delete('fileTreeDataChanges');
-      } catch (error) {
-        console.error('Error saving tree data:', error);
-        window.electron.store.set('fileTreeDataChanges', true);
-      } finally {
-        setIsSyncing(false);
-      }
-    },
-    [user, userOrgId],
+      },
+      [user, userOrgId, fileTreeData],
   );
 
   const debouncedSaveTreeData = useCallback(
-    debounce((updatedNodes: any[]) => saveTreeData(updatedNodes), 500),
-    [saveTreeData],
+      debounce((updatedNodes: TreeItem[]) => saveTreeData(updatedNodes), 500),
+      [saveTreeData],
   );
 
   useEffect(() => {
@@ -132,23 +156,23 @@ export const useFileTreeData = () => {
 
   useEffect(() => {
     if (user && userOrgId && fileTreeData !== null) {
-      const flatNodes: { id: string; name: string; type: string; parent_id: string | null; org_id: string; }[] = []; // Flatten tree structure for saving
       const flattenTree = (
-        nodes: ExtendedTreeItem[],
-        parentId: string | null,
+          nodes: TreeItem[],
+          parentId: string | null,
+          result: TreeItem[],
       ) => {
         nodes.forEach((node) => {
-          flatNodes.push({
-            id: node.id,
-            name: node.text,
-            type: node.type,
+          result.push({
+            ...node,
             parent_id: parentId,
-            org_id: userOrgId,
           });
-          if (node.children) flattenTree(node.children, node.id);
+          if (node.children) flattenTree(node.children, node.id, result);
         });
       };
-      flattenTree(fileTreeData, null);
+
+      const flatNodes: TreeItem[] = [];
+      flattenTree(fileTreeData, null, flatNodes);
+
       debouncedSaveTreeData(flatNodes);
     }
     return () => {
@@ -157,20 +181,16 @@ export const useFileTreeData = () => {
   }, [fileTreeData, debouncedSaveTreeData, user, userOrgId]);
 
   const synchronizeData = useCallback(async () => {
-    if (window.electron.store.get('fileTreeDataChanges')) {
-      const localData = window.electron.store.get('fileTreeData');
-      const flatNodes: any[] = [];
-      const flattenTree = (
-        nodes: ExtendedTreeItem[],
-        parentId: string | null,
-      ) => {
+    const store = await load('fileTreeData.json', { autoSave: false, createNew: true });
+    const hasChanges = await store.get<boolean>('fileTreeDataChanges');
+    if (hasChanges) {
+      const localData = await store.get<TreeItem[]>('fileTreeData');
+      const flatNodes: TreeItem[] = [];
+      const flattenTree = (nodes: TreeItem[], parentId: string | null) => {
         nodes.forEach((node) => {
           flatNodes.push({
-            id: node.id,
-            name: node.text,
-            type: node.type,
+            ...node,
             parent_id: parentId,
-            org_id: userOrgId,
           });
           if (node.children) flattenTree(node.children, node.id);
         });
@@ -178,7 +198,7 @@ export const useFileTreeData = () => {
       flattenTree(localData || [], null);
       await saveTreeData(flatNodes);
     }
-  }, [saveTreeData, userOrgId]);
+  }, [saveTreeData]);
 
   // Use the useOnlineStatus hook
   useOnlineStatus(synchronizeData);
@@ -187,18 +207,29 @@ export const useFileTreeData = () => {
   useEffect(() => {
     if (!user || !userOrgId || !window.navigator.onLine) return;
 
-    const channel = subscribeToTable(
-      'file_nodes',
-      { org_id: userOrgId },
-      (payload) => {
-        if (['UPDATE', 'INSERT', 'DELETE'].includes(payload.eventType)) {
-          loadTreeData();
-        }
-      },
+    const fileNodesChannel = subscribeToTable(
+        'file_nodes',
+        { org_id: userOrgId },
+        (payload) => {
+          if (['UPDATE', 'INSERT', 'DELETE'].includes(payload.eventType)) {
+            loadTreeData();
+          }
+        },
+    );
+
+    const sampleGroupChannel = subscribeToTable(
+        'sample_group_metadata',
+        { org_id: userOrgId },
+        (payload) => {
+          if (['UPDATE', 'INSERT', 'DELETE'].includes(payload.eventType)) {
+            loadTreeData();
+          }
+        },
     );
 
     return () => {
-      removeSubscription(channel);
+      removeSubscription(fileNodesChannel);
+      removeSubscription(sampleGroupChannel);
     };
   }, [user, userOrgId, loadTreeData]);
 

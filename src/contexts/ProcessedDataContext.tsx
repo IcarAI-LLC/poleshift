@@ -262,7 +262,6 @@ export const ProcessedDataProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateProcessedData = useCallback(
       (sampleId: string, configId: string, data: any) => {
-        // const key = getProgressKey(sampleId, configId);
         dispatch({
           type: 'UPDATE_PROCESSED_DATA',
           sampleId,
@@ -393,7 +392,7 @@ export const ProcessedDataProvider: React.FC<{ children: React.ReactNode }> = ({
             setProcessingState(sampleId, configId, true);
             updateProgressState(sampleId, configId, 0, 'Starting process...');
 
-            if (!sampleGroup?.storage_folder) {
+            if (!sampleGroup.storage_folder) {
               throw new Error('Storage folder not found for sample group');
             }
 

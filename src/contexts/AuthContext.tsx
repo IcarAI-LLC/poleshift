@@ -5,7 +5,7 @@ import supabase from '../utils/supabaseClient';
 
 export interface AuthContextType {
   user: any; // Replace `any` with your user type
-  userTier: string | null;
+  userTier: string;
   userLevel: number;
   userOrg: string | null;
   userOrgId: string | null;
@@ -30,7 +30,7 @@ const userTierMap: Record<string, number> = {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<any>(null);
-  const [userTier, setUserTier] = useState<string | null>(null);
+  const [userTier, setUserTier] = useState<string>("none");
   const [userOrg, setUserOrg] = useState<string | null>(null);
   const [userOrgId, setUserOrgId] = useState<string | null>(null);
   const [userOrgShortId, setUserOrgShortId] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const fetchUserDetails = async () => {
       if (!user) {
-        setUserTier(null);
+        setUserTier("none");
         setUserLevel(0);
         setUserOrg(null);
         setUserOrgId(null);
@@ -115,51 +115,57 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       try {
-        const { data, error } = await supabase
+        const { data: userProfile, error: userProfileError } = await supabase
             .from('user_profiles')
-            .select(
-                `
-            user_tier,
-            organization:organization_id!inner (
-              id,
-              name,
-              org_short_id
-            )
-          `
-            )
+            .select('user_tier, organization_id')
             .eq('id', user.id)
             .single();
 
-        if (error || !data) {
-          console.error('Error fetching user or organization details:', error);
-          setUserTier(null);
+        if (userProfileError) {
+          console.error(userProfileError);
+          return;
+        }
+
+        const { data: organization, error: organizationError } = await supabase
+            .from('organization')
+            .select('id, name, org_short_id')
+            .eq('id', userProfile.organization_id)
+            .single();
+
+        if (organizationError) {
+          console.error(organizationError);
+          return;
+        }
+
+        if (userProfileError || !userProfile ) {
+          console.error('Error fetching user details:', userProfileError);
+          setUserTier("none");
           setUserLevel(0);
           setUserOrg(null);
           setUserOrgId(null);
           setUserOrgShortId(null);
         } else {
-          console.log('User details:', data);
+          console.log('User details:', userProfile);
 
-          setUserTier(data.user_tier);
-          const level = userTierMap[data.user_tier] || 0;
+          setUserTier(userProfile.user_tier);
+          const level = userTierMap[userProfile.user_tier] || 0;
           setUserLevel(level);
-          let org = data.organization[0];
-          setUserOrg(org.name || null);
-          setUserOrgId(org.id|| null);
-          setUserOrgShortId(org.org_short_id || null);
+          setUserOrg(organization.name || null);
+          setUserOrgId(organization.id|| null);
+          setUserOrgShortId(organization.org_short_id || null);
 
           // Save user details to local storage
           window.localStorage.setItem(
               'userDetails',
               JSON.stringify({
-                userTier: data.user_tier,
+                userTier: userProfile.user_tier,
                 userLevel: level,
               })
           );
         }
       } catch (err) {
         console.error('Error in fetchUserDetails:', err);
-        setUserTier(null);
+        setUserTier("none");
         setUserLevel(0);
         setUserOrg(null);
         setUserOrgId(null);
@@ -177,7 +183,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setErrorMessage('An error occurred during logout. Please try again.');
     } else {
       setUser(null);
-      setUserTier(null);
+      setUserTier("none");
       setUserLevel(0);
       setUserOrg(null);
       setUserOrgId(null);

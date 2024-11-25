@@ -1,8 +1,8 @@
 // src/renderer/components/GlobeComponent.tsx
 
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import Globe from 'react-globe.gl';
-import globeImage from 'assets/globe.jpg';
+import globeImage from '../assets/globe.jpg';
 import { DateTime } from 'luxon';
 import useData from '../hooks/useData';
 import useUI from '../hooks/useUI';
@@ -12,10 +12,6 @@ const GlobeComponent: React.FC = () => {
   const { sampleGroupData, locations } = useData();
   const { setSelectedRightItem, openRightSidebar, filters } = useUI();
 
-  // Extract location IDs with sample groups
-  const locIdsWithSampleGroups = new Set(
-    Object.values(sampleGroupData).map((group) => group.loc_id),
-  );
 
   // Apply filters to sample groups
   const filteredSampleGroups = Object.values(sampleGroupData).filter(
@@ -92,8 +88,6 @@ const GlobeComponent: React.FC = () => {
         pointColor={() => 'cyan'} // Bright color for contrast
         pointLabel="name"
         backgroundColor="#000000" // Dark background
-        ambientLight={0.5} // Optional: Adjust ambient lighting
-        directionalLight={1.0} // Optional: Adjust directional lighting
         width={window.innerWidth} // Responsive width
         height={window.innerHeight} // Responsive height
       />

@@ -23,6 +23,7 @@ class ErrorBoundary extends React.Component<{}, ErrorBoundaryState> {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
+  // @ts-ignore
   render() {
     if (this.state.hasError) {
       // You can customize the error message here
@@ -34,7 +35,7 @@ class ErrorBoundary extends React.Component<{}, ErrorBoundaryState> {
       );
     }
 
-    return this.props.children;
+    return this.props;
   }
 }
 

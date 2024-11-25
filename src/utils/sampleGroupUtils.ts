@@ -1,8 +1,6 @@
 // src/utils/sampleGroupUtils.ts
 
-import { v4 as uuidv4 } from 'uuid';
 import supabase from './supabaseClient';
-import { ExtendedTreeItem } from '../hooks/useFileTreeData';
 import { LocationOption } from '../hooks/useLocations';
 
 export interface SampleGroup {
@@ -26,18 +24,19 @@ export interface SampleGroupData {
 }
 
 export const processCreateSampleGroup = async (
-  inputs: Record<string, string>,
-  user: any,
-  userOrgId: string,
-  userOrgShortId: string,
-  locations: LocationOption[],
-): Promise<ExtendedTreeItem> => {
+    inputs: Record<string, string>,
+    user: any,
+    userOrgId: string,
+    userOrgShortId: string,
+    locations: LocationOption[],
+    newId: string, // Accept the newId as a parameter
+): Promise<SampleGroup> => {
   const { collectionDate, /* collectionTime, */ locCharId } = inputs;
 
   // Input validation
   if (!collectionDate || !locCharId) {
     throw new Error(
-      'Collection date and location are required to create a sample group.',
+        'Collection date and location are required to create a sample group.',
     );
   }
 
@@ -56,10 +55,10 @@ export const processCreateSampleGroup = async (
 
   // Query the database directly for existing sample groups
   const { data: existingGroups, error } = await supabase
-    .from('sample_group_metadata')
-    .select('human_readable_sample_id')
-    .like('human_readable_sample_id', `${baseName}-%-${userOrgShortId}`)
-    .eq('org_id', userOrgId);
+      .from('sample_group_metadata')
+      .select('human_readable_sample_id')
+      .like('human_readable_sample_id', `${baseName}-%-${userOrgShortId}`)
+      .eq('org_id', userOrgId);
 
   if (error) {
     throw new Error(`Failed to fetch existing sample groups: ${error.message}`);
@@ -67,12 +66,12 @@ export const processCreateSampleGroup = async (
 
   // Extract existing numbers
   const existingNumbers = existingGroups
-    .map((group) => {
-      const regex = new RegExp(`^${baseName}-(\\d{2})-${userOrgShortId}$`);
-      const match = group.human_readable_sample_id.match(regex);
-      return match ? parseInt(match[1], 10) : null;
-    })
-    .filter((num): num is number => num !== null);
+      .map((group) => {
+        const regex = new RegExp(`^${baseName}-(\\d{2})-${userOrgShortId}$`);
+        const match = group.human_readable_sample_id.match(regex);
+        return match ? parseInt(match[1], 10) : null;
+      })
+      .filter((num): num is number => num !== null);
 
   // Determine the next available number
   let nextNumber = 0;
@@ -84,8 +83,6 @@ export const processCreateSampleGroup = async (
   // Construct the sample group name
   const sampleGroupName = `${baseName}-${formattedNumber}-${userOrgShortId}`;
 
-  const newId = uuidv4();
-
   // Map locCharId to locId using the locations array
   const location = locations.find((loc) => loc.char_id === locCharId);
 
@@ -93,10 +90,10 @@ export const processCreateSampleGroup = async (
     throw new Error(`Location with char_id ${locCharId} not found.`);
   }
 
-  // const locId = location.id;
+  const locId = location.id;
 
   // Create folder paths in Supabase Storage
-  const rawDataFolderPath = `${userOrgShortId}/${sampleGroupName}/`;
+  const storageFolder = `${userOrgShortId}/${sampleGroupName}/`;
 
   try {
     // Supabase Storage handles folder creation implicitly via object paths.
@@ -105,36 +102,35 @@ export const processCreateSampleGroup = async (
 
     // Upload placeholder file to raw-data bucket
     const { error: rawError } = await supabase.storage
-      .from('raw-data')
-      .upload(`${rawDataFolderPath}index_file.poleshift`, placeholderContent, {
-        upsert: false,
-      });
+        .from('raw-data')
+        .upload(`${storageFolder}index_file.poleshift`, placeholderContent, {
+          upsert: false,
+        });
 
     if (rawError) {
       throw new Error(
-        `Failed to create folder in "raw-data": ${rawError.message}`,
+          `Failed to create folder in "raw-data": ${rawError.message}`,
       );
     }
 
-    // Format the local date and time
-    // let collection_datetime_utc = null;
-
-    // if (collectionTime) {
-      // Combine collectionDate and collectionTime into a single Date object
-      // const localDateTimeString = `${collectionDate}T${collectionTime}`;
-      // const localDateTime = new Date(localDateTimeString);
-
-      // Convert the local datetime to UTC ISO string
-      // collection_datetime_utc = localDateTime.toISOString();
-    // }
-
-    // Return the new tree item with flattened properties
-    return {
+    // Construct the SampleGroup object
+    const newSampleGroup: SampleGroup = {
       id: newId,
-      text: sampleGroupName,
-      droppable: false,
-      type: 'sampleGroup',
+      name: sampleGroupName,
+      human_readable_sample_id: sampleGroupName,
+      loc_id: locId,
+      storage_folder: storageFolder,
+      collection_date: collectionDate,
+      // collection_datetime_utc: collection_datetime_utc || undefined,
+      user_id: userId,
+      org_id: userOrgId,
+      latitude_recorded: null,
+      longitude_recorded: null,
+      notes: null,
+      data: {},
     };
+
+    return newSampleGroup;
   } catch (error: any) {
     console.error('Error in processCreateSampleGroup:', error);
     throw new Error(`Failed to create sample group: ${error.message}`);

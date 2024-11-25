@@ -2,12 +2,11 @@
 
 import React, {
   useState,
-  useContext,
   useEffect,
   useMemo,
   useCallback,
 } from 'react';
-import { Box, Typography } from '@mui/material';
+import {Box, SelectChangeEvent, Typography} from '@mui/material';
 import dropboxConfig, { DropboxConfigItem } from '../../config/dropboxConfig';
 import useUI from '../../hooks/useUI';
 import useData from '../../hooks/useData';
@@ -16,7 +15,6 @@ import DataTable from '../DataTable';
 import DataChart from '../DataChart';
 import { useLocations } from '../../hooks/useLocations';
 import DropBox from './DropBox';
-import { ProcessedDataContext } from '../../contexts/ProcessedDataContext';
 import {
   processCTDDataForModal,
   processKrakenDataForModal,
@@ -24,6 +22,7 @@ import {
 import { SampleGroup } from '../../utils/sampleGroupUtils';
 import NutrientAmmoniaView from '../NutrientAmmoniaView';
 import KrakenVisualization from '../KrakenVisualization/KrakenVisualization';
+import useProcessedData from "../../hooks/useProcessedData.ts";
 
 interface ModalState {
   isOpen: boolean;
@@ -49,7 +48,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
   const { selectedLeftItem } = useUI();
   const { sampleGroupData } = useData();
   const { processData, fetchProcessedData, processedData, isProcessing } =
-    useContext(ProcessedDataContext);
+    useProcessedData();
   const getProgressKey = (sampleId: string, configId: string) =>
     `${sampleId}:${configId}`;
   const sampleGroupId =
@@ -85,20 +84,6 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
       if (configItem.modalFields?.length) {
         const extendedModalFields = [
           ...configItem.modalFields,
-          {
-            name: 'lat',
-            label: 'Latitude',
-            type: 'number',
-            tooltip: 'Latitude of the sample location',
-            required: false,
-          },
-          {
-            name: 'long',
-            label: 'Longitude',
-            type: 'number',
-            tooltip: 'Longitude of the sample location',
-            required: false,
-          },
         ];
 
         setModalState({
@@ -170,20 +155,29 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     });
   }, []);
 
-  const handleModalChange = useCallback(
-    (
-      e: React.ChangeEvent<
-        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-      >,
-    ) => {
-      const { name, value } = e.target;
-      setModalState((prev) => ({
-        ...prev,
-        modalInputs: { ...prev.modalInputs, [name]: value },
+  const handleModalChange = (
+      e:
+          | React.ChangeEvent<HTMLTextAreaElement>
+          | React.ChangeEvent<{ name?: string; value: unknown }>
+          | SelectChangeEvent,
+  ) => {
+    const { name, value } = e.target;
+
+    if (typeof name === 'string') {
+      // Ensure value is a string
+      const stringValue = typeof value === 'string' ? value : String(value);
+
+      setModalState((prevState) => ({
+        ...prevState,
+        modalInputs: {
+          ...prevState.modalInputs,
+          [name]: stringValue,
+        },
       }));
-    },
-    [],
-  );
+    } else {
+      console.warn('Input element is missing a name attribute.');
+    }
+  };
 
   const handleModalSubmit = useCallback(async () => {
     const { configItem, modalInputs, uploadedFiles } = modalState;

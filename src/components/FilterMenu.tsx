@@ -7,13 +7,13 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
-  TextField,
   Typography,
   IconButton,
   useTheme,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import useUI from '../hooks/useUI';
 import { useLocations } from '../hooks/useLocations';
@@ -25,10 +25,10 @@ interface FilterMenuProps {
 }
 
 const FilterMenu: React.FC<FilterMenuProps> = ({
-  onApply,
-  onReset,
-  onClose,
-}) => {
+                                                 onApply,
+                                                 onReset,
+                                                 onClose,
+                                               }) => {
   const { filters, setFilters } = useUI();
   const { locations } = useLocations();
   const theme = useTheme();
@@ -121,152 +121,152 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
   };
 
   return (
-    <Box
-      className="filter-menu visible"
-      onClick={(e) => e.stopPropagation()}
-      sx={{
-        backgroundColor: theme.palette.background.paper,
-        padding: theme.spacing(3),
-        borderRadius: '8px',
-        width: '300px',
-        color: theme.palette.text.primary,
-        position: 'fixed',
-        top: '20%',
-        right: '20px',
-        zIndex: theme.zIndex.modal,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-      }}
-    >
-      <Box
-        className="filter-menu-header"
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: theme.spacing(3),
-        }}
-      >
-        <Typography variant="h6" color="textPrimary">
-          Filters
-        </Typography>
-        <IconButton
-          onClick={onClose}
-          aria-label="close"
-          size="small"
-          sx={{
-            color: theme.palette.text.primary,
-            '&:hover': {
-              backgroundColor: theme.palette.action.hover,
-            },
-          }}
+      <LocalizationProvider dateAdapter={AdapterLuxon}>
+        <Box
+            className="filter-menu visible"
+            onClick={(e) => e.stopPropagation()}
+            sx={{
+              backgroundColor: theme.palette.background.paper,
+              padding: theme.spacing(3),
+              borderRadius: '8px',
+              width: '300px',
+              color: theme.palette.text.primary,
+              position: 'fixed',
+              top: '20%',
+              right: '20px',
+              zIndex: theme.zIndex.modal,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+            }}
         >
-          <CloseIcon />
-        </IconButton>
-      </Box>
+          <Box
+              className="filter-menu-header"
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: theme.spacing(3),
+              }}
+          >
+            <Typography variant="h6" color="textPrimary">
+              Filters
+            </Typography>
+            <IconButton
+                onClick={onClose}
+                aria-label="close"
+                size="small"
+                sx={{
+                  color: theme.palette.text.primary,
+                  '&:hover': {
+                    backgroundColor: theme.palette.action.hover,
+                  },
+                }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
 
-      <Box sx={{ marginBottom: theme.spacing(2) }}>
-        <DatePicker
-          label="Start Date"
-          value={filters.startDate ? DateTime.fromISO(filters.startDate) : null}
-          onChange={handleStartDateChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              inputRef={firstInputRef}
-              fullWidth
-              sx={darkFieldStyles}
+          <Box sx={{ marginBottom: theme.spacing(2) }}>
+            <DatePicker
+                label="Start Date"
+                value={filters.startDate ? DateTime.fromISO(filters.startDate) : null}
+                onChange={handleStartDateChange}
+                slotProps={{
+                  textField: {
+                    variant: 'outlined',
+                    size: 'small',
+                    inputRef: firstInputRef,
+                    fullWidth: true,
+                    sx: darkFieldStyles,
+                  },
+                }}
             />
-          )}
-        />
-      </Box>
+          </Box>
 
-      <Box sx={{ marginBottom: theme.spacing(2) }}>
-        <DatePicker
-          label="End Date"
-          value={filters.endDate ? DateTime.fromISO(filters.endDate) : null}
-          onChange={handleEndDateChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              sx={darkFieldStyles}
+          <Box sx={{ marginBottom: theme.spacing(2) }}>
+            <DatePicker
+                label="End Date"
+                value={filters.endDate ? DateTime.fromISO(filters.endDate) : null}
+                onChange={handleEndDateChange}
+                slotProps={{
+                  textField: {
+                    variant: 'outlined',
+                    size: 'small',
+                    fullWidth: true,
+                    sx: darkFieldStyles,
+                  },
+                }}
             />
-          )}
-        />
-      </Box>
+          </Box>
 
-      <FormControl
-        variant="outlined"
-        fullWidth
-        sx={{ marginBottom: theme.spacing(2) }}
-      >
-        <InputLabel id="location-select-label">Locations</InputLabel>
-        <Select
-          labelId="location-select-label"
-          multiple
-          value={filters.selectedLocations}
-          onChange={handleLocationChange}
-          label="Locations"
-          renderValue={(selected) =>
-            (selected as string[])
-              .map(
-                (locId) =>
-                  locations.find((loc) => loc.id === locId)?.label || locId,
-              )
-              .join(', ')
-          }
-          MenuProps={selectMenuProps}
-          sx={darkFieldStyles}
-        >
-          {locations.map((location) => (
-            <MenuItem key={location.id} value={location.id}>
-              {location.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+          <FormControl
+              variant="outlined"
+              fullWidth
+              sx={{ marginBottom: theme.spacing(2) }}
+          >
+            <InputLabel id="location-select-label">Locations</InputLabel>
+            <Select
+                labelId="location-select-label"
+                multiple
+                value={filters.selectedLocations}
+                onChange={handleLocationChange}
+                label="Locations"
+                renderValue={(selected) =>
+                    (selected as string[])
+                        .map(
+                            (locId) =>
+                                locations.find((loc) => loc.id === locId)?.label || locId,
+                        )
+                        .join(', ')
+                }
+                MenuProps={selectMenuProps}
+                sx={darkFieldStyles}
+            >
+              {locations.map((location) => (
+                  <MenuItem key={location.id} value={location.id}>
+                    {location.label}
+                  </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: theme.spacing(1),
-          marginTop: theme.spacing(3),
-        }}
-      >
-        <Button
-          variant="outlined"
-          onClick={onReset}
-          sx={{
-            color: theme.palette.text.primary,
-            borderColor: theme.palette.divider,
-            '&:hover': {
-              backgroundColor: theme.palette.action.hover,
-              borderColor: theme.palette.text.primary,
-            },
-          }}
-        >
-          Reset
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={onApply}
-          sx={{
-            backgroundColor: theme.palette.primary.main,
-            '&:hover': {
-              backgroundColor: theme.palette.primary.dark,
-            },
-          }}
-        >
-          Apply
-        </Button>
-      </Box>
-    </Box>
+          <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: theme.spacing(1),
+                marginTop: theme.spacing(3),
+              }}
+          >
+            <Button
+                variant="outlined"
+                onClick={onReset}
+                sx={{
+                  color: theme.palette.text.primary,
+                  borderColor: theme.palette.divider,
+                  '&:hover': {
+                    backgroundColor: theme.palette.action.hover,
+                    borderColor: theme.palette.text.primary,
+                  },
+                }}
+            >
+              Reset
+            </Button>
+            <Button
+                variant="contained"
+                color="primary"
+                onClick={onApply}
+                sx={{
+                  backgroundColor: theme.palette.primary.main,
+                  '&:hover': {
+                    backgroundColor: theme.palette.primary.dark,
+                  },
+                }}
+            >
+              Apply
+            </Button>
+          </Box>
+        </Box>
+      </LocalizationProvider>
   );
 };
 

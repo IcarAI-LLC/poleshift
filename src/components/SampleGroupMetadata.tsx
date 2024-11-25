@@ -1,6 +1,6 @@
 // src/components/SampleGroupMetadata.tsx
 
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { format, parse } from 'date-fns';
@@ -17,12 +17,12 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { SampleGroup } from '../utils/sampleGroupUtils';
 import supabase from '../utils/supabaseClient';
-import { DataContext } from '../contexts/DataContext';
 import LocationFields from './LocationFields';
 import {
   addPendingOperation,
-  addOrUpdateSampleGroup,
+  addOrUpdateSampleGroup, PendingOperation,
 } from '../utils/offlineStorage';
+import useData from "../hooks/useData.ts";
 
 interface SampleGroupMetadataProps {
   sampleGroup: SampleGroup;
@@ -31,7 +31,7 @@ interface SampleGroupMetadataProps {
 const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
   sampleGroup,
 }) => {
-  const { locations, setSampleGroupData } = useContext(DataContext);
+  const { locations, setSampleGroupData } = useData();
   const theme = useTheme();
 
   // Initialize state directly from props
@@ -49,7 +49,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
   // Remove useEffect to prevent overwriting local state
 
   const location = sampleGroup
-    ? locations.find((loc) => loc.id === sampleGroup.loc_id)
+    ? locations.find((loc: { id: string; }) => loc.id === sampleGroup.loc_id)
     : null;
 
   const handleCollectionTimeUpdate = async (timeString: string) => {
@@ -78,7 +78,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
       console.log('setCollectionTimeUTC called with:', timeString); // Debug log
 
       // Update parent state
-      setSampleGroupData((prev) => ({
+      setSampleGroupData((prev: { [x: string]: any; }) => ({
         ...prev,
         [sampleGroup.id]: {
           ...prev[sampleGroup.id],
@@ -105,7 +105,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
         if (error) throw error;
 
         if (data && data.length > 0) {
-          setSampleGroupData((prev) => ({
+          setSampleGroupData((prev: { [x: string]: any; }) => ({
             ...prev,
             [data[0].id]: {
               ...prev[data[0].id],
@@ -116,7 +116,8 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
         }
       } else {
         // Offline: Queue the operation
-        const pendingOperation = {
+        const pendingOperation: PendingOperation = {
+          id: sampleGroup.id,
           type: 'update',
           table: 'sample_group_metadata',
           data: {
@@ -152,7 +153,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
       console.log('setNotes called with:', newNotes); // Debug log
 
       // Update parent state
-      setSampleGroupData((prev) => ({
+      setSampleGroupData((prev: { [x: string]: any; }) => ({
         ...prev,
         [sampleGroup.id]: {
           ...prev[sampleGroup.id],
@@ -179,7 +180,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
         if (error) throw error;
 
         if (data && data.length > 0) {
-          setSampleGroupData((prev) => ({
+          setSampleGroupData((prev: { [x: string]: any; }) => ({
             ...prev,
             [data[0].id]: {
               ...prev[sampleGroup.id],
@@ -190,7 +191,8 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
         }
       } else {
         // Offline: Queue the operation
-        const pendingOperation = {
+        const pendingOperation: PendingOperation = {
+          id: sampleGroup.id,
           type: 'update',
           table: 'sample_group_metadata',
           data: {

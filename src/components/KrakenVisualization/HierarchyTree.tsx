@@ -5,7 +5,7 @@ interface TaxonomyNode {
   name: string;
   taxId: number;
   rankCode: string;
-  rankLevel: number;
+  rankDepth: number;
   percentage: number;
   cladeReads: number;
   taxonReads: number;

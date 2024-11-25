@@ -126,21 +126,7 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
     return rankData
       .filter((item) =>
         item.taxon?.toLowerCase().includes(searchTerm.toLowerCase() || '')
-      )
-      .sort((a, b) => {
-        const aVal = a[sortConfig.key];
-        const bVal = b[sortConfig.key];
-
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          return sortConfig.direction === SortDirection.ASC
-            ? aVal.localeCompare(bVal)
-            : bVal.localeCompare(aVal);
-        } else {
-          return sortConfig.direction === SortDirection.ASC
-            ? (aVal || 0) - (bVal || 0)
-            : (bVal || 0) - (aVal || 0);
-        }
-      });
+      );
   }, [data, searchTerm, selectedRank, sortConfig]);
 
   const handleExport = useCallback(() => {
@@ -165,7 +151,7 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
     URL.revokeObjectURL(url);
   }, [data, summaryStats]);
 
-  const handleTabChange = useCallback((_, newValue) => {
+  const handleTabChange = useCallback((_: any, newValue: React.SetStateAction<number>) => {
     setActiveTab(newValue);
   }, []);
 
@@ -313,7 +299,7 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
 
         {activeTab === 2 && data.hierarchy && (
           <div>
-            <HierarchyTree node={data.hierarchy[0]} nodes={data.hierarchy} />
+            <HierarchyTree nodes={ [] } />
           </div>
         )}
       </Box>

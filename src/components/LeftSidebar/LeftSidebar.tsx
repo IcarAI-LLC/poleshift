@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Box, Button, IconButton, Tooltip, useTheme } from '@mui/material';
+import {Box, Button, IconButton, SelectChangeEvent, Tooltip, useTheme} from '@mui/material';
 import SyncIcon from '@mui/icons-material/Sync';
 import MenuIcon from '@mui/icons-material/Menu';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
@@ -24,8 +24,8 @@ interface LeftSidebarProps {
   userTier: string;
 }
 
-const LeftSidebar: React.FC<LeftSidebarProps> = ({ userTier }) => {
-  const { addItem, fileTreeData, isSyncing, locations } = useData();
+const LeftSidebar: React.FC<LeftSidebarProps> = ({ }) => {
+  const { addItem, isSyncing, locations } = useData();
   const theme = useTheme();
 
   const {
@@ -73,19 +73,31 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ userTier }) => {
   };
 
   const handleModalChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >,
+      e:
+          | React.ChangeEvent<HTMLTextAreaElement>
+          | React.ChangeEvent<{ name?: string; value: unknown }>
+          | SelectChangeEvent,
   ) => {
     const { name, value } = e.target;
-    setModalState((prevState) => ({
-      ...prevState,
-      modalInputs: {
-        ...prevState.modalInputs,
-        [name]: value,
-      },
-    }));
+
+    if (typeof name === 'string') {
+      // Ensure value is a string
+      const stringValue = typeof value === 'string' ? value : String(value);
+
+      setModalState((prevState) => ({
+        ...prevState,
+        modalInputs: {
+          ...prevState.modalInputs,
+          [name]: stringValue,
+        },
+      }));
+    } else {
+      console.warn('Input element is missing a name attribute.');
+    }
   };
+
+
+
 
   const handleModalSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
@@ -97,11 +109,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ userTier }) => {
     }));
 
     try {
-      if (configItem?.processFunctionType) {
-        await addItem(configItem.processFunctionType, modalInputs);
+      if (configItem?.processFunctionName && configItem?.processFunctionName === "folder" ||  configItem?.processFunctionName === "sampleGroup") {
+        await addItem(configItem.processFunctionName, modalInputs);
         setErrorMessage('');
-      } else if (configItem?.processFileFunction) {
-        // Handle file processing if needed
       }
     } catch (error: any) {
       setErrorMessage(error.message || 'An unexpected error occurred.');
@@ -116,6 +126,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ userTier }) => {
 
   const handleCreateSampleGroup = useCallback(() => {
     const configItem: DropboxConfigItem = {
+      dataType: "", expectedFileTypes: null, isEnabled: false, isModalInput: false, label: "",
       id: 'create-sampleGroup',
       modalFields: [
         {
@@ -152,7 +163,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ userTier }) => {
           required: true,
         },
       ],
-      processFunctionType: 'sampleGroup',
+      processFunctionName: 'sampleGroup'
     };
 
     openModal('Create New Sampling Event', configItem);
@@ -160,9 +171,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ userTier }) => {
 
   const handleCreateFolder = useCallback(() => {
     const configItem: DropboxConfigItem = {
+      dataType: "", expectedFileTypes: null, isEnabled: false, isModalInput: false, label: "",
       id: 'create-folder',
       modalFields: [{ name: 'name', label: 'Folder Name', type: 'text' }],
-      processFunctionType: 'folder',
+      processFunctionName: 'folder'
     };
 
     openModal('Create New Folder', configItem);

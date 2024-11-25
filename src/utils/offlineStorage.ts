@@ -5,7 +5,7 @@ const DB_VERSION = 1;
 const SAMPLE_STORE = 'sampleGroups';
 const PENDING_OPS_STORE = 'pendingOperations';
 
-interface PendingOperation {
+export interface PendingOperation {
   id: string;
   type: 'insert' | 'update' | 'delete' | 'upsert';
   table: string;

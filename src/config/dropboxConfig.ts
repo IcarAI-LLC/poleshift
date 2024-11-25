@@ -3,9 +3,10 @@
 export interface ModalField {
   name: string;
   label?: string;
-  type: 'text' | 'textarea' | 'select' | 'number' | 'date'; // Added 'date' type
-  options?: string[]; // Only applicable for 'select' type
+  type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'time' | 'timezone'; // Added 'date' type
+  options?: any; // Only applicable for 'select' type
   tooltip?: string;
+  required?: boolean;
 }
 
 export interface DropboxConfigItem {

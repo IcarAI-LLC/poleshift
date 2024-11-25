@@ -1,11 +1,11 @@
 // src/utils/folderUtils.ts
 
 import { v4 as uuidv4 } from 'uuid';
-import { ExtendedTreeItem } from '../hooks/useFileTreeData';
+import { TreeItem } from '../components/LeftSidebar/LeftSidebarTree.tsx'
 
 export const processCreateFolder = async (
   inputs: Record<string, string>,
-): Promise<ExtendedTreeItem> => {
+): Promise<TreeItem> => {
   const { name } = inputs;
   if (!name) {
     throw new Error('Folder name is required to create a folder.');
@@ -18,5 +18,6 @@ export const processCreateFolder = async (
     droppable: true,
     type: 'folder',
     children: [],
+    parent_id: null,
   };
 };
