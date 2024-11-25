@@ -1,10 +1,10 @@
 // src/lib/types/ui.ts
 
 import {TreeItem} from "./data.ts";
-
+import {ResearchLocation} from "./data.ts";
 export interface UIState {
     selectedLeftItem: TreeItem | null;
-    selectedRightItem: Location | null;
+    selectedRightItem: ResearchLocation | null;
     isSidebarCollapsed: boolean;
     isRightSidebarCollapsed: boolean;
     showAccountActions: boolean;

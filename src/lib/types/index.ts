@@ -1,5 +1,5 @@
 import { AuthState, Organization, User, UserProfile } from "./auth";
-import {DataState, LocationAction, ProcessingJob, SampleGroup, TreeItem} from "./data";
+import {DataState, LocationAction, ProcessingJob, ResearchLocation, SampleGroup, TreeItem} from "./data";
 import { UIState } from "./ui";
 import {ProcessedDataAction, ProcessedDataState} from "./processed-data";
 
@@ -22,7 +22,7 @@ export type DataAction =
     | { type: 'ADD_SAMPLE_GROUP'; payload: SampleGroup }
     | { type: 'UPDATE_SAMPLE_GROUP'; payload: SampleGroup }
     | { type: 'DELETE_SAMPLE_GROUP'; payload: string }
-    | { type: 'SET_LOCATIONS'; payload: Location[] }
+    | { type: 'SET_LOCATIONS'; payload: ResearchLocation[] }
     | { type: 'UPDATE_PROCESSING_JOB'; payload: ProcessingJob }
     | { type: 'SET_SYNCING'; payload: boolean }
     | { type: 'SET_LAST_SYNCED'; payload: number }
@@ -30,7 +30,7 @@ export type DataAction =
 
 export type UIAction =
     | { type: 'SET_SELECTED_LEFT_ITEM'; payload: TreeItem | null }
-    | { type: 'SET_SELECTED_RIGHT_ITEM'; payload: Location | null }
+    | { type: 'SET_SELECTED_RIGHT_ITEM'; payload: ResearchLocation | null }
     | { type: 'TOGGLE_SIDEBAR'; payload?: boolean }
     | { type: 'TOGGLE_RIGHT_SIDEBAR'; payload?: boolean }
     | { type: 'SET_SHOW_ACCOUNT_ACTIONS'; payload: boolean }

@@ -1,19 +1,25 @@
+// lib/storage/indexedDB.ts
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { SampleGroup, ProcessingJob, ResearchLocation } from '../types';
+import {SampleGroup, TreeItem, ProcessingJob, ResearchLocation} from '../types';
 import { FileNode } from '../types/fileTree';
+import { DefaultFileTreeAdapter } from '../adapters/fileTreeAdapter';
 
 interface AppDB extends DBSchema {
     sampleGroups: {
         key: string;
         value: SampleGroup;
     };
-    fileNodes: {
+    fileNodes: {  // New store for FileNodes
         key: string;
         value: FileNode;
         indexes: {
             'org_id': string;
             'sample_group_id': string;
         };
+    };
+    fileTree: {   // Keep for backwards compatibility
+        key: string;
+        value: TreeItem;
     };
     processingJobs: {
         key: string;
@@ -41,13 +47,16 @@ export interface PendingOperation {
 }
 
 const DB_NAME = 'appDB';
-const DB_VERSION = 1;
+const DB_VERSION = 3; // Increment for new fileNodes store
 
 class StorageManager {
     private db: IDBPDatabase<AppDB> | null = null;
     private static instance: StorageManager;
+    private fileTreeAdapter: DefaultFileTreeAdapter;
 
-    private constructor() {}
+    private constructor() {
+        this.fileTreeAdapter = new DefaultFileTreeAdapter();
+    }
 
     public static getInstance(): StorageManager {
         if (!StorageManager.instance) {
@@ -60,36 +69,45 @@ class StorageManager {
         if (!this.db) {
             this.db = await openDB<AppDB>(DB_NAME, DB_VERSION, {
                 upgrade(db) {
-                    // Create FileNodes store with indexes
-                    const fileNodesStore = db.createObjectStore('fileNodes', { keyPath: 'id' });
-                    fileNodesStore.createIndex('org_id', 'org_id');
-                    fileNodesStore.createIndex('sample_group_id', 'sample_group_id');
+                    // Create stores if they don't exist
+                    if (!db.objectStoreNames.contains('sampleGroups')) {
+                        db.createObjectStore('sampleGroups', { keyPath: 'id' });
+                    }
 
-                    // Create other stores
-                    db.createObjectStore('sampleGroups', { keyPath: 'id' });
-                    db.createObjectStore('processingJobs', { keyPath: 'id' });
-                    db.createObjectStore('locations', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('fileTree')) {
+                        db.createObjectStore('fileTree', { keyPath: 'id' });
+                    }
 
-                    // Create pending operations store with timestamp index
-                    const pendingOpsStore = db.createObjectStore('pendingOperations', { keyPath: 'id' });
-                    pendingOpsStore.createIndex('timestamp', 'timestamp');
+                    if (!db.objectStoreNames.contains('fileNodes')) {
+                        const fileNodesStore = db.createObjectStore('fileNodes', { keyPath: 'id' });
+                        fileNodesStore.createIndex('org_id', 'org_id');
+                        fileNodesStore.createIndex('sample_group_id', 'sample_group_id');
+                    }
+
+                    if (!db.objectStoreNames.contains('processingJobs')) {
+                        db.createObjectStore('processingJobs', { keyPath: 'id' });
+                    }
+
+                    if (!db.objectStoreNames.contains('locations')) {
+                        db.createObjectStore('locations', { keyPath: 'id' });
+                    }
+
+                    if (!db.objectStoreNames.contains('pendingOperations')) {
+                        const store = db.createObjectStore('pendingOperations', { keyPath: 'id' });
+                        store.createIndex('timestamp', 'timestamp');
+                    }
                 },
             });
         }
         return this.db;
     }
 
-    // FileNode methods
+    // New FileNode methods
     async saveFileNode(node: FileNode): Promise<void> {
         const db = await this.getDB();
         await db.put('fileNodes', node);
-    }
-
-    async saveFileNodes(nodes: FileNode[]): Promise<void> {
-        const db = await this.getDB();
-        const tx = db.transaction('fileNodes', 'readwrite');
-        await Promise.all(nodes.map(node => tx.store.put(node)));
-        await tx.done;
+        // Also save as TreeItem for backwards compatibility
+        await this.saveTreeItem(this.fileTreeAdapter.fileNodeToTreeItem(node));
     }
 
     async getFileNode(id: string): Promise<FileNode | undefined> {
@@ -107,24 +125,45 @@ class StorageManager {
         return db.getAllFromIndex('fileNodes', 'sample_group_id', sampleGroupId);
     }
 
-    async getAllFileNodes(): Promise<FileNode[]> {
-        const db = await this.getDB();
-        return db.getAll('fileNodes');
-    }
-
     async deleteFileNode(id: string): Promise<void> {
         const db = await this.getDB();
         await db.delete('fileNodes', id);
+        await this.deleteTreeItem(id); // Keep fileTree in sync
     }
 
-    async deleteFileNodes(ids: string[]): Promise<void> {
+    // Original methods with FileNode integration
+    async saveTreeItem(item: TreeItem): Promise<void> {
         const db = await this.getDB();
-        const tx = db.transaction('fileNodes', 'readwrite');
-        await Promise.all(ids.map(id => tx.store.delete(id)));
-        await tx.done;
+        await db.put('fileTree', item);
     }
 
-    // Sample Group methods
+    async getTreeItem(id: string): Promise<TreeItem | undefined> {
+        const db = await this.getDB();
+        // Try to get from fileNodes first, fall back to fileTree
+        const fileNode = await this.getFileNode(id);
+        if (fileNode) {
+            return this.fileTreeAdapter.fileNodeToTreeItem(fileNode);
+        }
+        return db.get('fileTree', id);
+    }
+
+    async getAllTreeItems(): Promise<TreeItem[]> {
+        const db = await this.getDB();
+        // Prefer fileNodes, fall back to fileTree
+        const fileNodes = await db.getAll('fileNodes');
+        if (fileNodes.length > 0) {
+            return fileNodes.map(node => this.fileTreeAdapter.fileNodeToTreeItem(node));
+        }
+        return db.getAll('fileTree');
+    }
+
+    async deleteTreeItem(id: string): Promise<void> {
+        const db = await this.getDB();
+        await db.delete('fileTree', id);
+    }
+
+    // Keep all other methods the same...
+    // Sample Groups
     async saveSampleGroup(sampleGroup: SampleGroup): Promise<void> {
         const db = await this.getDB();
         await db.put('sampleGroups', sampleGroup);
