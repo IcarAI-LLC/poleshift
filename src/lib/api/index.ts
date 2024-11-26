@@ -2,7 +2,7 @@
 
 import { auth } from './auth';
 import { data } from './data';
-import { fileStorage } from './storage';
+import { fileStorage } from './fileStorage.ts';
 import { fileTree } from "./fileTree.ts";
 export const api = {
     auth,

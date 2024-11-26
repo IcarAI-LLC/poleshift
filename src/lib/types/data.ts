@@ -52,7 +52,6 @@ export interface TreeItem {
 // Sample Group Interface
 export interface SampleGroup {
     id: string; // Shared with FileNode.id
-    name: string;
     human_readable_sample_id: string;
     loc_id: string;
     storage_folder: string;
@@ -164,39 +163,11 @@ export interface SampleMetadata {
     lat?: number,
     long?: number,
     status?: string,
-    processed_storage?: string,
+    processed_storage_path?: string,
     processed_datetime_utc?: string,
     upload_datetime_utc?: string;
     process_function_name?: string;
     sample_group_id?: string;
     raw_storage_paths?: string;
     updated_at?: string | undefined;
-}
-
-// Sample Group Metadata Interface
-export interface SampleGroupMetadata {
-    id: string;
-    created_at: string;
-    org_id?: string;
-    user_id?: string;
-    human_readable_sample_id: string;
-    file_name?: string;
-    file_type?: string;
-    data_type?: string;
-    lat?: number;
-    long?: number;
-    status?: string;
-    processed_storage_path?: string;
-    processed_datetime_utc?: string;
-    upload_datetime_utc?: string;
-    process_function_name?: string;
-    sample_group_id?: string;
-    raw_storage_paths?: string[];
-    collection_date?: string;
-    storage_folder?: string;
-    collection_datetime_utc?: string;
-    loc_id?: string;
-    latitude_recorded?: number;
-    longitude_recorded?: number;
-    notes?: string;
 }

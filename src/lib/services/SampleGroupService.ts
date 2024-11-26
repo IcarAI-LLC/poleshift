@@ -8,7 +8,8 @@ import { APIError, StorageError, ValidationError } from '../types';
 import { convertValidationErrors } from '../validation/types';
 
 export class SampleGroupService {
-    public static async createSampleGroup(data: Omit<SampleGroup, 'id'>): Promise<SampleGroup> {
+
+    public static async createSampleGroup(data: SampleGroup): Promise<SampleGroup> {
         // Validate before proceeding
         const validationResult = validateSchema(data, sampleGroupSchema);
         if (!validationResult.isValid) {

@@ -18,7 +18,7 @@ export type AuthAction =
     | { type: 'SET_AUTH_ERROR'; payload: string | null };
 
 export type DataAction =
-    | { type: 'UPDATE_FILE_TREE'; payload: TreeItem[] }
+    | { type: 'UPDATE_FILE_TREE' | 'SET_FILE_TREE'; payload: TreeItem[] }
     | { type: 'ADD_SAMPLE_GROUP'; payload: SampleGroup }
     | { type: 'UPDATE_SAMPLE_GROUP'; payload: SampleGroup }
     | { type: 'DELETE_SAMPLE_GROUP'; payload: string }

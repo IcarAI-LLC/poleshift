@@ -6,12 +6,24 @@ import { api } from '../api';
 import { storage } from '../storage';
 import { syncManager } from '../storage/sync';
 import { SampleGroup } from '../types';
+import {FileTreeService} from "../services/FileTreeService.ts";
+import { useAuth } from "./useAuth.ts";
 
 export function useData() {
     const { state, dispatch } = useAppState();
     const { data } = state;
+    const { organization } = useAuth()
+    // Inside useData hook
+    const refreshFileTree = useCallback(async () => {
+        if (!organization?.id){
+            return
+        }
+        const fileNodes = await storage.getFileNodesByOrg(organization?.id);
+        const treeItems = FileTreeService.getTreeItems(fileNodes);
+        dispatch({ type: 'SET_FILE_TREE', payload: treeItems });
+    }, [dispatch]);
 
-    const createSampleGroup = useCallback(async (sampleGroup: Omit<SampleGroup, 'id'>) => {
+    const createSampleGroup = useCallback(async (sampleGroup: SampleGroup) => {
         try {
             dispatch({ type: 'SET_SYNCING', payload: true });
 
@@ -24,11 +36,24 @@ export function useData() {
             await storage.saveSampleGroup(newGroup);
             dispatch({ type: 'ADD_SAMPLE_GROUP', payload: newGroup });
 
+            // Create the sample group node in the file tree
+            await FileTreeService.createSampleGroupNode(newGroup);
+
+            // Refresh the file tree data
+            await refreshFileTree();
+
             // If online, create on server
             if (navigator.onLine) {
                 const serverGroup = await api.data.createSampleGroup(sampleGroup);
                 await storage.saveSampleGroup(serverGroup);
                 dispatch({ type: 'UPDATE_SAMPLE_GROUP', payload: serverGroup });
+
+                // Create sample group node on server
+                await FileTreeService.createSampleGroupNode(serverGroup);
+
+                // Refresh the file tree data
+                await refreshFileTree();
+
                 return serverGroup;
             }
 
@@ -47,7 +72,9 @@ export function useData() {
         } finally {
             dispatch({ type: 'SET_SYNCING', payload: false });
         }
-    }, [dispatch]);
+    }, [dispatch, refreshFileTree]);
+
+
 
     const updateSampleGroup = useCallback(async (id: string, updates: Partial<SampleGroup>) => {
         try {

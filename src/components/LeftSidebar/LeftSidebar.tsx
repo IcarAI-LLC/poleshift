@@ -9,7 +9,7 @@ import {
   AddCircle as AddCircleIcon,
   CreateNewFolder as CreateNewFolderIcon,
 } from '@mui/icons-material';
-
+import {v4 as uuidv4} from 'uuid'
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
 import { useAuth } from '../../lib/hooks';
@@ -211,9 +211,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           // Create storage folder path
           const rawDataFolderPath = `${organization.org_short_id}/${sampleGroupName}/`;
 
-          // Create the sample group
+          // Generate a unique ID
+          const id: string = uuidv4();
+
+          // Create the file node first
+          await FileTreeService.createSampleGroupNodeWithId(
+              id, // Pass the generated ID
+              organization.id,
+              sampleGroupName,
+              null // parentId - can be modified if needed
+          );
+
+          // Create the sample group using the same ID
           const sampleGroup = await createSampleGroup({
-            name: sampleGroupName,
+            id: id, // Use the same ID
             human_readable_sample_id: sampleGroupName,
             loc_id: location.id,
             storage_folder: rawDataFolderPath,
@@ -227,13 +238,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             longitude_recorded: null,
             notes: null,
           });
-
-          // Create the tree node for the sample group
-          await FileTreeService.createSampleGroupNode(
-              sampleGroup,
-              null // parentId - can be modified if needed
-          );
-
+          console.log("Sample group created: ", sampleGroup)
           setErrorMessage('');
         }
       } catch (error: any) {

@@ -14,6 +14,7 @@ const initialDataState: DataState = {
 
 export function dataReducer(state: DataState = initialDataState, action: AppAction): DataState {
     switch (action.type) {
+        case 'SET_FILE_TREE':
         case 'UPDATE_FILE_TREE':
             return {
                 ...state,
@@ -50,7 +51,7 @@ export function dataReducer(state: DataState = initialDataState, action: AppActi
         }
 
         case 'SET_LOCATIONS':
-            return <DataState>{
+            return {
                 ...state,
                 locations: action.payload
             };

@@ -1,4 +1,4 @@
-// src/lib/api/storage.ts
+// src/lib/api/fileStorage.ts
 import { apiClient } from './client';
 
 export const fileStorage = {

@@ -10,7 +10,7 @@ import {
 } from '../types/processed-data';
 import { processedDataReducer, initialProcessedDataState } from './reducers/processedDataReducer';
 import { api } from '../api';
-import { fileStorage } from '../api/storage';
+import { fileStorage } from '../api/fileStorage.ts';
 import { storage } from '../storage/indexedDB';
 import pako from 'pako';
 
@@ -256,7 +256,7 @@ export const ProcessedDataProvider: React.FC<{ children: React.ReactNode }> = ({
                         const metadataRecord: Omit<SampleMetadata, 'id' | 'created_at'> = {
                             human_readable_sample_id: sampleGroup.human_readable_sample_id,
                             data_type: configId,
-                            processed_storage: processedStoragePath,
+                            processed_storage_path: processedStoragePath,
                             raw_storage_paths: uploadedFiles
                                 .map((file) => {
                                     const isGzipped = file.name.endsWith('.gz');
@@ -328,18 +328,18 @@ export const ProcessedDataProvider: React.FC<{ children: React.ReactNode }> = ({
 
                 // Fetch the list of processed data entries for the sample group from 'sample_metadata'
                 const processedDataEntries = await api.data.getProcessedDataEntries(sampleGroup.id);
-
+                console.log(processedDataEntries);
                 for (const entry of processedDataEntries) {
                     const {
                         data_type,
                         // @ts-ignore
                         process_function_name,
-                        processed_storage,
+                        processed_storage_path,
                         updated_at,
                     } = entry;
 
                     const config_id = data_type!;
-                    const processedStoragePath = processed_storage!;
+                    const processedStoragePath = processed_storage_path!;
                     const updatedAt = updated_at!;
 
                     const localDataEntry = await storage.getProcessedData(sampleId, config_id);

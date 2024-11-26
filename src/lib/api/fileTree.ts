@@ -58,6 +58,29 @@ export const fileTree = {
         return data;
     },
 
+    async createSampleGroupNodeWithId(
+        id: string,
+        orgId: string,
+        name: string,
+        parentId: string | null = null
+    ): Promise<FileNode> {
+        const { data, error } = await apiClient
+            .getClient()
+            .from('file_nodes')
+            .insert({
+                id: id,
+                org_id: orgId,
+                parent_id: parentId,
+                name,
+                type: 'sampleGroup',
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
     async updateNode(
         id: string,
         updates: Partial<Omit<FileNode, 'id' | 'type'>>

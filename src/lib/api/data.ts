@@ -20,7 +20,7 @@ export const data = {
         return sampleGroups;
     },
 
-    async createSampleGroup(sampleGroup: Omit<SampleGroup, 'id'>): Promise<SampleGroup> {
+    async createSampleGroup(sampleGroup: SampleGroup): Promise<SampleGroup> {
         const { data: createdSampleGroup, error } = await apiClient
             .getClient()
             .from('sample_group_metadata')

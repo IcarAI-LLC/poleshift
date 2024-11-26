@@ -63,7 +63,7 @@ export class FileTreeService {
                 const node = await api.fileTree.createSampleGroupNode(
                     sampleGroup.org_id,
                     sampleGroup.id,
-                    sampleGroup.name,
+                    sampleGroup.human_readable_sample_id,
                     parentId
                 );
                 const treeItem = this.adapter.fileNodeToTreeItem(node);
@@ -76,7 +76,7 @@ export class FileTreeService {
                 id: crypto.randomUUID(),
                 org_id: sampleGroup.org_id,
                 parent_id: parentId,
-                name: sampleGroup.name,
+                name: sampleGroup.human_readable_sample_id,
                 type: 'sampleGroup',
                 sample_group_id: sampleGroup.id,
                 created_at: new Date().toISOString(),
@@ -93,6 +93,59 @@ export class FileTreeService {
                 timestamp: Date.now()
             });
 
+            return treeItem;
+        } catch (error) {
+            if (error instanceof Error) {
+                throw new APIError('Failed to create sample group node', error);
+            }
+            throw error;
+        }
+    }
+
+    public static async deleteNode(id: string): Promise<void> {
+        try {
+            const existingTreeItem = await storage.getTreeItem(id);
+            if (!existingTreeItem) throw new StorageError('Node not found');
+
+            // Remove from local storage
+            await storage.deleteTreeItem(id);
+
+            // If online, delete from server
+            if (navigator.onLine) {
+                await api.fileTree.deleteNode(id);
+            } else {
+                // If offline, queue for sync
+                await storage.addPendingOperation({
+                    type: 'delete',
+                    table: 'file_nodes',
+                    data: { id },
+                    timestamp: Date.now()
+                });
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                throw new APIError('Failed to delete node', error);
+            }
+            throw error;
+        }
+    }
+
+    // In FileTreeService.ts
+    public static async createSampleGroupNodeWithId(
+        id: string,
+        orgId: string,
+        name: string,
+        parentId: string | null = null
+    ): Promise<TreeItem> {
+        try {
+            const node = await api.fileTree.createSampleGroupNodeWithId(
+                id,
+                orgId,
+                name,
+                parentId
+            );
+            const treeItem = this.adapter.fileNodeToTreeItem(node);
+            await storage.saveTreeItem(treeItem);
             return treeItem;
         } catch (error) {
             if (error instanceof Error) {
