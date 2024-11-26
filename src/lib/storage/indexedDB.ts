@@ -50,7 +50,7 @@ interface AppDB extends DBSchema {
 }
 
 const DB_NAME = 'appDB';
-const DB_VERSION = 4; // Incremented for new processedData store
+const DB_VERSION = 6; // Incremented for new processedData store
 
 class StorageManager {
     private db: IDBPDatabase<AppDB> | null = null;

@@ -14,7 +14,7 @@ const initialUIState: UIState = {
     filters: {
         startDate: null,
         endDate: null,
-        selectedLocations: []
+        selectedLocations: [],
     },
     modal: {
         isOpen: false,
@@ -22,9 +22,16 @@ const initialUIState: UIState = {
         type: 'input',
         configItem: undefined,
         modalInputs: {},
-        data: undefined
-    }
+        data: undefined,
+    },
+    contextMenu: {
+        isVisible: false,
+        x: 0,
+        y: 0,
+        itemId: null,
+    }, // Add this line
 };
+
 
 export function uiReducer(state: UIState = initialUIState, action: AppAction): UIState {
     switch (action.type) {
@@ -80,6 +87,11 @@ export function uiReducer(state: UIState = initialUIState, action: AppAction): U
                 modal: action.payload
             };
 
+        case 'SET_CONTEXT_MENU_STATE':
+            return {
+                ...state,
+                contextMenu: action.payload,
+            };
         default:
             return state;
     }

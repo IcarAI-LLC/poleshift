@@ -1,6 +1,6 @@
 import { AuthState, Organization, User, UserProfile } from "./auth";
 import {DataState, LocationAction, ProcessingJob, ResearchLocation, SampleGroup, TreeItem} from "./data";
-import { UIState } from "./ui";
+import {ContextMenuState, UIState} from "./ui";
 import {ProcessedDataAction, ProcessedDataState} from "./processed-data";
 
 export * from './data';
@@ -37,7 +37,7 @@ export type UIAction =
     | { type: 'SET_ERROR_MESSAGE'; payload: string }
     | { type: 'SET_FILTERS'; payload: UIState['filters'] }
     | { type: 'SET_MODAL_STATE'; payload: UIState['modal'] }
-    | { type: 'SET_CONTEXT_MENU_STATE'; payload: UIState['contextMenu'] };
+    | { type: 'SET_CONTEXT_MENU_STATE'; payload: ContextMenuState };
 
 export interface AppState {
     auth: AuthState;

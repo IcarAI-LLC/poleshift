@@ -72,7 +72,7 @@ export const data = {
         const { data: processedDataEntries, error } = await apiClient
             .getClient()
             .from('sample_metadata')
-            .select('id, created_at, data_type, process_function_name, processed_storage, updated_at')
+            .select('id, created_at, data_type, process_function_name, processed_storage_path, updated_at')
             .eq('sample_group_id', sampleGroupId);
 
         if (error) throw error;

@@ -34,41 +34,80 @@ export class SyncManager {
     }
 
     private async processPendingOperation(operation: PendingOperation): Promise<void> {
-        const { type, data } = operation;
+        const { type, data, table } = operation;
 
         try {
-            switch (type) {
-                case 'insert':
-                    await api.data.createSampleGroup(data);
+            switch (table) {
+                case 'sample_group_metadata':
+                    await this.processSampleGroupOperation(type, data);
                     break;
-
-                case 'update':
-                    await api.data.updateSampleGroup(data.id, data.updates);
+                case 'file_nodes':
+                    await this.processFileNodeOperation(type, data);
                     break;
-
-                case 'delete':
-                    await api.data.deleteSampleGroup(data.id);
-                    break;
-
-                case 'upsert': {
-                    // Check if the sample group exists by fetching all and finding the matching one
-                    const allGroups = await api.data.getSampleGroups(data.org_id);
-                    const exists = allGroups.find(group => group.id === data.id);
-
-                    if (exists) {
-                        await api.data.updateSampleGroup(data.id, data);
-                    } else {
-                        await api.data.createSampleGroup(data);
-                    }
-                    break;
-                }
-
                 default:
-                    console.warn(`Unknown operation type: ${type}`);
+                    console.warn(`Unknown table in pending operation: ${table}`);
             }
         } catch (error) {
             console.error(`Failed to process operation:`, operation, error);
             throw error;
+        }
+    }
+
+    private async processSampleGroupOperation(type: string, data: any): Promise<void> {
+        switch (type) {
+            case 'insert':
+                await api.data.createSampleGroup(data);
+                break;
+            case 'update':
+                await api.data.updateSampleGroup(data.id, data.updates);
+                break;
+            case 'delete':
+                await api.data.deleteSampleGroup(data.id);
+                break;
+            case 'upsert': {
+                const allGroups = await api.data.getSampleGroups(data.org_id);
+                const exists = allGroups.find(group => group.id === data.id);
+
+                if (exists) {
+                    await api.data.updateSampleGroup(data.id, data);
+                } else {
+                    await api.data.createSampleGroup(data);
+                }
+                break;
+            }
+            default:
+                console.warn(`Unknown operation type for sample group: ${type}`);
+        }
+    }
+
+    private async processFileNodeOperation(type: string, data: any): Promise<void> {
+        switch (type) {
+            case 'insert':
+                await api.fileTree.createSampleGroupNode(data.org_id,
+                    data.sample_group_id,
+                    data.name,
+                    data?.parent_id);
+                break;
+            case 'update':
+                await api.fileTree.updateNode(data.id, data.updates);
+                break;
+            case 'delete':
+                await api.fileTree.deleteNode(data.id);
+                break;
+            case 'upsert': {
+                const existingNode = await api.fileTree.getFileNode(data.id);
+                if (existingNode) {
+                    await api.fileTree.updateNode(data.id, data);
+                } else {
+                    await api.fileTree.createSampleGroupNode(data.org_id,
+                        data.sample_group_id,
+                        data.name,
+                        data?.parent_id);
+                }
+                break;
+            }
+            default:
+                console.warn(`Unknown operation type for file node: ${type}`);
         }
     }
 
@@ -82,29 +121,57 @@ export class SyncManager {
             await this.syncPendingOperations();
 
             // Fetch all data from server
-            const serverSampleGroups = await api.data.getSampleGroups(orgId);
-            const localSampleGroups = await storage.getAllSampleGroups();
+            const [serverSampleGroups, serverFileNodes] = await Promise.all([
+                api.data.getSampleGroups(orgId),
+                api.fileTree.getFileNodes(orgId),
+            ]);
 
-            // Compare and update local storage
-            for (const serverGroup of serverSampleGroups) {
-                const localGroup = localSampleGroups.find(g => g.id === serverGroup.id);
+            const [localSampleGroups, localFileNodes] = await Promise.all([
+                storage.getAllSampleGroups(),
+                storage.getFileNodesByOrg(orgId),
+            ]);
 
-                if (!localGroup || this.isNewer(serverGroup, localGroup)) {
-                    await storage.saveSampleGroup(serverGroup);
-                }
-            }
+            // Sync sample groups
+            await this.syncDataItems(
+                serverSampleGroups,
+                localSampleGroups,
+                storage.saveSampleGroup.bind(storage),
+                storage.deleteSampleGroup.bind(storage)
+            );
 
-            // Handle deletions
-            const serverIds = new Set(serverSampleGroups.map(g => g.id));
-            const localIds = new Set(localSampleGroups.map(g => g.id));
-
-            for (const localId of localIds) {
-                if (!serverIds.has(localId)) {
-                    await storage.deleteSampleGroup(localId);
-                }
-            }
+            // Sync file nodes
+            await this.syncDataItems(
+                serverFileNodes,
+                localFileNodes,
+                storage.saveFileNode.bind(storage),
+                storage.deleteFileNode.bind(storage)
+            );
         } finally {
             this.isSyncing = false;
+        }
+    }
+
+    private async syncDataItems<T extends { id: string; updated_at: string }>(
+        serverItems: T[],
+        localItems: T[],
+        saveFunction: (item: T) => Promise<void>,
+        deleteFunction: (id: string) => Promise<void>
+    ) {
+        // Update or insert items
+        for (const serverItem of serverItems) {
+            const localItem = localItems.find(item => item.id === serverItem.id);
+
+            if (!localItem || this.isNewer(serverItem, localItem)) {
+                await saveFunction(serverItem);
+            }
+        }
+
+        // Handle deletions
+        const serverIds = new Set(serverItems.map(item => item.id));
+        for (const localItem of localItems) {
+            if (!serverIds.has(localItem.id)) {
+                await deleteFunction(localItem.id);
+            }
         }
     }
 

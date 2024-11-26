@@ -14,6 +14,17 @@ export const fileTree = {
         return data;
     },
 
+    async getFileNode(nodeId: string): Promise<FileNode[]> {
+        const { data, error } = await apiClient
+            .getClient()
+            .from('file_nodes')
+            .select('*')
+            .eq('id', nodeId);
+
+        if (error) throw error;
+        return data;
+    },
+
     async createFolder(
         orgId: string,
         name: string,

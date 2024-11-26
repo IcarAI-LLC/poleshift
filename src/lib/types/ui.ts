@@ -2,6 +2,13 @@
 
 // Also update the types in your UIState interface
 import {ResearchLocation, TreeItem} from "./data.ts";
+// Define the structure for context menus
+export interface ContextMenuState {
+    isVisible: boolean;
+    x: number;
+    y: number;
+    itemId: string | null;
+}
 
 export interface UIState {
     selectedLeftItem: TreeItem | null;
@@ -23,10 +30,5 @@ export interface UIState {
         modalInputs?: Record<string, string>;
         data?: any;
     };
-    contextMenu: {
-        isVisible: boolean;
-        x: number;
-        y: number;
-        itemId: string | null;
-    };
+    contextMenu: ContextMenuState; // Add this line
 }

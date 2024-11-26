@@ -62,6 +62,8 @@ export interface SampleGroup {
     latitude_recorded: number | null;
     longitude_recorded: number | null;
     notes: string | null;
+    created_at?: string;
+    updated_at: string;
     // Add other fields from sample_group_metadata as needed
 }
 

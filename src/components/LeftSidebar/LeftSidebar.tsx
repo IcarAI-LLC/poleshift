@@ -16,6 +16,7 @@ import { useAuth } from '../../lib/hooks';
 import { FileTreeService } from '../../lib/services/FileTreeService';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { ResearchLocation } from '../../lib/types';
+import { DateTime } from 'luxon'
 
 import Modal from '../Modal';
 import AccountButton from './AccountButton';
@@ -237,6 +238,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             latitude_recorded: null,
             longitude_recorded: null,
             notes: null,
+            updated_at: DateTime.now().toISO()
           });
           console.log("Sample group created: ", sampleGroup)
           setErrorMessage('');

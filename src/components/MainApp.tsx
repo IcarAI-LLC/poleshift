@@ -14,6 +14,8 @@ import AccountActions from './Account/AccountActions';
 import SampleGroupMetadata from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
+// Remove the incorrect import
+// import contextMenu from "./ContextMenu";
 
 const MainApp: React.FC = () => {
   // Hooks
@@ -25,12 +27,12 @@ const MainApp: React.FC = () => {
   } = useData();
   const {
     selectedLeftItem,
-    setSelectedLeftItem,
     showAccountActions,
     errorMessage,
     setErrorMessage,
     setFilters,
-    closeContextMenu
+    setContextMenuState,
+    contextMenu, // Add this line
   } = useUI();
   const { isOnline, hasPendingChanges } = useOffline();
 
@@ -68,17 +70,21 @@ const MainApp: React.FC = () => {
     console.log('Data processed:', insertData);
   }, []);
 
-  const handleDeleteItem = useCallback(async (itemId: string) => {
-    try {
-      await deleteSampleGroup(itemId);
-      if (selectedLeftItem?.id === itemId) {
-        setSelectedLeftItem(null);
-      }
-      closeContextMenu();
-    } catch (error: any) {
-      setErrorMessage(error.message || 'Failed to delete the item.');
-    }
-  }, [deleteSampleGroup, selectedLeftItem, setSelectedLeftItem, setErrorMessage, closeContextMenu]);
+  const handleDeleteSample = useCallback(
+      async () => {
+        if (!contextMenu.itemId) {
+          setErrorMessage('Could not determine which item to delete.');
+          return;
+        }
+        try {
+          await deleteSampleGroup(contextMenu.itemId); // Use deleteSampleGroup from useData
+          setContextMenuState({ ...contextMenu, isVisible: false });
+        } catch (error: any) {
+          setErrorMessage(error.message || 'An error occurred while deleting the item.');
+        }
+      },
+      [contextMenu, setContextMenuState, setErrorMessage, deleteSampleGroup]
+  );
 
   const handleApplyFilters = useCallback(() => {
     setIsFilterMenuOpen(false);
@@ -180,7 +186,7 @@ const MainApp: React.FC = () => {
         {showAccountActions && <AccountActions />}
 
         <ContextMenu
-            deleteItem={handleDeleteItem}
+            deleteItem={handleDeleteSample}
         />
       </div>
   );

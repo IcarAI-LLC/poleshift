@@ -3,7 +3,7 @@ import { storage } from '../storage';
 import { api } from '../api';
 import { FileNode, TreeNode } from '../types/fileTree';
 import { TreeItem, SampleGroup } from '../types';
-import { APIError, StorageError } from '../types/errors';
+import { APIError, StorageError } from '../types';
 import { DefaultFileTreeAdapter } from '../adapters/fileTreeAdapter';
 
 export class FileTreeService {
@@ -109,7 +109,7 @@ export class FileTreeService {
 
             // Remove from local storage
             await storage.deleteTreeItem(id);
-
+            await storage.deleteFileNode(id);
             // If online, delete from server
             if (navigator.onLine) {
                 await api.fileTree.deleteNode(id);
