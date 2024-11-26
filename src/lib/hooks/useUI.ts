@@ -4,6 +4,13 @@ import { useCallback } from 'react';
 import { useAppState } from '../contexts/AppContext';
 import { TreeItem, ResearchLocation } from '../types';
 
+interface ContextMenuState {
+    isVisible: boolean;
+    x: number;
+    y: number;
+    itemId: string | null;
+}
+
 export function useUI() {
     const { state, dispatch } = useAppState();
     const { ui } = state;
@@ -40,7 +47,22 @@ export function useUI() {
         dispatch({ type: 'SET_MODAL_STATE', payload: modalState });
     }, [dispatch]);
 
+    // New context menu actions
+    const setContextMenuState = useCallback((contextMenu: ContextMenuState) => {
+        dispatch({ type: 'SET_CONTEXT_MENU_STATE', payload: contextMenu });
+    }, [dispatch]);
+
+    const closeContextMenu = useCallback(() => {
+        setContextMenuState({
+            isVisible: false,
+            x: 0,
+            y: 0,
+            itemId: null
+        });
+    }, [setContextMenuState]);
+
     return {
+        // Existing state
         selectedLeftItem: ui.selectedLeftItem,
         selectedRightItem: ui.selectedRightItem,
         isSidebarCollapsed: ui.isSidebarCollapsed,
@@ -49,6 +71,9 @@ export function useUI() {
         errorMessage: ui.errorMessage,
         filters: ui.filters,
         modal: ui.modal,
+        contextMenu: ui.contextMenu,
+
+        // Existing actions
         setSelectedLeftItem,
         setSelectedRightItem,
         toggleSidebar,
@@ -56,6 +81,11 @@ export function useUI() {
         setShowAccountActions,
         setErrorMessage,
         setFilters,
-        setModalState
+        setModalState,
+
+        // New context menu actions
+        setContextMenuState,
+        closeContextMenu
     };
 }
+

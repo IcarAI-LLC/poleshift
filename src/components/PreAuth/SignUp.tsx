@@ -7,7 +7,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import supabase from '../../old_utils/supabaseClient';
+import { api } from '../../lib/api';
 
 interface SignUpProps {
   onNavigate: (view: 'login') => void;
@@ -34,25 +34,13 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
     }
 
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (signUpError) {
-        setError(signUpError.message);
-        setIsLoading(false);
-        return;
-      }
-
-      localStorage.setItem('licenseKey', licenseKey);
-
+      await api.auth.signUpWithLicense(email, password, licenseKey);
       setMessage(
           'Sign-up successful! Please check your email to confirm your account before logging in.'
       );
     } catch (err: any) {
       console.error('Sign-up error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      setError(err.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -143,7 +131,7 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               fullWidth
               sx={{ mt: 2, mb: 1 }}
               disabled={!!message || isLoading}
-              startIcon={isLoading && <CircularProgress size={20} />}
+              startIcon={isLoading ? <CircularProgress size={20} /> : null}
           >
             {isLoading ? 'Signing Up...' : 'Sign Up'}
           </Button>

@@ -10,12 +10,12 @@ import {
   useTheme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import useUI from '../../old_hooks/useUI';
-import useAuth from '../../old_hooks/useAuth';
+import { useUI } from '../../lib/hooks';
+import { useAuth } from '../../lib/hooks';
 
 const AccountActions: React.FC = () => {
   const { showAccountActions, setShowAccountActions } = useUI();
-  const { user, userTier, userOrg, handleLogout, errorMessage } = useAuth();
+  const { user, logout, userProfile, organization } = useAuth();
   const theme = useTheme();
 
   const closeModal = () => {
@@ -23,11 +23,11 @@ const AccountActions: React.FC = () => {
   };
 
   const handleLogoutClick = () => {
-    handleLogout();
+    logout();
     closeModal();
   };
 
-  function capitalizeFirstLetter(string: string | null) {
+  function capitalizeFirstLetter(string: string | undefined | null) {
     if (string) {
       return string.charAt(0).toUpperCase() + string.slice(1);
     }
@@ -113,14 +113,14 @@ const AccountActions: React.FC = () => {
           <Box sx={infoRowStyles}>
             <Typography sx={labelStyles}>User type:</Typography>
             <Typography sx={valueStyles}>
-              {capitalizeFirstLetter(userTier)}
+              {capitalizeFirstLetter(userProfile?.user_tier)}
             </Typography>
           </Box>
 
           <Box sx={infoRowStyles}>
             <Typography sx={labelStyles}>Organization:</Typography>
             <Typography sx={valueStyles}>
-              {capitalizeFirstLetter(userOrg)}
+              {capitalizeFirstLetter(organization?.name)}
             </Typography>
           </Box>
 
@@ -155,20 +155,6 @@ const AccountActions: React.FC = () => {
               Logout
             </Button>
           </Box>
-
-          {errorMessage && (
-            <Box
-              sx={{
-                backgroundColor: 'var(--color-error-bg)',
-                color: 'var(--color-error)',
-                padding: theme.spacing(2),
-                borderRadius: '4px',
-                marginTop: theme.spacing(2),
-              }}
-            >
-              {errorMessage}
-            </Box>
-          )}
         </Box>
       </DialogContent>
     </Dialog>

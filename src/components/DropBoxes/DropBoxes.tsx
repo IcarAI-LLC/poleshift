@@ -1,28 +1,22 @@
-// DropBoxes.tsx
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Box, SelectChangeEvent, Typography } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
+import type { SxProps } from '@mui/system';
 
-import React, {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-} from 'react';
-import {Box, SelectChangeEvent, Typography} from '@mui/material';
 import dropboxConfig, { DropboxConfigItem } from '../../config/dropboxConfig';
-import useUI from '../../old_hooks/useUI';
-import useData from '../../old_hooks/useData';
+import { useUI } from '../../lib/hooks';
+import { useData } from '../../lib/hooks';
+import { useLocations } from '../../lib/hooks/useLocations';
+import { useProcessedData } from '../../lib/hooks/useProcessedData';
+
 import Modal from '../Modal';
 import DataTable from '../DataTable';
 import DataChart from '../DataChart';
-import { useLocations } from '../../old_hooks/useLocations';
 import DropBox from './DropBox';
-import {
-  processCTDDataForModal,
-  processKrakenDataForModal,
-} from '../../old_utils/dataProcessingUtils';
-import { SampleGroup } from '../../old_utils/sampleGroupUtils';
 import NutrientAmmoniaView from '../NutrientAmmoniaView';
 import KrakenVisualization from '../KrakenVisualization/KrakenVisualization';
-import useProcessedData from "../../old_hooks/useProcessedData.ts";
+
+import { processCTDDataForModal, processKrakenDataForModal } from '../../lib/utils/dataProcessingUtils';
 
 interface ModalState {
   isOpen: boolean;
@@ -37,35 +31,18 @@ interface ModalState {
 
 interface DropBoxesProps {
   onDataProcessed: (
-    insertData: any,
-    configItem: DropboxConfigItem,
-    processedData: any,
+      insertData: any,
+      configItem: DropboxConfigItem,
+      processedData: any,
   ) => void;
   onError: (message: string) => void;
 }
 
 const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
   const { selectedLeftItem } = useUI();
-  const { sampleGroupData } = useData();
-  const { processData, fetchProcessedData, processedData, isProcessing } =
-    useProcessedData();
-  const getProgressKey = (sampleId: string, configId: string) =>
-    `${sampleId}:${configId}`;
-  const sampleGroupId =
-    selectedLeftItem?.type === 'sampleGroup' ? selectedLeftItem.id : null;
-  const sampleGroup: SampleGroup | null = sampleGroupId
-    ? sampleGroupData[sampleGroupId]
-    : null;
-
+  const { sampleGroups } = useData();
+  const { processData, fetchProcessedData, processedData, isProcessing } = useProcessedData();
   const { getLocationById } = useLocations();
-  const sampleLocation = getLocationById(sampleGroup?.loc_id || null);
-
-  // Fetch processed data when sample group changes
-  useEffect(() => {
-    if (sampleGroup) {
-      fetchProcessedData(sampleGroup);
-    }
-  }, [sampleGroup, fetchProcessedData]);
 
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -74,17 +51,32 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     modalInputs: {},
   });
 
-  // Memoize openModal to avoid unnecessary re-renders
+  const getProgressKey = useCallback((sampleId: string, configId: string): string =>
+      `${sampleId}:${configId}`, []
+  );
+
+  // Get sample group data
+  const { sampleGroup, sampleLocation } = useMemo(() => {
+    const sampleGroupId = selectedLeftItem?.type === 'sampleGroup' ? selectedLeftItem.id : null;
+    const currentSampleGroup = sampleGroupId ? sampleGroups[sampleGroupId] : null;
+    const location = getLocationById(currentSampleGroup?.loc_id || null);
+
+    return {
+      sampleGroup: currentSampleGroup,
+      sampleLocation: location,
+    };
+  }, [selectedLeftItem, sampleGroups, getLocationById]);
+
+  // Fetch processed data when sample group changes
+  useEffect(() => {
+    if (sampleGroup) {
+      fetchProcessedData(sampleGroup);
+    }
+  }, [sampleGroup, fetchProcessedData]);
+
   const openModal = useCallback(
-    (
-      title: string,
-      configItem: DropboxConfigItem,
-      uploadedFiles: File[] = [],
-    ) => {
-      if (configItem.modalFields?.length) {
-        const extendedModalFields = [
-          ...configItem.modalFields,
-        ];
+      (title: string, configItem: DropboxConfigItem, uploadedFiles: File[] = []) => {
+        if (!configItem.modalFields?.length) return;
 
         setModalState({
           isOpen: true,
@@ -92,7 +84,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
           type: 'input',
           configItem: {
             ...configItem,
-            modalFields: extendedModalFields,
+            modalFields: [...configItem.modalFields],
           },
           modalInputs: {
             lat: sampleLocation?.lat?.toString() || '',
@@ -100,47 +92,47 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
           },
           uploadedFiles,
         });
-      }
-    },
-    [sampleLocation],
+      },
+      [sampleLocation]
   );
 
   const openDataModal = useCallback(
-    async (title: string, dataItem: any, configItem: DropboxConfigItem) => {
-      if (!dataItem) return;
+      async (title: string, dataItem: any, configItem: DropboxConfigItem) => {
+        if (!dataItem) return;
 
-      let modalData;
-      let units;
+        try {
+          const { modalData, units } = await processModalData(dataItem, configItem);
 
-      try {
-        if (configItem.id === 'ctd_data') {
-          const { processedData: ctdData, variableUnits } =
-            processCTDDataForModal(dataItem.data);
-          modalData = ctdData;
-          units = variableUnits;
-        } else if (configItem.id === 'nutrient_ammonia') {
-          modalData = dataItem.data;
-        } else if (configItem.id === 'sequencing_data') {
-          modalData = processKrakenDataForModal(dataItem);
-        } else {
-          modalData = dataItem;
+          setModalState({
+            isOpen: true,
+            title: `Data for ${title}`,
+            type: 'data',
+            data: modalData,
+            configItem,
+            units,
+          });
+        } catch (error) {
+          console.error('Error processing modal data:', error);
+          onError('Failed to process data for display');
         }
-
-        setModalState({
-          isOpen: true,
-          title: `Data for ${title}`,
-          type: 'data',
-          data: modalData,
-          configItem,
-          units,
-        });
-      } catch (error) {
-        console.error('Error processing modal data:', error);
-        onError('Failed to process data for display');
-      }
-    },
-    [onError],
+      },
+      [onError]
   );
+
+  const processModalData = async (dataItem: any, configItem: DropboxConfigItem) => {
+    switch (configItem.id) {
+      case 'ctd_data': {
+        const { processedData: ctdData, variableUnits } = processCTDDataForModal(dataItem.data);
+        return { modalData: ctdData, units: variableUnits };
+      }
+      case 'nutrient_ammonia':
+        return { modalData: dataItem.data, units: undefined };
+      case 'sequencing_data':
+        return { modalData: processKrakenDataForModal(dataItem), units: undefined };
+      default:
+        return { modalData: dataItem, units: undefined };
+    }
+  };
 
   const closeModal = useCallback(() => {
     setModalState({
@@ -155,16 +147,12 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     });
   }, []);
 
-  const handleModalChange = (
-      e:
-          | React.ChangeEvent<HTMLTextAreaElement>
-          | React.ChangeEvent<{ name?: string; value: unknown }>
-          | SelectChangeEvent,
+  const handleModalChange = useCallback((
+      e: React.ChangeEvent<HTMLTextAreaElement> | React.ChangeEvent<{ name?: string; value: unknown }> | SelectChangeEvent
   ) => {
     const { name, value } = e.target;
 
     if (typeof name === 'string') {
-      // Ensure value is a string
       const stringValue = typeof value === 'string' ? value : String(value);
 
       setModalState((prevState) => ({
@@ -177,7 +165,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     } else {
       console.warn('Input element is missing a name attribute.');
     }
-  };
+  }, []);
 
   const handleModalSubmit = useCallback(async () => {
     const { configItem, modalInputs, uploadedFiles } = modalState;
@@ -186,125 +174,117 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
 
     try {
       await processData(
-        configItem.processFunctionName,
-        sampleGroup,
-        modalInputs!,
-        uploadedFiles || [],
-        configItem,
-        onDataProcessed,
-        onError,
+          configItem.processFunctionName,
+          sampleGroup,
+          modalInputs!,
+          uploadedFiles || [],
+          configItem,
+          onDataProcessed,
+          onError,
       );
       closeModal();
     } catch (error) {
       console.error('Error processing data:', error);
       onError('Failed to process uploaded data');
     }
-  }, [
-    modalState,
-    sampleGroup,
-    processData,
-    onDataProcessed,
-    onError,
-    closeModal,
-  ]);
+  }, [modalState, sampleGroup, processData, onDataProcessed, onError, closeModal]);
 
-  // Memoize the DropBoxes to prevent unnecessary re-renders
+  const boxStyles = useMemo((): SxProps<Theme> => ({
+    width: {
+      xs: '100%',
+      sm: 'calc(50% - var(--spacing-md))',
+      md: 'calc(33.333% - var(--spacing-md))',
+    },
+  }), []);
+
   const renderedDropBoxes = useMemo(() => {
     if (!sampleGroup) {
       return (
-        <Typography
-          variant="body1"
-          sx={{
-            color: 'text.secondary',
-            textAlign: 'center',
-            width: '100%',
-            padding: 2,
-          }}
-        >
-          Please select a sample group to view DropBoxes.
-        </Typography>
+          <Typography
+              variant="body1"
+              sx={{
+                color: 'text.secondary',
+                textAlign: 'center',
+                width: '100%',
+                padding: 2,
+              }}
+          >
+            Please select a sample group to view DropBoxes.
+          </Typography>
       );
     }
 
-    return dropboxConfig.map((configItem) => {
-      if (!configItem?.isEnabled) return null;
+    return dropboxConfig
+        .filter(configItem => configItem?.isEnabled)
+        .map((configItem) => {
+          const sampleId = sampleGroup.human_readable_sample_id;
+          const configId = configItem.id;
+          const key = getProgressKey(sampleId, configId);
 
-      const sampleId = sampleGroup.human_readable_sample_id;
-      const configId = configItem.id;
-      const key = getProgressKey(sampleId, configId);
-
-      const isProcessingItem = isProcessing[key];
-      const hasData = !!processedData[key];
-      const uploadedDataItem = processedData[key];
-
-      return (
-        <Box
-          key={key}
-          sx={{
-            width: {
-              xs: '100%',
-              sm: 'calc(50% - var(--spacing-md))',
-              md: 'calc(33.333% - var(--spacing-md))',
-            },
-          }}
-        >
-          <DropBox
-            configItem={configItem}
-            isProcessing={isProcessingItem}
-            hasData={hasData}
-            openModal={openModal}
-            isLocked={false}
-            sampleGroup={sampleGroup}
-            onDataProcessed={onDataProcessed}
-            onError={onError}
-            uploadedDataItem={uploadedDataItem}
-            openDataModal={openDataModal}
-          />
-        </Box>
-      );
-    });
+          return (
+              <Box key={key} sx={boxStyles}>
+                <DropBox
+                    configItem={configItem}
+                    isProcessing={isProcessing[key]}
+                    hasData={!!processedData[key]}
+                    openModal={openModal}
+                    isLocked={false}
+                    sampleGroup={sampleGroup}
+                    onDataProcessed={onDataProcessed}
+                    onError={onError}
+                    uploadedDataItem={processedData[key]}
+                    openDataModal={openDataModal}
+                />
+              </Box>
+          );
+        });
   }, [
     sampleGroup,
-    dropboxConfig,
+    boxStyles,
     isProcessing,
     processedData,
     openModal,
     onDataProcessed,
     onError,
     openDataModal,
+    getProgressKey,
   ]);
 
-  return (
-    <Box className="dropBoxes">
-      {renderedDropBoxes}
+  const renderModalContent = useCallback(() => {
+    if (!modalState.data || !modalState.configItem) {
+      return null;
+    }
 
-      {modalState.isOpen && (
-        <Modal
-          isOpen={modalState.isOpen}
-          title={modalState.title}
-          onClose={closeModal}
-          modalFields={modalState.configItem?.modalFields}
-          modalInputs={modalState.modalInputs}
-          handleModalChange={handleModalChange}
-          handleModalSubmit={handleModalSubmit}
-        >
-          {modalState.type === 'data' &&
-            modalState.data &&
-            (modalState.configItem?.id === 'ctd_data' ? (
-              <DataChart
-                data={modalState.data}
-                units={modalState.units || {}}
-              />
-            ) : modalState.configItem?.id === 'sequencing_data' ? (
-              <KrakenVisualization data={modalState.data} />
-            ) : modalState.configItem?.id === 'nutrient_ammonia' ? (
-              <NutrientAmmoniaView data={modalState.data} />
-            ) : (
-              <DataTable data={modalState.data} />
-            ))}
-        </Modal>
-      )}
-    </Box>
+    switch (modalState.configItem.id) {
+      case 'ctd_data':
+        return <DataChart data={modalState.data} units={modalState.units || {}} />;
+      case 'sequencing_data':
+        return <KrakenVisualization data={modalState.data} />;
+      case 'nutrient_ammonia':
+        return <NutrientAmmoniaView data={modalState.data} />;
+      default:
+        return <DataTable data={modalState.data} />;
+    }
+  }, [modalState]);
+
+  return (
+      <Box className="dropBoxes">
+        {renderedDropBoxes}
+
+        {modalState.isOpen && (
+            <Modal
+                isOpen={modalState.isOpen}
+                title={modalState.title}
+                onClose={closeModal}
+                modalFields={modalState.configItem?.modalFields}
+                modalInputs={modalState.modalInputs}
+                handleModalChange={handleModalChange}
+                handleModalSubmit={handleModalSubmit}
+            >
+              {modalState.type === 'data' && modalState.data && renderModalContent()}
+            </Modal>
+        )}
+      </Box>
   );
 };
 

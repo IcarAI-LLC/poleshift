@@ -1,22 +1,17 @@
-// LeftSidebarTree.tsx
-
-import React, { useCallback, startTransition } from 'react';
+// lib/components/LeftSidebarTree.tsx
+import React, { useCallback } from 'react';
 import { Tree, NodeApi, CursorProps } from 'react-arborist';
-import FolderIcon from '@mui/icons-material/Folder';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import ScienceIcon from '@mui/icons-material/Science';
-import useUI from '../../old_hooks/useUI';
-import CustomCursor from './CustomCursor';
-import useData from '../../old_hooks/useData';
+import {
+  Folder as FolderIcon,
+  FolderOpen as FolderOpenIcon,
+  Science as ScienceIcon
+} from '@mui/icons-material';
 
-export interface TreeItem {
-  id: string;
-  text: string;
-  droppable: boolean;
-  type: 'folder' | 'sampleGroup';
-  parent_id: string | null;
-  children?: TreeItem[];
-}
+import { useUI } from '../../lib/hooks';
+import { useData } from '../../lib/hooks';
+import { FileTreeService } from '../../lib/services/FileTreeService';
+import CustomCursor from './CustomCursor';
+import type { TreeItem } from '../../lib/types';
 
 const LeftSidebarTree: React.FC = () => {
   const {
@@ -26,124 +21,65 @@ const LeftSidebarTree: React.FC = () => {
     setErrorMessage,
   } = useUI();
 
-  const { fileTreeData, setFileTreeData } = useData(); // Access fileTreeData from context
+  const { fileTree, isSyncing } = useData();
 
-  // Handle node movement (drag and drop)
-  const handleMove = useCallback(
-      ({
-         dragIds,
-         parentId,
-         index,
-       }: {
-        dragIds: string[];
-        parentId: string | null;
-        index: number;
-      }) => {
-        try {
-          const dragId = dragIds[0]; // Assuming single node drag-and-drop
-          if (!dragId) return;
+  const handleMove = useCallback(async ({
+                                          dragIds,
+                                          parentId,
+                                        }: {
+    dragIds: string[];
+    parentId: string | null;
+    index: number;
+  }) => {
+    try {
+      const dragId = dragIds[0];
+      if (!dragId) return;
 
-          let nodeToMove: TreeItem | null = null;
+      let nodeToMove: TreeItem | null = null;
 
-          // Function to find the node to move
-          const findNode = (nodes: TreeItem[] | null): TreeItem | null => {
-            if (!nodes){
-              return null
-            }
-            for (const node of nodes) {
-              if (node.id === dragId) {
-                return node;
-              }
-              if (node.children) {
-                const found = findNode(node.children);
-                if (found) return found;
-              }
-            }
-            return null;
-          };
-
-          nodeToMove = findNode(fileTreeData);
-          if (!nodeToMove) {
-            throw new Error('Node to move not found');
+      const findNode = (nodes: TreeItem[] | null): TreeItem | null => {
+        if (!nodes) return null;
+        for (const node of nodes) {
+          if (node.id === dragId) return node;
+          if (node.children) {
+            const found = findNode(node.children);
+            if (found) return found;
           }
-
-          // Remove the node from its current location
-          const removeNode = (nodes: TreeItem[] | null): TreeItem[] => {
-            if (!nodes){
-              return []
-            }
-            return nodes
-                .filter((node) => node.id !== dragId)
-                .map((node) => ({
-                  ...node,
-                  children: node.children ? removeNode(node.children) : undefined,
-                }));
-          };
-
-          const updatedTreeData = removeNode(fileTreeData);
-
-          // Update parent_id for the moved node
-          nodeToMove.parent_id = parentId;
-
-          // Insert the node at the new location
-          const insertNode = (nodes: TreeItem[]): TreeItem[] => {
-            return nodes.map((node) => {
-              if (node.id === parentId) {
-                const newChildren = node.children ? [...node.children] : [];
-                newChildren.splice(index, 0, nodeToMove!);
-                return {
-                  ...node,
-                  children: newChildren,
-                };
-              }
-              if (node.children) {
-                return {
-                  ...node,
-                  children: insertNode(node.children),
-                };
-              }
-              return node;
-            });
-          };
-
-          let finalTreeData: TreeItem[];
-
-          if (parentId === null) {
-            // Insert at root level
-            finalTreeData = [
-              ...updatedTreeData.slice(0, index),
-              nodeToMove,
-              ...updatedTreeData.slice(index),
-            ];
-          } else {
-            finalTreeData = insertNode(updatedTreeData);
-          }
-
-          // Use startTransition to defer the state update
-          startTransition(() => {
-            setFileTreeData(finalTreeData);
-          });
-        } catch (error) {
-          console.error('Error during drag and drop:', error);
-          setErrorMessage('An error occurred while moving items.');
         }
-      },
-      [fileTreeData, setFileTreeData, setErrorMessage],
-  );
+        return null;
+      };
 
-  // Properly type the disableDrag and disableDrop functions
-  const disableDrag = useCallback(
-      () => false,
-      [],
-  );
+      nodeToMove = findNode(fileTree);
+      if (!nodeToMove) {
+        throw new Error('Node to move not found');
+      }
+
+      await FileTreeService.moveNode(dragId, parentId);
+    } catch (error: any) {
+      console.error('Error during drag and drop:', error);
+      setErrorMessage(error.message || 'An error occurred while moving items.');
+    }
+  }, [fileTree, setErrorMessage]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, node: NodeApi<TreeItem>) => {
+    e.preventDefault();
+    setSelectedLeftItem(node.data);
+    setContextMenuState({
+      isVisible: true,
+      x: e.pageX,
+      y: e.pageY,
+      itemId: node.data.id
+    });
+  }, [setSelectedLeftItem, setContextMenuState]);
+
+  const disableDrag = useCallback(() => isSyncing, [isSyncing]);
 
   const disableDrop = useCallback(
       (args: { parentNode: NodeApi<TreeItem> | null }) =>
-          args.parentNode?.data.type === 'sampleGroup',
-      [],
+          args.parentNode?.data.type === 'sampleGroup' || isSyncing,
+      [isSyncing]
   );
 
-  // Memoize onSelect function
   const onSelect = useCallback(
       (nodes: NodeApi<TreeItem>[]) => {
         if (nodes.length > 0) {
@@ -152,16 +88,14 @@ const LeftSidebarTree: React.FC = () => {
           setSelectedLeftItem(null);
         }
       },
-      [setSelectedLeftItem],
+      [setSelectedLeftItem]
   );
 
-  // Define the Node component for rendering each node
-  const Node = React.memo(
-      ({
-         node,
-         style,
-         dragHandle,
-       }: {
+  const Node = React.memo(({
+                             node,
+                             style,
+                             dragHandle,
+                           }: {
         node: NodeApi<TreeItem>;
         style: React.CSSProperties;
         dragHandle?: (el: HTMLDivElement | null) => void;
@@ -178,28 +112,13 @@ const LeftSidebarTree: React.FC = () => {
           }
         };
 
-        const handleContextMenu = (e: React.MouseEvent) => {
-          e.preventDefault();
-          setSelectedLeftItem(node.data);
-          setContextMenuState({
-            isVisible: true,
-            x: e.pageX,
-            y: e.pageY,
-            itemId: node.data.id,
-          });
-        };
-
         const nodeClassNames = [
           'tree-node',
           isSelected ? 'tree-node--selected' : '',
-          isFolder
-              ? 'tree-node--folder'
-              : isSampleGroup
-                  ? 'tree-node--sampleGroup'
-                  : '',
-        ]
-            .join(' ')
-            .trim();
+          isFolder ? 'tree-node--folder' : '',
+          isSampleGroup ? 'tree-node--sampleGroup' : '',
+          isSyncing ? 'tree-node--disabled' : ''
+        ].filter(Boolean).join(' ');
 
         return (
             <div
@@ -207,15 +126,11 @@ const LeftSidebarTree: React.FC = () => {
                 className={nodeClassNames}
                 style={style}
                 onClick={handleClick}
-                onContextMenu={handleContextMenu}
+                onContextMenu={(e) => handleContextMenu(e, node)}
             >
               <div className="tree-node__icon">
                 {isFolder ? (
-                    node.isOpen ? (
-                        <FolderOpenIcon />
-                    ) : (
-                        <FolderIcon />
-                    )
+                    node.isOpen ? <FolderOpenIcon /> : <FolderIcon />
                 ) : isSampleGroup ? (
                     <ScienceIcon />
                 ) : null}
@@ -223,24 +138,26 @@ const LeftSidebarTree: React.FC = () => {
               <div className="tree-node__text">{node.data.text}</div>
             </div>
         );
-      },
-      (prevProps, nextProps) =>
+      }, (prevProps, nextProps) =>
           prevProps.node.data === nextProps.node.data &&
-          prevProps.style === nextProps.style,
+          prevProps.style === nextProps.style
   );
 
-  // Check if fileTreeData is populated
-  if (!fileTreeData || fileTreeData.length === 0) {
-    return <div className="sidebar__content">No data to display.</div>;
+  if (!fileTree?.length) {
+    return (
+        <div className="sidebar__content sidebar__content--empty">
+          No items to display
+        </div>
+    );
   }
 
   return (
       <div className="sidebar__content">
         <Tree
-            data={fileTreeData}
+            data={fileTree}
             onMove={handleMove}
             onSelect={onSelect}
-            selection={selectedLeftItem ? selectedLeftItem.id : undefined}
+            selection={selectedLeftItem?.id}
             disableDrag={disableDrag}
             disableDrop={disableDrop}
             rowHeight={36}

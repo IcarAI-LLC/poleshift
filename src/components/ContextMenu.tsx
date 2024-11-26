@@ -1,26 +1,29 @@
 // src/renderer/components/ContextMenu.tsx
 
 import React, { useEffect } from 'react';
-import useUI from '../old_hooks/useUI';
+import { useUI } from '../lib/hooks';
+import { useAuth } from '../lib/hooks';
 import './ContextMenu.css';
 
 interface ContextMenuProps {
-  deleteItem: (id: string) => Promise<void>; // Updated to return a Promise
-  userTier: string; // Assuming you pass userTier as a prop
+  deleteItem: (id: string) => Promise<void>;
 }
 
-const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem, userTier }) => {
+const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
   const {
-    contextMenuState,
+    contextMenu,
     setContextMenuState,
     selectedLeftItem,
     setSelectedLeftItem,
+    closeContextMenu
   } = useUI();
-  const { isVisible, x, y, itemId } = contextMenuState;
+
+  const { userProfile } = useAuth();
+  const { isVisible, x, y, itemId } = contextMenu;
 
   useEffect(() => {
     const handleClickOutside = () => {
-      setContextMenuState((prevState) => ({ ...prevState, isVisible: false }));
+      closeContextMenu();
     };
 
     if (isVisible) {
@@ -30,7 +33,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem, userTier }) => {
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [isVisible, setContextMenuState]);
+  }, [isVisible, closeContextMenu]);
 
   const handleDelete = async () => {
     if (itemId) {
@@ -43,29 +46,33 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem, userTier }) => {
         }
       } catch (error: any) {
         console.error('Error deleting item from ContextMenu:', error);
-        // Optionally, display an error message to the user
-        alert(error.message || 'Failed to delete the item.');
+        // You might want to use your UI error handling here instead of alert
+        setContextMenuState({
+          ...contextMenu,
+          isVisible: false
+        });
+        throw error; // Let the parent component handle the error display
       }
-      setContextMenuState((prevState) => ({ ...prevState, isVisible: false }));
+      closeContextMenu();
     }
   };
 
   if (!isVisible) return null;
 
   return (
-    <div
-      className={`context-menu ${isVisible ? 'context-menu--visible' : ''}`}
-      style={{ top: `${y}px`, left: `${x}px`, position: 'absolute' }}
-    >
-      <ul className="context-menu__list">
-        {userTier === 'admin' && (
-          <li className="context-menu__item" onClick={handleDelete}>
-            Delete
-          </li>
-        )}
-        {/* Add more context menu items as needed */}
-      </ul>
-    </div>
+      <div
+          className={`context-menu ${isVisible ? 'context-menu--visible' : ''}`}
+          style={{ top: `${y}px`, left: `${x}px`, position: 'absolute' }}
+      >
+        <ul className="context-menu__list">
+          {userProfile?.user_tier === 'admin' && (
+              <li className="context-menu__item" onClick={handleDelete}>
+                Delete
+              </li>
+          )}
+          {/* Add more context menu items as needed */}
+        </ul>
+      </div>
   );
 };
 

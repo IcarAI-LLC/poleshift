@@ -49,6 +49,12 @@ const initialState: AppState = {
             configItem: undefined,
             modalInputs: {},
             data: undefined
+        },
+        contextMenu: {
+            isVisible: false,
+            x: 0,
+            y: 0,
+            itemId: null
         }
     },
     processedData: initialProcessedDataState

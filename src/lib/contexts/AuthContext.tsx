@@ -3,7 +3,6 @@
 import { createContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserProfile, Organization, mapSupabaseUser } from '../types';
 import { api } from '../api';
-import supabase from '../../old_utils/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
 export interface AuthContextType {
@@ -28,6 +27,7 @@ const userTierMap: Record<string, number> = {
     lead: 2,
     researcher: 1,
 };
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -58,9 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mappedUser) {
             try {
                 const userProfile = await api.auth.getUserProfile(mappedUser.id);
-                let organization: Organization;
                 if (userProfile.organization_id) {
-                    organization = await api.auth.getOrganization(userProfile.organization_id);
+                    const organization = await api.auth.getOrganization(userProfile.organization_id);
                     setUserOrg(organization.name);
                     setUserOrgId(organization.id);
                     setUserOrgShortId(organization.org_short_id);
@@ -69,34 +68,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUserProfile(userProfile);
                 setUserTier(userProfile.user_tier);
                 setUserLevel(userTierMap[userProfile.user_tier] || 0);
-                window.localStorage.setItem('supabaseSession', JSON.stringify(session));
+                if (session) api.auth.persistSession(session);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to update user state');
                 resetUserState();
             }
         } else {
             resetUserState();
-            window.localStorage.removeItem('supabaseSession');
+            api.auth.clearPersistedSession();
         }
     };
 
     useEffect(() => {
         const fetchSession = async () => {
             if (!navigator.onLine) {
-                const cachedSessionStr = window.localStorage.getItem('supabaseSession');
-                if (cachedSessionStr) {
-                    const session = JSON.parse(cachedSessionStr) as Session;
-                    await updateUserState(session);
-                } else {
-                    resetUserState();
-                }
+                const session = api.auth.getPersistedSession();
+                await updateUserState(session);
                 setLoading(false);
                 return;
             }
 
             try {
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                if (sessionError) throw sessionError;
+                const session = await api.auth.getSession();
                 await updateUserState(session);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to fetch session');
@@ -108,11 +101,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         fetchSession();
 
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
-                await updateUserState(session);
-            }
-        );
+        const authListener = api.auth.onAuthStateChange(async (session) => {
+            await updateUserState(session);
+        });
 
         return () => {
             authListener.subscription.unsubscribe();
@@ -123,8 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             await api.auth.logout();
             resetUserState();
-            window.localStorage.removeItem('supabaseSession');
-            window.localStorage.removeItem('userDetails');
+            api.auth.clearPersistedSession();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to logout');
         }

@@ -283,6 +283,19 @@ body {
   color: var(--color-secondary);
 }
 
+.tree-node--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidebar__content--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+}
+
 /* ===================================== */
 /*        CONTEXT MENU                   */
 /* ===================================== */

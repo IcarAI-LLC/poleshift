@@ -1,7 +1,8 @@
 // src/lib/types/ui.ts
 
-import {TreeItem} from "./data.ts";
-import {ResearchLocation} from "./data.ts";
+// Also update the types in your UIState interface
+import {ResearchLocation, TreeItem} from "./data.ts";
+
 export interface UIState {
     selectedLeftItem: TreeItem | null;
     selectedRightItem: ResearchLocation | null;
@@ -21,5 +22,11 @@ export interface UIState {
         configItem?: any;
         modalInputs?: Record<string, string>;
         data?: any;
+    };
+    contextMenu: {
+        isVisible: boolean;
+        x: number;
+        y: number;
+        itemId: string | null;
     };
 }

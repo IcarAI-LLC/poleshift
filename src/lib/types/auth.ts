@@ -12,6 +12,11 @@ export interface User {
     last_sign_in_at: string | null;
 }
 
+export interface LicenseProcessResult {
+    success: boolean;
+    error?: string;
+}
+
 // User Tier Record Interface
 export interface UserTierRecord {
     name: UserTier;

@@ -1,15 +1,25 @@
-import React, { useCallback, useState } from 'react';
-import {Box, Button, IconButton, SelectChangeEvent, Tooltip, useTheme} from '@mui/material';
-import SyncIcon from '@mui/icons-material/Sync';
-import MenuIcon from '@mui/icons-material/Menu';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
-import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
+import React, { useCallback, useState, useMemo } from 'react';
+import { Box, Button, IconButton, SelectChangeEvent, Tooltip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
+import type { SxProps } from '@mui/system';
+import {
+  Sync as SyncIcon,
+  Menu as MenuIcon,
+  AddCircle as AddCircleIcon,
+  CreateNewFolder as CreateNewFolderIcon,
+} from '@mui/icons-material';
+
+import { useUI } from '../../lib/hooks';
+import { useData } from '../../lib/hooks';
+import { useAuth } from '../../lib/hooks';
+import { FileTreeService } from '../../lib/services/FileTreeService';
+import type { DropboxConfigItem } from '../../config/dropboxConfig';
+import type { ResearchLocation } from '../../lib/types';
+
 import Modal from '../Modal';
 import AccountButton from './AccountButton';
 import LeftSidebarTree from './LeftSidebarTree';
-import useData from '../../old_hooks/useData';
-import useUI from '../../old_hooks/useUI';
-import { DropboxConfigItem } from '../../config/dropboxConfig';
 
 interface ModalState {
   isOpen: boolean;
@@ -24,10 +34,11 @@ interface LeftSidebarProps {
   userTier: string;
 }
 
-const LeftSidebar: React.FC<LeftSidebarProps> = ({ }) => {
-  const { addItem, isSyncing, locations } = useData();
+const LeftSidebar: React.FC<LeftSidebarProps> = () => {
   const theme = useTheme();
-
+  const { createSampleGroup, sampleGroups } = useData();
+  const { isSyncing, locations } = useData();
+  const { organization, user } = useAuth();
   const {
     isSidebarCollapsed,
     toggleSidebar,
@@ -44,279 +55,347 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ }) => {
     isProcessing: false,
   });
 
-  const openModal = (
-    title: string,
-    configItem: DropboxConfigItem,
-    uploadedFiles: File[] = [],
-  ) => {
-    if (configItem.modalFields && configItem.modalFields.length > 0) {
+  const styles = useMemo(() => ({
+    sidebarButton: {
+      width: '100%',
+      justifyContent: 'flex-start',
+      backgroundColor: 'var(--color-background)',
+      color: 'var(--color-text)',
+    } as const,
+    toggleButton: {
+      position: 'fixed',
+      top: 'var(--spacing-sm)',
+      left: 'var(--spacing-sm)',
+      color: 'var(--color-text)',
+      zIndex: 1001,
+      padding: '8px',
+      '&:hover': {
+        color: 'var(--color-primary)',
+        backgroundColor: 'transparent',
+      },
+    } as SxProps<Theme>,
+    syncIcon: {
+      position: 'fixed',
+      top: 'var(--spacing-sm)',
+      left: '50px',
+      padding: '8px',
+      zIndex: 1001,
+    } as SxProps<Theme>,
+    sidebar: {
+      width: 'var(--sidebar-width)',
+      height: '100vh',
+      backgroundColor: 'var(--color-sidebar)',
+      display: 'flex',
+      flexDirection: 'column',
+      transition: theme.transitions.create('width', {
+        duration: theme.transitions.duration.standard,
+      }),
+      overflow: 'hidden',
+      position: 'relative',
+      zIndex: 1000,
+    } as const,
+    contentContainer: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      marginTop: 'var(--header-height)',
+    } as const,
+    buttonContainer: {
+      padding: theme.spacing(2),
+      display: 'flex',
+      flexDirection: 'column',
+      gap: theme.spacing(1),
+      borderBottom: '1px solid var(--color-border)',
+    } as const,
+  }), [theme]);
+
+  const handleModalActions = {
+    open: useCallback((
+        title: string,
+        configItem: DropboxConfigItem,
+        uploadedFiles: File[] = [],
+    ) => {
+      if (configItem.modalFields?.length) {
+        setModalState({
+          isOpen: true,
+          title,
+          configItem,
+          modalInputs: {},
+          uploadedFiles,
+          isProcessing: false,
+        });
+      }
+    }, []),
+
+    close: useCallback(() => {
       setModalState({
-        isOpen: true,
-        title,
-        configItem,
+        isOpen: false,
+        title: '',
+        configItem: null,
         modalInputs: {},
-        uploadedFiles,
+        uploadedFiles: [],
         isProcessing: false,
       });
-    }
-  };
+    }, []),
 
-  const closeModal = () => {
-    setModalState({
-      isOpen: false,
-      title: '',
-      configItem: null,
-      modalInputs: {},
-      uploadedFiles: [],
-      isProcessing: false,
-    });
-  };
+    change: useCallback((
+        e: React.ChangeEvent<HTMLTextAreaElement> | React.ChangeEvent<{ name?: string; value: unknown }> | SelectChangeEvent,
+    ) => {
+      const { name, value } = e.target;
 
-  const handleModalChange = (
-      e:
-          | React.ChangeEvent<HTMLTextAreaElement>
-          | React.ChangeEvent<{ name?: string; value: unknown }>
-          | SelectChangeEvent,
-  ) => {
-    const { name, value } = e.target;
-
-    if (typeof name === 'string') {
-      // Ensure value is a string
-      const stringValue = typeof value === 'string' ? value : String(value);
-
-      setModalState((prevState) => ({
-        ...prevState,
-        modalInputs: {
-          ...prevState.modalInputs,
-          [name]: stringValue,
-        },
-      }));
-    } else {
-      console.warn('Input element is missing a name attribute.');
-    }
-  };
-
-
-
-
-  const handleModalSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
-    if (e) e.preventDefault();
-    const { configItem, modalInputs } = modalState;
-
-    setModalState((prev) => ({
-      ...prev,
-      isProcessing: true,
-    }));
-
-    try {
-      if (configItem?.processFunctionName && configItem?.processFunctionName === "folder" ||  configItem?.processFunctionName === "sampleGroup") {
-        await addItem(configItem.processFunctionName, modalInputs);
-        setErrorMessage('');
+      if (typeof name === 'string') {
+        const stringValue = typeof value === 'string' ? value : String(value);
+        setModalState(prev => ({
+          ...prev,
+          modalInputs: { ...prev.modalInputs, [name]: stringValue },
+        }));
+      } else {
+        console.warn('Input element is missing a name attribute.');
       }
-    } catch (error: any) {
-      setErrorMessage(error.message || 'An unexpected error occurred.');
-    } finally {
-      setModalState((prev) => ({
-        ...prev,
-        isProcessing: false,
-      }));
-      closeModal();
-    }
+    }, []),
+
+    submit: useCallback(async (e?: React.FormEvent<HTMLFormElement>) => {
+      if (e) e.preventDefault();
+      const { configItem, modalInputs } = modalState;
+
+      if (!configItem || !organization?.id || !organization.org_short_id || !user?.id) return;
+
+      setModalState(prev => ({ ...prev, isProcessing: true }));
+
+      try {
+        if (configItem.processFunctionName === "folder") {
+          await FileTreeService.createFolder(
+              organization.id,
+              modalInputs.name,
+              null // parentId - can be modified if needed
+          );
+          setErrorMessage('');
+        } else if (configItem.processFunctionName === "sampleGroup") {
+          const { collectionDate, collectionTime, locCharId } = modalInputs;
+
+          // Input validation
+          if (!collectionDate || !locCharId) {
+            throw new Error('Collection date and location are required to create a sample group.');
+          }
+
+          // Format the date as YYYY-MM-DD
+          const formattedDate = new Date(collectionDate).toISOString().split('T')[0];
+          const baseName = `${formattedDate}-${locCharId}`;
+
+          // Check existing groups from local sampleGroups data
+          const existingNumbers = Object.values(sampleGroups)
+              .filter(group => group.org_id === organization.id)
+              .map(group => {
+                const regex = new RegExp(`^${baseName}-(\\d{2})-${organization.org_short_id}$`);
+                const match = group.human_readable_sample_id.match(regex);
+                return match ? parseInt(match[1], 10) : null;
+              })
+              .filter((num): num is number => num !== null);
+
+          // Determine next available number
+          let nextNumber = 0;
+          while (existingNumbers.includes(nextNumber)) {
+            nextNumber += 1;
+          }
+          const formattedNumber = String(nextNumber).padStart(2, '0');
+
+          // Construct sample group name
+          const sampleGroupName = `${baseName}-${formattedNumber}-${organization.org_short_id}`;
+
+          // Find location
+          const location = locations.find((loc) => loc.char_id === locCharId);
+          if (!location) {
+            throw new Error(`Location with char_id ${locCharId} not found.`);
+          }
+
+          // Create storage folder path
+          const rawDataFolderPath = `${organization.org_short_id}/${sampleGroupName}/`;
+
+          // Create the sample group
+          const sampleGroup = await createSampleGroup({
+            name: sampleGroupName,
+            human_readable_sample_id: sampleGroupName,
+            loc_id: location.id,
+            storage_folder: rawDataFolderPath,
+            collection_date: formattedDate,
+            collection_datetime_utc: collectionTime
+                ? `${collectionDate}T${collectionTime}Z`
+                : undefined,
+            user_id: user.id,
+            org_id: organization.id,
+            latitude_recorded: null,
+            longitude_recorded: null,
+            notes: null,
+          });
+
+          // Create the tree node for the sample group
+          await FileTreeService.createSampleGroupNode(
+              sampleGroup,
+              null // parentId - can be modified if needed
+          );
+
+          setErrorMessage('');
+        }
+      } catch (error: any) {
+        console.error('Error creating item:', error);
+        setErrorMessage(error.message || 'An unexpected error occurred.');
+      } finally {
+        handleModalActions.close();
+      }
+    }, [modalState, organization, user, locations, sampleGroups, createSampleGroup, setErrorMessage]),
   };
 
-  const handleCreateSampleGroup = useCallback(() => {
-    const configItem: DropboxConfigItem = {
-      dataType: "", expectedFileTypes: null, isEnabled: false, isModalInput: false, label: "",
-      id: 'create-sampleGroup',
-      modalFields: [
-        {
-          name: 'collectionDate',
-          label: 'Collection Date',
-          type: 'date',
-          tooltip: 'Select the date when the sample was collected.',
-          required: true,
-        },
-        {
-          name: 'collectionTime',
-          label: 'Collection Time',
-          type: 'time',
-          tooltip:
-            'Optionally specify the time when the sample was collected. Leave blank if unknown.',
-          required: false,
-        },
-        {
-          name: 'collectionTimeZone',
-          label: 'Time Zone',
-          type: 'timezone',
-          tooltip: 'Select the time zone of the collection time.',
-          required: !!modalState.modalInputs.collectionTime,
-        },
-        {
-          name: 'locCharId',
-          label: 'Location',
-          type: 'select',
-          options: locations.map((loc) => ({
-            value: loc.char_id,
-            label: loc.label,
-          })),
-          tooltip: 'Select the location where the sample was collected.',
-          required: true,
-        },
-      ],
-      processFunctionName: 'sampleGroup'
-    };
+  const createActions = {
+    sampleGroup: useCallback(() => {
+      const configItem: DropboxConfigItem = {
+        id: 'create-sampleGroup',
+        dataType: "",
+        expectedFileTypes: null,
+        isEnabled: false,
+        isModalInput: false,
+        label: "",
+        modalFields: [
+          {
+            name: 'collectionDate',
+            label: 'Collection Date',
+            type: 'date',
+            tooltip: 'Select the date when the sample was collected.',
+            required: true,
+          },
+          {
+            name: 'collectionTime',
+            label: 'Collection Time',
+            type: 'time',
+            tooltip: 'Optionally specify the time when the sample was collected. Leave blank if unknown.',
+            required: false,
+          },
+          {
+            name: 'collectionTimeZone',
+            label: 'Time Zone',
+            type: 'timezone',
+            tooltip: 'Select the time zone of the collection time.',
+            required: !!modalState.modalInputs.collectionTime,
+          },
+          {
+            name: 'locCharId',
+            label: 'Location',
+            type: 'select',
+            options: locations.map((loc: ResearchLocation) => ({
+              value: loc.char_id,
+              label: loc.label,
+            })),
+            tooltip: 'Select the location where the sample was collected.',
+            required: true,
+          },
+        ],
+        processFunctionName: 'sampleGroup',
+      };
 
-    openModal('Create New Sampling Event', configItem);
-  }, [locations, modalState.modalInputs.collectionTime]);
+      handleModalActions.open('Create New Sampling Event', configItem);
+    }, [locations, modalState.modalInputs.collectionTime, handleModalActions.open]),
 
-  const handleCreateFolder = useCallback(() => {
-    const configItem: DropboxConfigItem = {
-      dataType: "", expectedFileTypes: null, isEnabled: false, isModalInput: false, label: "",
-      id: 'create-folder',
-      modalFields: [{ name: 'name', label: 'Folder Name', type: 'text' }],
-      processFunctionName: 'folder'
-    };
+    folder: useCallback(() => {
+      const configItem: DropboxConfigItem = {
+        id: 'create-folder',
+        dataType: "",
+        expectedFileTypes: null,
+        isEnabled: false,
+        isModalInput: false,
+        label: "",
+        modalFields: [{ name: 'name', label: 'Folder Name', type: 'text' }],
+        processFunctionName: 'folder',
+      };
 
-    openModal('Create New Folder', configItem);
-  }, []);
-
-  const sidebarButtonStyle = {
-    width: '100%',
-    justifyContent: 'flex-start',
-    backgroundColor: 'var(--color-background)',
-    color: 'var(--color-text)',
+      handleModalActions.open('Create New Folder', configItem);
+    }, [handleModalActions.open]),
   };
 
-  const toggleButtonStyle = {
-    position: 'fixed',
-    top: 'var(--spacing-sm)',
-    left: 'var(--spacing-sm)',
-    color: 'var(--color-text)',
-    zIndex: 1001,
-    padding: '8px',
-    '&:hover': {
-      color: 'var(--color-primary)',
-      backgroundColor: 'transparent',
-    },
-  };
+  const handleToggleSidebar = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    toggleSidebar();
+  }, [toggleSidebar]);
 
   return (
-    <>
-      {/* Header Controls */}
-      <Box className="sidebar-controls">
-        <IconButton
-          onClick={toggleSidebar}
-          aria-label="Toggle Sidebar"
-          sx={toggleButtonStyle}
-        >
-          <MenuIcon />
-        </IconButton>
-
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 'var(--spacing-sm)',
-            left: '50px',
-            padding: '8px',
-            zIndex: 1001,
-          }}
-        >
-          <Tooltip title={isSyncing ? 'Syncing data...' : 'All changes saved'}>
-            <SyncIcon
-              className={isSyncing ? 'syncing' : ''}
-              sx={{
-                fontSize: 24,
-                fill: isSyncing ? '#f44336' : '#4caf50',
-              }}
-            />
-          </Tooltip>
-        </Box>
-
-        <AccountButton setShowAccountActions={setShowAccountActions} />
-      </Box>
-
-      {/* Sidebar Container */}
-      <Box
-        className={`left-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}
-        sx={{
-          width: 'var(--sidebar-width)',
-          height: '100vh',
-          backgroundColor: 'var(--color-sidebar)',
-          display: 'flex',
-          flexDirection: 'column',
-          transition: theme.transitions.create('width', {
-            duration: theme.transitions.duration.standard,
-          }),
-          overflow: 'hidden',
-          position: 'relative',
-          zIndex: 1000,
-        }}
-      >
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            marginTop: 'var(--header-height)',
-          }}
-        >
-          {/* Action Buttons */}
-          <Box
-            sx={{
-              padding: theme.spacing(2),
-              display: 'flex',
-              flexDirection: 'column',
-              gap: theme.spacing(1),
-              borderBottom: '1px solid var(--color-border)',
-            }}
+      <>
+        <Box className="sidebar-controls">
+          <IconButton
+              onClick={handleToggleSidebar}
+              aria-label="Toggle Sidebar"
+              sx={styles.toggleButton}
           >
-            <Button
-              variant="contained"
-              onClick={handleCreateSampleGroup}
-              aria-label="Create New Sampling Event"
-              sx={sidebarButtonStyle}
-              disableElevation
-            >
-              <AddCircleIcon />
-              {!isSidebarCollapsed && (
-                <span style={{ marginLeft: theme.spacing(1) }}>
-                  New Sampling Event
-                </span>
-              )}
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleCreateFolder}
-              aria-label="Create New Folder"
-              sx={sidebarButtonStyle}
-              disableElevation
-            >
-              <CreateNewFolderIcon />
-              {!isSidebarCollapsed && (
-                <span style={{ marginLeft: theme.spacing(1) }}>New Folder</span>
-              )}
-            </Button>
+            <MenuIcon />
+          </IconButton>
+
+          <Box sx={styles.syncIcon}>
+            <Tooltip title={isSyncing ? 'Syncing data...' : 'All changes saved'}>
+            <span>
+              <SyncIcon
+                  className={isSyncing ? 'syncing' : ''}
+                  sx={{
+                    fontSize: 24,
+                    fill: isSyncing ? '#f44336' : '#4caf50',
+                  }}
+              />
+            </span>
+            </Tooltip>
           </Box>
 
-          {/* Tree View */}
-          <LeftSidebarTree />
+          <AccountButton setShowAccountActions={setShowAccountActions} />
         </Box>
-      </Box>
 
-      {/* Modal */}
-      {modalState.isOpen && modalState.configItem && (
-        <Modal
-          isOpen={modalState.isOpen}
-          title={modalState.title}
-          onClose={closeModal}
-          modalFields={modalState.configItem.modalFields}
-          modalInputs={modalState.modalInputs}
-          handleModalChange={handleModalChange}
-          handleModalSubmit={handleModalSubmit}
-          isProcessing={modalState.isProcessing}
-        />
-      )}
-    </>
+        <Box
+            className={`left-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}
+            sx={styles.sidebar}
+        >
+          <Box sx={styles.contentContainer}>
+            <Box sx={styles.buttonContainer}>
+              <Button
+                  variant="contained"
+                  onClick={createActions.sampleGroup}
+                  aria-label="Create New Sampling Event"
+                  sx={styles.sidebarButton}
+                  disableElevation
+              >
+                <AddCircleIcon />
+                {!isSidebarCollapsed && (
+                    <span style={{ marginLeft: theme.spacing(1) }}>
+                  New Sampling Event
+                </span>
+                )}
+              </Button>
+              <Button
+                  variant="contained"
+                  onClick={createActions.folder}
+                  aria-label="Create New Folder"
+                  sx={styles.sidebarButton}
+                  disableElevation
+              >
+                <CreateNewFolderIcon />
+                {!isSidebarCollapsed && (
+                    <span style={{ marginLeft: theme.spacing(1) }}>
+                  New Folder
+                </span>
+                )}
+              </Button>
+            </Box>
+
+            <LeftSidebarTree />
+          </Box>
+        </Box>
+
+        {modalState.isOpen && modalState.configItem && (
+            <Modal
+                isOpen={modalState.isOpen}
+                title={modalState.title}
+                onClose={handleModalActions.close}
+                modalFields={modalState.configItem.modalFields}
+                modalInputs={modalState.modalInputs}
+                handleModalChange={handleModalActions.change}
+                handleModalSubmit={handleModalActions.submit}
+                isProcessing={modalState.isProcessing}
+            />
+        )}
+      </>
   );
 };
 

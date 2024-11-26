@@ -36,7 +36,8 @@ export type UIAction =
     | { type: 'SET_SHOW_ACCOUNT_ACTIONS'; payload: boolean }
     | { type: 'SET_ERROR_MESSAGE'; payload: string }
     | { type: 'SET_FILTERS'; payload: UIState['filters'] }
-    | { type: 'SET_MODAL_STATE'; payload: UIState['modal'] };
+    | { type: 'SET_MODAL_STATE'; payload: UIState['modal'] }
+    | { type: 'SET_CONTEXT_MENU_STATE'; payload: UIState['contextMenu'] };
 
 export interface AppState {
     auth: AuthState;
