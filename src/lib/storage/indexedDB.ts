@@ -1,6 +1,7 @@
-// lib/storage/indexedDB.ts
+// src/lib/storage/indexedDB.ts
+
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import {SampleGroup, TreeItem, ProcessingJob, ResearchLocation} from '../types';
+import { SampleGroup, TreeItem, ProcessingJob, ResearchLocation, PendingOperation } from '../types/data';
 import { FileNode } from '../types/fileTree';
 import { DefaultFileTreeAdapter } from '../adapters/fileTreeAdapter';
 
@@ -9,7 +10,7 @@ interface AppDB extends DBSchema {
         key: string;
         value: SampleGroup;
     };
-    fileNodes: {  // New store for FileNodes
+    fileNodes: {
         key: string;
         value: FileNode;
         indexes: {
@@ -17,7 +18,7 @@ interface AppDB extends DBSchema {
             'sample_group_id': string;
         };
     };
-    fileTree: {   // Keep for backwards compatibility
+    fileTree: {
         key: string;
         value: TreeItem;
     };
@@ -36,18 +37,20 @@ interface AppDB extends DBSchema {
             'timestamp': number;
         };
     };
-}
-
-export interface PendingOperation {
-    id: string;
-    type: 'insert' | 'update' | 'delete' | 'upsert';
-    table: string;
-    data: any;
-    timestamp: number;
+    processedData: {
+        key: string;
+        value: {
+            key: string;
+            sampleId: string;
+            configId: string;
+            data: any;
+            updatedAt: number;
+        };
+    };
 }
 
 const DB_NAME = 'appDB';
-const DB_VERSION = 3; // Increment for new fileNodes store
+const DB_VERSION = 4; // Incremented for new processedData store
 
 class StorageManager {
     private db: IDBPDatabase<AppDB> | null = null;
@@ -96,73 +99,69 @@ class StorageManager {
                         const store = db.createObjectStore('pendingOperations', { keyPath: 'id' });
                         store.createIndex('timestamp', 'timestamp');
                     }
+
+                    if (!db.objectStoreNames.contains('processedData')) {
+                        db.createObjectStore('processedData', { keyPath: 'key' });
+                    }
                 },
             });
         }
         return this.db;
     }
 
-    // New FileNode methods
-    async saveFileNode(node: FileNode): Promise<void> {
+    // New methods for processedData
+    async saveProcessedData(
+        sampleId: string,
+        configId: string,
+        data: any,
+        updatedAt: number
+    ): Promise<void> {
         const db = await this.getDB();
-        await db.put('fileNodes', node);
-        // Also save as TreeItem for backwards compatibility
-        await this.saveTreeItem(this.fileTreeAdapter.fileNodeToTreeItem(node));
+        const key = `${sampleId}:${configId}`;
+        await db.put('processedData', { key, sampleId, configId, data, updatedAt });
     }
 
-    async getFileNode(id: string): Promise<FileNode | undefined> {
+    async getProcessedData(
+        sampleId: string,
+        configId: string
+    ): Promise<{ data: any; updatedAt: number } | undefined> {
         const db = await this.getDB();
-        return db.get('fileNodes', id);
-    }
-
-    async getFileNodesByOrg(orgId: string): Promise<FileNode[]> {
-        const db = await this.getDB();
-        return db.getAllFromIndex('fileNodes', 'org_id', orgId);
-    }
-
-    async getFileNodesBySampleGroup(sampleGroupId: string): Promise<FileNode[]> {
-        const db = await this.getDB();
-        return db.getAllFromIndex('fileNodes', 'sample_group_id', sampleGroupId);
-    }
-
-    async deleteFileNode(id: string): Promise<void> {
-        const db = await this.getDB();
-        await db.delete('fileNodes', id);
-        await this.deleteTreeItem(id); // Keep fileTree in sync
-    }
-
-    // Original methods with FileNode integration
-    async saveTreeItem(item: TreeItem): Promise<void> {
-        const db = await this.getDB();
-        await db.put('fileTree', item);
-    }
-
-    async getTreeItem(id: string): Promise<TreeItem | undefined> {
-        const db = await this.getDB();
-        // Try to get from fileNodes first, fall back to fileTree
-        const fileNode = await this.getFileNode(id);
-        if (fileNode) {
-            return this.fileTreeAdapter.fileNodeToTreeItem(fileNode);
+        const key = `${sampleId}:${configId}`;
+        const entry = await db.get('processedData', key);
+        if (entry) {
+            return { data: entry.data, updatedAt: entry.updatedAt };
         }
-        return db.get('fileTree', id);
+        return undefined;
     }
 
-    async getAllTreeItems(): Promise<TreeItem[]> {
+    // Pending Operations methods
+    async addPendingOperation(operation: Omit<PendingOperation, 'id'>): Promise<void> {
         const db = await this.getDB();
-        // Prefer fileNodes, fall back to fileTree
-        const fileNodes = await db.getAll('fileNodes');
-        if (fileNodes.length > 0) {
-            return fileNodes.map(node => this.fileTreeAdapter.fileNodeToTreeItem(node));
-        }
-        return db.getAll('fileTree');
+        const id = crypto.randomUUID();
+        await db.add('pendingOperations', {
+            ...operation,
+            id,
+            timestamp: Date.now(),
+        });
     }
 
-    async deleteTreeItem(id: string): Promise<void> {
+    async getPendingOperations(): Promise<PendingOperation[]> {
         const db = await this.getDB();
-        await db.delete('fileTree', id);
+        return db.getAllFromIndex('pendingOperations', 'timestamp');
     }
 
-    // Keep all other methods the same...
+    async deletePendingOperation(id: string): Promise<void> {
+        const db = await this.getDB();
+        await db.delete('pendingOperations', id);
+    }
+
+    async clearPendingOperations(): Promise<void> {
+        const db = await this.getDB();
+        await db.clear('pendingOperations');
+    }
+
+    // Existing methods...
+
     // Sample Groups
     async saveSampleGroup(sampleGroup: SampleGroup): Promise<void> {
         const db = await this.getDB();
@@ -229,30 +228,64 @@ class StorageManager {
         await db.put('locations', location);
     }
 
-    // Pending Operations methods
-    async addPendingOperation(operation: Omit<PendingOperation, 'id'>): Promise<void> {
+    // New FileNode methods
+    async saveFileNode(node: FileNode): Promise<void> {
         const db = await this.getDB();
-        const id = crypto.randomUUID();
-        await db.add('pendingOperations', {
-            ...operation,
-            id,
-            timestamp: Date.now()
-        });
+        await db.put('fileNodes', node);
+        // Also save as TreeItem for backwards compatibility
+        await this.saveTreeItem(this.fileTreeAdapter.fileNodeToTreeItem(node));
     }
 
-    async getPendingOperations(): Promise<PendingOperation[]> {
+    async getFileNode(id: string): Promise<FileNode | undefined> {
         const db = await this.getDB();
-        return db.getAllFromIndex('pendingOperations', 'timestamp');
+        return db.get('fileNodes', id);
     }
 
-    async deletePendingOperation(id: string): Promise<void> {
+    async getFileNodesByOrg(orgId: string): Promise<FileNode[]> {
         const db = await this.getDB();
-        await db.delete('pendingOperations', id);
+        return db.getAllFromIndex('fileNodes', 'org_id', orgId);
     }
 
-    async clearPendingOperations(): Promise<void> {
+    async getFileNodesBySampleGroup(sampleGroupId: string): Promise<FileNode[]> {
         const db = await this.getDB();
-        await db.clear('pendingOperations');
+        return db.getAllFromIndex('fileNodes', 'sample_group_id', sampleGroupId);
+    }
+
+    async deleteFileNode(id: string): Promise<void> {
+        const db = await this.getDB();
+        await db.delete('fileNodes', id);
+        await this.deleteTreeItem(id); // Keep fileTree in sync
+    }
+
+    // Original methods with FileNode integration
+    async saveTreeItem(item: TreeItem): Promise<void> {
+        const db = await this.getDB();
+        await db.put('fileTree', item);
+    }
+
+    async getTreeItem(id: string): Promise<TreeItem | undefined> {
+        const db = await this.getDB();
+        // Try to get from fileNodes first, fall back to fileTree
+        const fileNode = await this.getFileNode(id);
+        if (fileNode) {
+            return this.fileTreeAdapter.fileNodeToTreeItem(fileNode);
+        }
+        return db.get('fileTree', id);
+    }
+
+    async getAllTreeItems(): Promise<TreeItem[]> {
+        const db = await this.getDB();
+        // Prefer fileNodes, fall back to fileTree
+        const fileNodes = await db.getAll('fileNodes');
+        if (fileNodes.length > 0) {
+            return fileNodes.map(node => this.fileTreeAdapter.fileNodeToTreeItem(node));
+        }
+        return db.getAll('fileTree');
+    }
+
+    async deleteTreeItem(id: string): Promise<void> {
+        const db = await this.getDB();
+        await db.delete('fileTree', id);
     }
 }
 

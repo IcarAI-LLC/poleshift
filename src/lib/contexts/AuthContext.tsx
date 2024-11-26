@@ -58,16 +58,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mappedUser) {
             try {
                 const userProfile = await api.auth.getUserProfile(mappedUser.id);
-                const organization = await api.auth.getOrganization(userProfile.organization_id);
-
+                let organization: Organization;
+                if (userProfile.organization_id) {
+                    organization = await api.auth.getOrganization(userProfile.organization_id);
+                    setUserOrg(organization.name);
+                    setUserOrgId(organization.id);
+                    setUserOrgShortId(organization.org_short_id);
+                    setOrganization(organization);
+                }
                 setUserProfile(userProfile);
-                setOrganization(organization);
                 setUserTier(userProfile.user_tier);
                 setUserLevel(userTierMap[userProfile.user_tier] || 0);
-                setUserOrg(organization.name);
-                setUserOrgId(organization.id);
-                setUserOrgShortId(organization.org_short_id);
-
                 window.localStorage.setItem('supabaseSession', JSON.stringify(session));
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to update user state');

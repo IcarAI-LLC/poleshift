@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useAppState } from '../contexts/AppContext';
 import { api } from '../api';
-import type { ResearchLocation } from '../types/researchLocation.ts';
+import type { ResearchLocation } from '../types';
 import { storage } from '../storage';
 
 export interface LocationsHookResult {

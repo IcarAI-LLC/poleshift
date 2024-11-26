@@ -1,22 +1,27 @@
 // src/lib/api/data.ts
 
 import { apiClient } from './client';
-import { SampleGroup, ResearchLocation } from '../types';
+import {
+    SampleGroup,
+    ResearchLocation,
+    SampleMetadata,
+} from '../types';
 
 export const data = {
+    // Sample Group Methods
     async getSampleGroups(orgId: string): Promise<SampleGroup[]> {
-        const { data, error } = await apiClient
+        const { data: sampleGroups, error } = await apiClient
             .getClient()
             .from('sample_group_metadata')
             .select('*')
             .eq('org_id', orgId);
 
         if (error) throw error;
-        return data;
+        return sampleGroups;
     },
 
     async createSampleGroup(sampleGroup: Omit<SampleGroup, 'id'>): Promise<SampleGroup> {
-        const { data, error } = await apiClient
+        const { data: createdSampleGroup, error } = await apiClient
             .getClient()
             .from('sample_group_metadata')
             .insert(sampleGroup)
@@ -24,11 +29,11 @@ export const data = {
             .single();
 
         if (error) throw error;
-        return data;
+        return createdSampleGroup;
     },
 
     async updateSampleGroup(id: string, updates: Partial<SampleGroup>): Promise<SampleGroup> {
-        const { data, error } = await apiClient
+        const { data: updatedSampleGroup, error } = await apiClient
             .getClient()
             .from('sample_group_metadata')
             .update(updates)
@@ -37,7 +42,7 @@ export const data = {
             .single();
 
         if (error) throw error;
-        return data;
+        return updatedSampleGroup;
     },
 
     async deleteSampleGroup(id: string): Promise<void> {
@@ -50,14 +55,41 @@ export const data = {
         if (error) throw error;
     },
 
+    // Location Methods
     async getLocations(): Promise<ResearchLocation[]> {
-        const { data, error } = await apiClient
+        const { data: locations, error } = await apiClient
             .getClient()
             .from('sample_locations')
             .select('*')
             .eq('is_enabled', true);
 
         if (error) throw error;
-        return data;
-    }
+        return locations;
+    },
+
+    // Processed Data Methods
+    async getProcessedDataEntries(sampleGroupId: string): Promise<SampleMetadata[]> {
+        const { data: processedDataEntries, error } = await apiClient
+            .getClient()
+            .from('sample_metadata')
+            .select('id, created_at, data_type, process_function_name, processed_storage, updated_at')
+            .eq('sample_group_id', sampleGroupId);
+
+        if (error) throw error;
+
+        return processedDataEntries;
+    },
+
+    // General Data Insertion Method
+    async insertData(tableName: string, record: any): Promise<any> {
+        const { data: insertedRecord, error } = await apiClient
+            .getClient()
+            .from(tableName)
+            .insert(record)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return insertedRecord;
+    },
 };

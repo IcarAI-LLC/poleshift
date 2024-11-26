@@ -19,6 +19,7 @@ export function useAuth() {
             if (!user) throw new Error('Failed to map user data');
 
             const userProfile = await api.auth.getUserProfile(user.id);
+            if (!userProfile.organization_id) throw new Error('Failed to fetch organization details.');
             const organization = await api.auth.getOrganization(userProfile.organization_id);
 
             dispatch({ type: 'SET_USER', payload: user });
