@@ -1,5 +1,5 @@
 // lib/components/LeftSidebarTree.tsx
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, {useCallback, useRef, useEffect, startTransition} from 'react';
 import { Tree, NodeApi, CursorProps } from 'react-arborist';
 import {
     Folder as FolderIcon,
@@ -9,7 +9,6 @@ import {
 //@ts-ignore
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
-import { FileTreeService } from '../../lib/services/FileTreeService';
 import CustomCursor from './CustomCursor';
 import type { FileNode } from '../../lib/types';
 
@@ -27,43 +26,98 @@ const LeftSidebarTree: React.FC = () => {
 
     const contextMenuRef = useRef<HTMLDivElement>(null);
 
-    const handleMove = useCallback(async ({
-                                              dragIds,
-                                              parentId,
-                                          }: {
-        dragIds: string[];
-        parentId: string | null;
-        index: number;
-    }) => {
-        try {
-            const dragId = dragIds[0];
-            if (!dragId) return;
+    const handleMove = useCallback(
+        ({
+             dragIds,
+             parentId,
+             index,
+         }: {
+            dragIds: string[];
+            parentId: string | null;
+            index: number;
+        }) => {
+            try {
+                const dragId = dragIds[0]; // Assuming single node drag-and-drop
+                if (!dragId) return;
 
-            let nodeToMove: FileNode | null = null;
+                let nodeToMove: FileNode | null = null;
 
-            const findNode = (nodes: FileNode[] | null): FileNode | null => {
-                if (!nodes) return null;
-                for (const node of nodes) {
-                    if (node.id === dragId) return node;
-                    if (node.children) {
-                        const found = findNode(node.children);
-                        if (found) return found;
+                // Function to find the node to move
+                const findNode = (nodes: FileNode[]): FileNode | null => {
+                    for (const node of nodes) {
+                        if (node.id === dragId) {
+                            return node;
+                        }
+                        if (node.children) {
+                            const found = findNode(node.children);
+                            if (found) return found;
+                        }
                     }
+                    return null;
+                };
+
+                nodeToMove = findNode(fileTree);
+                if (!nodeToMove) {
+                    throw new Error('Node to move not found');
                 }
-                return null;
-            };
 
-            nodeToMove = findNode(fileTree);
-            if (!nodeToMove) {
-                throw new Error('Node to move not found');
+                // Remove the node from its current location
+                const removeNode = (nodes: FileNode[]): FileNode[] => {
+                    return nodes
+                        .filter((node) => node.id !== dragId)
+                        .map((node) => ({
+                            ...node,
+                            children: node.children ? removeNode(node.children) : undefined,
+                        }));
+                };
+
+                const updatedTreeData = removeNode(fileTree);
+
+                // Insert the node at the new location
+                const insertNode = (nodes: FileNode[]): FileNode[] => {
+                    return nodes.map((node) => {
+                        if (node.id === parentId) {
+                            const newChildren = node.children ? [...node.children] : [];
+                            newChildren.splice(index, 0, nodeToMove!);
+                            return {
+                                ...node,
+                                children: newChildren,
+                            };
+                        }
+                        if (node.children) {
+                            return {
+                                ...node,
+                                children: insertNode(node.children),
+                            };
+                        }
+                        return node;
+                    });
+                };
+
+                let finalTreeData: FileNode[];
+
+                if (parentId === null) {
+                    // Insert at root level
+                    finalTreeData = [
+                        ...updatedTreeData.slice(0, index),
+                        nodeToMove,
+                        ...updatedTreeData.slice(index),
+                    ];
+                } else {
+                    finalTreeData = insertNode(updatedTreeData);
+                }
+
+                // Use startTransition to defer the state update
+                startTransition(() => {
+                    setFileTreeData(finalTreeData);
+                });
+            } catch (error) {
+                console.error('Error during drag and drop:', error);
+                setErrorMessage('An error occurred while moving items.');
             }
-
-            await FileTreeService.moveNode(dragId, parentId);
-        } catch (error: any) {
-            console.error('Error during drag and drop:', error);
-            setErrorMessage(error.message || 'An error occurred while moving items.');
-        }
-    }, [fileTree, setErrorMessage]);
+        },
+        [fileTreeData, setFileTreeData, setErrorMessage],
+    );
 
     const handleContextMenu = useCallback((e: React.MouseEvent, node: NodeApi<FileNode>) => {
         e.preventDefault();

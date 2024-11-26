@@ -20,6 +20,7 @@ import { useUI } from '../lib/hooks';
 import { useLocations } from '../lib/hooks';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
+import {SampleLocation} from "../lib/types";
 
 interface FilterMenuProps {
     onApply: () => void;
@@ -205,12 +206,12 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
                         label="Locations"
                         renderValue={(selected) =>
                             (selected as string[])
-                                .map((locId) => locations.find((loc) => loc.id === locId)?.label || locId)
+                                .map((locId) => locations.find((loc: SampleLocation) => loc.id === locId)?.label || locId)
                                 .join(', ')
                         }
                         sx={styles.inputField}
                     >
-                        {locations.map((location) => (
+                        {locations.map((location: SampleLocation) => (
                             <MenuItem key={location.id} value={location.id}>
                                 {location.label}
                             </MenuItem>

@@ -1,9 +1,9 @@
 // lib/contexts/AppContext.tsx
 import React, { createContext, useReducer, useEffect } from 'react';
-import type { AppState, AppAction } from '../types';
+import type {AppState, AppAction, Services} from '../types';
 // lib/contexts/AppContext.tsx
 //@ts-ignore
-import { storage } from '../storage/indexedDB';
+import {IndexedDBStorage, storage} from '../storage/indexedDB';
 import { supabase } from '../supabase/client';
 import {
     NetworkService,
@@ -16,6 +16,7 @@ import {
     SyncService,
     ProcessedDataService
 } from '../services';
+import {IndexedDBProcessedDataStorage, processedDataStorage} from "../storage/processedDataDB.ts";
 // Initialize services in the correct order
 const networkService = new NetworkService();
 const operationQueue = new OperationQueue(storage);
@@ -54,7 +55,8 @@ const initialState: AppState = {
         isProcessing: {},
         error: null,
         processedData: {},
-        progressStates: {}
+        progressStates: {},
+        uploadDownloadProgressStates: {}
     },
     ui: {
         selectedLeftItem: null,
@@ -85,17 +87,6 @@ const initialState: AppState = {
     }
 };
 
-// Add missing type to AppContext.tsx
-interface Services {
-    auth: AuthService;
-    data: DataService;
-    sync: SyncService;
-    processedData: ProcessedDataService;
-    network: NetworkService;
-    operationQueue: OperationQueue;
-    syncManager: SyncManager;
-}
-
 export const AppContext = createContext<{
     state: AppState;
     dispatch: React.Dispatch<AppAction>;
@@ -110,7 +101,8 @@ export const AppContext = createContext<{
         processedData: processedDataService,
         network: networkService,
         operationQueue: operationQueue,
-        syncManager: syncManager
+        syncManager: syncManager,
+        processedDataStorage: processedDataStorage
     }
 });
 
@@ -244,7 +236,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     processedData: processedDataService,
                     network: networkService,
                     operationQueue: operationQueue,
-                    syncManager: syncManager
+                    syncManager: syncManager,
+                    processedDataStorage: IndexedDBProcessedDataStorage.getInstance()
                 }
             }}
         >

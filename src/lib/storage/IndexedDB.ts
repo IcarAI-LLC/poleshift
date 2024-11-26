@@ -368,5 +368,5 @@ class IndexedDBStorage {
 }
 
 // Update the exports in storage/indexedDB.ts
-export type { IndexedDBStorage };  // Add this export
+export { IndexedDBStorage };  // Add this export
 export const storage = IndexedDBStorage.getInstance();

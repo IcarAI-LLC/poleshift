@@ -13,7 +13,7 @@ import { DateTime } from 'luxon';
 
 import { useData, useUI } from '../lib/hooks';
 import { useProcessedData } from '../lib/hooks/useProcessedData.ts';
-import type { SampleGroup } from '../lib/types';
+import type { SampleGroupMetadata } from '../lib/types';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 
@@ -82,7 +82,7 @@ const RightSidebar: React.FC = () => {
   const samplesAtLocation = useMemo(() => {
     if (!selectedRightItem) return [];
 
-    return Object.values(sampleGroups).filter((group: SampleGroup) => {
+    return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
       if (group.loc_id !== selectedRightItem.id) return false;
 
       if (

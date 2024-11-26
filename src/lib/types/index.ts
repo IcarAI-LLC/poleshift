@@ -1,4 +1,6 @@
-// Export all Supabase types
+//src/lib/types/index.ts
+export * from './services.ts'
+
 export interface UserTier {
     name: 'admin' | 'lead' | 'researcher';
 }
@@ -132,6 +134,7 @@ export interface ProgressState {
 }
 
 export interface ProcessedDataState {
+    uploadDownloadProgressStates: Record<string, ProgressState>;
     processedData: Record<string, any>;
     isProcessing: Record<string, boolean>;
     progressStates: Record<string, ProgressState>;
@@ -196,7 +199,10 @@ export type LocationAction =
 export type ProcessedDataAction =
     | { type: 'SET_PROCESSED_DATA'; payload: { key: string; data: any } }
     | { type: 'SET_PROCESSING_STATUS'; payload: { key: string; status: boolean } }
-    | { type: 'SET_PROCESSED_DATA_ERROR'; payload: string | null };
+    | { type: 'SET_PROCESSED_DATA_ERROR'; payload: string | null }
+    | { type: 'SET_PROCESSED_DATA_PROGRESS'; payload: { key: string; status: string, progress: number } }
+    | { type: 'SET_UPLOAD_DOWNLOAD_PROGRESS'; payload: { key: string; status: string, progress: number } }
+
 
 // Existing Action Types
 export type AuthAction =
@@ -240,6 +246,76 @@ export interface ProcessedDataState {
     data: Record<string, any>;
     isProcessing: Record<string, boolean>;
     error: string | null;
+}
+
+export interface ProcessedDataEntry {
+    key?: string; // Used internally by IndexedDB
+    sampleId: string;
+    configId: string;
+    data: any;
+    rawFilePaths: string[];
+    processedPath: string | null;
+    timestamp: number;
+    status: 'pending' | 'processing' | 'processed' | 'error';
+    error?: string;
+    metadata?: {
+        processFunction: string;
+        processedDateTime: string;
+    };
+}
+
+export interface ProcessingQueueItem {
+    id: string;
+    type: 'raw' | 'processed';
+    sampleId: string;
+    configId: string;
+    filePath: string;
+    fileBlob: Blob;
+    timestamp: number;
+    retryCount: number;
+    status: 'pending' | 'uploading' | 'error';
+    error?: string;
+}
+
+export interface ProcessedDataStorage {
+    // Core processed data operations
+    saveProcessedData(
+        sampleId: string,
+        configId: string,
+        data: any,
+        options?: {
+            rawFilePaths?: string[];
+            processedPath?: string;
+            metadata?: ProcessedDataEntry['metadata'];
+        }
+    ): Promise<void>;
+
+    getProcessedData(sampleId: string, configId: string): Promise<ProcessedDataEntry | null>;
+    getAllProcessedData(sampleId: string): Promise<Record<string, ProcessedDataEntry>>;
+    deleteProcessedData(sampleId: string, configId: string): Promise<void>;
+
+    // Queue operations for files
+    queueRawFile(
+        sampleId: string,
+        configId: string,
+        file: File,
+        options?: {
+            customPath?: string
+        }
+    ): Promise<void>;
+
+    queueProcessedFile(
+        sampleId: string,
+        configId: string,
+        data: Blob,
+        options?: {
+            customPath?: string
+        }
+    ): Promise<void>;
+
+    getPendingUploads(): Promise<ProcessingQueueItem[]>;
+    markUploadComplete(id: string): Promise<void>;
+    markUploadError(id: string, error: string): Promise<void>;
 }
 
 // Update AppState to include ProcessedDataState

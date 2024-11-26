@@ -4,10 +4,10 @@ import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 
 import { useData } from '../lib/hooks';
-import type { SampleGroup } from '../lib/types';
+import type { SampleGroupMetadata } from '../lib/types';
 
 interface LocationFieldsProps {
-  sampleGroup: SampleGroup;
+  sampleGroup: SampleGroupMetadata;
   theme: Theme;
   metadataItemStyles: SxProps<Theme>;
   labelStyles: SxProps<Theme>;
