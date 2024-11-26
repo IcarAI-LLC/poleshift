@@ -7,7 +7,7 @@ import dropboxConfig, { DropboxConfigItem } from '../../config/dropboxConfig';
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
 import { useLocations } from '../../lib/hooks/useLocations';
-import { useProcessedData } from '../../lib/hooks/useProcessedData';
+import { useProcessedData } from '../../lib/hooks/useProcessedData.ts';
 
 import Modal from '../Modal';
 import DataTable from '../DataTable';

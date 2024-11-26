@@ -9,7 +9,7 @@ import {
 import { useDropzone } from 'react-dropzone';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleGroup } from '../../lib/types';
-import { useProcessedData } from '../../lib/hooks/useProcessedData';
+import { useProcessedData } from '../../lib/hooks/useProcessedData.ts';
 import ProgressTracker from './ProgressTracker';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';

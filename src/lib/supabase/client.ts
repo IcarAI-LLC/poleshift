@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+//@ts-ignore
 import { User, UserProfile, Organization } from '../types';
 
 const SUPABASE_URL = 'https://poleshift.icarai.cloud';

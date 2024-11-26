@@ -169,21 +169,25 @@ class IndexedDBStorage {
     // Generic CRUD Operations
     private async add<T>(storeName: string, item: T): Promise<void> {
         const db = await this.getDB();
+        //@ts-ignore
         await db.add(storeName, item);
     }
 
     private async put<T>(storeName: string, item: T): Promise<void> {
         const db = await this.getDB();
+        //@ts-ignore
         await db.put(storeName, item);
     }
 
     private async get<T>(storeName: string, key: string): Promise<T | undefined> {
         const db = await this.getDB();
+        //@ts-ignore
         return db.get(storeName, key);
     }
 
     private async delete(storeName: string, key: string): Promise<void> {
         const db = await this.getDB();
+        //@ts-ignore
         await db.delete(storeName, key);
     }
 
@@ -193,6 +197,7 @@ class IndexedDBStorage {
         key: any
     ): Promise<T[]> {
         const db = await this.getDB();
+        //@ts-ignore
         return db.getAllFromIndex(storeName, indexName, key);
     }
 
@@ -264,19 +269,62 @@ class IndexedDBStorage {
         return this.get('userProfiles', id);
     }
 
-    // Pending Operations
-    async addPendingOperation(operation: PendingOperation): Promise<void> {
-        await this.add('pendingOperations', operation);
+    // Pending Operations - Enhanced Methods
+    async getPendingOperation(id: string): Promise<PendingOperation | undefined> {
+        return this.get('pendingOperations', id);
     }
 
-    async getPendingOperations(): Promise<PendingOperation[]> {
+    async updatePendingOperation(operation: PendingOperation): Promise<void> {
+        await this.put('pendingOperations', operation);
+    }
+
+    async getPendingOperationsOrderedByTimestamp(): Promise<PendingOperation[]> {
         const db = await this.getDB();
         return db.getAllFromIndex('pendingOperations', 'timestamp');
     }
 
+    async getAllFailedOperations(maxRetries: number): Promise<PendingOperation[]> {
+        const operations = await this.getPendingOperationsOrderedByTimestamp();
+        return operations.filter(op => op.retryCount >= maxRetries);
+    }
+
+// Add implementation in IndexedDB.ts
     async deletePendingOperation(id: string): Promise<void> {
         await this.delete('pendingOperations', id);
     }
+
+    async getPendingOperations(): Promise<PendingOperation[]> {
+        const db = await this.getDB();
+        return db.getAll('pendingOperations');
+    }
+
+    // Update the PendingOperation related methods
+    async addPendingOperation(operation: Omit<PendingOperation, 'retryCount'>): Promise<void> {
+        const operationWithRetry = {
+            ...operation,
+            retryCount: 0  // Initialize retry count
+        };
+        await this.add('pendingOperations', operationWithRetry);
+    }
+
+    async incrementOperationRetry(id: string): Promise<void> {
+        const operation = await this.getPendingOperation(id);
+        if (operation) {
+            operation.retryCount = (operation.retryCount || 0) + 1;
+            await this.updatePendingOperation(operation);
+        }
+    }
+
+    async clearFailedOperations(maxRetries: number): Promise<void> {
+        const failedOps = await this.getAllFailedOperations(maxRetries);
+        const db = await this.getDB();
+        const tx = db.transaction('pendingOperations', 'readwrite');
+        await Promise.all(
+            failedOps.map(op => tx.store.delete(op.id))
+        );
+        await tx.done;
+    }
+
 
     // Processed Data
     async saveProcessedData(
@@ -303,17 +351,22 @@ class IndexedDBStorage {
     // Bulk Operations
     async bulkSave<T>(storeName: string, items: T[]): Promise<void> {
         const db = await this.getDB();
+        //@ts-ignore
         const tx = db.transaction(storeName, 'readwrite');
+        //@ts-ignore
         await Promise.all(items.map(item => tx.store.put(item)));
         await tx.done;
     }
 
     async clearStore(storeName: string): Promise<void> {
         const db = await this.getDB();
+        //@ts-ignore
         const tx = db.transaction(storeName, 'readwrite');
         await tx.store.clear();
         await tx.done;
     }
 }
 
+// Update the exports in storage/indexedDB.ts
+export type { IndexedDBStorage };  // Add this export
 export const storage = IndexedDBStorage.getInstance();

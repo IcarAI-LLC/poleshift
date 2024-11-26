@@ -177,13 +177,13 @@ export class SyncError extends AppError {
     }
 }
 
-// Sync Types
 export interface PendingOperation {
     id: string;
-    type: 'insert' | 'update' | 'delete';
+    type: 'create' | 'update' | 'delete';
     table: string;
     data: any;
     timestamp: number;
+    retryCount: number;  // Add this field
 }
 
 // Action Types
@@ -192,6 +192,13 @@ export type LocationAction =
     | { type: 'UPDATE_LOCATION'; payload: SampleLocation }
     | { type: 'UPDATE_LOCATIONS_CACHE'; payload: { timestamp: number; data: SampleLocation[] } };
 
+// ProcessedData Types
+export type ProcessedDataAction =
+    | { type: 'SET_PROCESSED_DATA'; payload: { key: string; data: any } }
+    | { type: 'SET_PROCESSING_STATUS'; payload: { key: string; status: boolean } }
+    | { type: 'SET_PROCESSED_DATA_ERROR'; payload: string | null };
+
+// Existing Action Types
 export type AuthAction =
     | { type: 'SET_USER'; payload: User | null }
     | { type: 'SET_USER_PROFILE'; payload: UserProfile | null }
@@ -201,6 +208,7 @@ export type AuthAction =
 
 export type DataAction =
     | { type: 'SET_FILE_TREE'; payload: FileNode[] }
+    | { type: 'SET_SAMPLE_GROUPS'; payload: Record<string, SampleGroupMetadata> }
     | { type: 'ADD_SAMPLE_GROUP'; payload: SampleGroupMetadata }
     | { type: 'UPDATE_SAMPLE_GROUP'; payload: SampleGroupMetadata }
     | { type: 'DELETE_SAMPLE_GROUP'; payload: string }
@@ -220,11 +228,24 @@ export type UIAction =
     | { type: 'SET_MODAL_STATE'; payload: ModalState }
     | { type: 'SET_CONTEXT_MENU_STATE'; payload: ContextMenuState };
 
-export type AppAction = AuthAction | DataAction | UIAction | LocationAction;
+// Combined Action Type
+export type AppAction =
+    | AuthAction
+    | DataAction
+    | UIAction
+    | ProcessedDataAction;
 
+// Update ProcessedDataState type
+export interface ProcessedDataState {
+    data: Record<string, any>;
+    isProcessing: Record<string, boolean>;
+    error: string | null;
+}
+
+// Update AppState to include ProcessedDataState
 export interface AppState {
     auth: AuthState;
     data: DataState;
-    ui: UIState;
     processedData: ProcessedDataState;
+    ui: UIState;
 }

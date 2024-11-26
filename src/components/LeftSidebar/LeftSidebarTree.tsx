@@ -7,11 +7,11 @@ import {
     Science as ScienceIcon
 } from '@mui/icons-material';
 
-import { useUI } from '../../lib/hooks';
-import { useData } from '../../lib/hooks';
+import { useUI } from '../../lib/hooks/useUI';
+import { useData } from '../../lib/hooks/useData';
 import { FileTreeService } from '../../lib/services/FileTreeService';
 import CustomCursor from './CustomCursor';
-import type { TreeItem } from '../../lib/types';
+import type { FileNode } from '../../lib/types';
 
 const LeftSidebarTree: React.FC = () => {
     const {
@@ -39,9 +39,9 @@ const LeftSidebarTree: React.FC = () => {
             const dragId = dragIds[0];
             if (!dragId) return;
 
-            let nodeToMove: TreeItem | null = null;
+            let nodeToMove: FileNode | null = null;
 
-            const findNode = (nodes: TreeItem[] | null): TreeItem | null => {
+            const findNode = (nodes: FileNode[] | null): FileNode | null => {
                 if (!nodes) return null;
                 for (const node of nodes) {
                     if (node.id === dragId) return node;
@@ -65,7 +65,7 @@ const LeftSidebarTree: React.FC = () => {
         }
     }, [fileTree, setErrorMessage]);
 
-    const handleContextMenu = useCallback((e: React.MouseEvent, node: NodeApi<TreeItem>) => {
+    const handleContextMenu = useCallback((e: React.MouseEvent, node: NodeApi<FileNode>) => {
         e.preventDefault();
         setSelectedLeftItem(node.data);
         setContextMenuState({
@@ -108,13 +108,13 @@ const LeftSidebarTree: React.FC = () => {
     const disableDrag = useCallback(() => isSyncing, [isSyncing]);
 
     const disableDrop = useCallback(
-        (args: { parentNode: NodeApi<TreeItem> | null }) =>
+        (args: { parentNode: NodeApi<FileNode> | null }) =>
             args.parentNode?.data.type === 'sampleGroup' || isSyncing,
         [isSyncing]
     );
 
     const onSelect = useCallback(
-        (nodes: NodeApi<TreeItem>[]) => {
+        (nodes: NodeApi<FileNode>[]) => {
             if (nodes.length > 0) {
                 setSelectedLeftItem(nodes[0].data);
             } else {
@@ -129,7 +129,7 @@ const LeftSidebarTree: React.FC = () => {
                                  style,
                                  dragHandle,
                              }: {
-            node: NodeApi<TreeItem>;
+            node: NodeApi<FileNode>;
             style: React.CSSProperties;
             dragHandle?: (el: HTMLDivElement | null) => void;
         }) => {
@@ -168,7 +168,7 @@ const LeftSidebarTree: React.FC = () => {
                             <ScienceIcon />
                         ) : null}
                     </div>
-                    <div className="tree-node__text">{node.data.text}</div>
+                    <div className="tree-node__text">{node.data.name}</div>
                 </div>
             );
         }, (prevProps, nextProps) =>
