@@ -6,7 +6,7 @@ import {
     FolderOpen as FolderOpenIcon,
     Science as ScienceIcon
 } from '@mui/icons-material';
-
+//@ts-ignore
 import { useUI } from '../../lib/hooks/useUI';
 import { useData } from '../../lib/hooks/useData';
 import { FileTreeService } from '../../lib/services/FileTreeService';
