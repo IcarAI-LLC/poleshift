@@ -15,7 +15,7 @@ import { useData } from '../../lib/hooks';
 import { useAuth } from '../../lib/hooks';
 import { FileTreeService } from '../../lib/services/FileTreeService';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
-import type { ResearchLocation } from '../../lib/types';
+import type { SampleLocation } from '../../lib/types';
 import { DateTime } from 'luxon'
 
 import Modal from '../Modal';
@@ -235,9 +235,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 : undefined,
             user_id: user.id,
             org_id: organization.id,
-            latitude_recorded: null,
-            longitude_recorded: null,
-            notes: null,
+            latitude_recorded: undefined,
+            longitude_recorded: undefined,
+            notes: undefined,
             updated_at: DateTime.now().toISO()
           });
           console.log("Sample group created: ", sampleGroup)
@@ -287,7 +287,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             name: 'locCharId',
             label: 'Location',
             type: 'select',
-            options: locations.map((loc: ResearchLocation) => ({
+            options: locations.map((loc: SampleLocation) => ({
               value: loc.char_id,
               label: loc.label,
             })),

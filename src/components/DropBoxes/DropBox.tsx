@@ -8,7 +8,7 @@ import {
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
-import type { SampleGroup } from '../../lib/types';
+import type { SampleGroupMetadata } from '../../lib/types';
 import { useProcessedData } from '../../lib/hooks/useProcessedData.ts';
 import ProgressTracker from './ProgressTracker';
 import type { Theme } from '@mui/material/styles';
@@ -20,7 +20,7 @@ interface DropBoxProps {
   hasData: boolean;
   isLocked: boolean;
   openModal: (title: string, configItem: DropboxConfigItem, uploadedFiles?: File[]) => void;
-  sampleGroup: SampleGroup;
+  sampleGroup: SampleGroupMetadata;
   onDataProcessed: (insertData: any, configItem: DropboxConfigItem, processedData: any) => void;
   onError: (message: string) => void;
   uploadedDataItem: any;

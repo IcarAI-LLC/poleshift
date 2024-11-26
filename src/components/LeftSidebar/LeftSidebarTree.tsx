@@ -7,8 +7,8 @@ import {
     Science as ScienceIcon
 } from '@mui/icons-material';
 //@ts-ignore
-import { useUI } from '../../lib/hooks/useUI';
-import { useData } from '../../lib/hooks/useData';
+import { useUI } from '../../lib/hooks';
+import { useData } from '../../lib/hooks';
 import { FileTreeService } from '../../lib/services/FileTreeService';
 import CustomCursor from './CustomCursor';
 import type { FileNode } from '../../lib/types';
