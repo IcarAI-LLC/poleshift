@@ -6,7 +6,7 @@ import Login from '../components/PreAuth/Login';
 import SignUp from '../components/PreAuth/SignUp';
 import MainApp from '../components/MainApp';
 import ResetPassword from '../components/PreAuth/ResetPassword';
-import useAuth from '../old_hooks/useAuth';
+import { useAuth } from '../lib/hooks/useAuth';
 
 const AppRoutes: React.FC = () => {
   const { user, loading} = useAuth();

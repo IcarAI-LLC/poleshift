@@ -1,35 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { TextField, Box, Typography, Theme } from '@mui/material';
-import type { Dispatch, SetStateAction } from 'react';
-import { SampleGroup } from '../old_utils/sampleGroupUtils';
-import supabase from '../old_utils/supabaseClient';
-import {
-  addPendingOperation,
-  addOrUpdateSampleGroup, PendingOperation,
-} from '../old_utils/offlineStorage';
+import React, { useState, useEffect, useCallback } from 'react';
+import { TextField, Box, Typography } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
+import type { SxProps } from '@mui/system';
+
+import { useData } from '../lib/hooks';
+import type { SampleGroup } from '../lib/types';
 
 interface LocationFieldsProps {
   sampleGroup: SampleGroup;
   theme: Theme;
-  metadataItemStyles: any;
-  labelStyles: any;
-  valueStyles: any;
-  darkFieldStyles: any;
-  setSampleGroupData: Dispatch<SetStateAction<Record<string, SampleGroup>>>;
+  metadataItemStyles: SxProps<Theme>;
+  labelStyles: SxProps<Theme>;
+  darkFieldStyles: SxProps<Theme>;
 }
 
 const LocationFields: React.FC<LocationFieldsProps> = ({
-  sampleGroup,
-  metadataItemStyles,
-  labelStyles,
-  darkFieldStyles,
-  setSampleGroupData,
-}) => {
+                                                         sampleGroup,
+                                                         metadataItemStyles,
+                                                         labelStyles,
+                                                         darkFieldStyles,
+                                                       }) => {
+  const { updateSampleGroup } = useData();
+
   const [latitude, setLatitude] = useState<string>(
-    sampleGroup.latitude_recorded?.toString() || '',
+      sampleGroup.latitude_recorded?.toString() || ''
   );
   const [longitude, setLongitude] = useState<string>(
-    sampleGroup.longitude_recorded?.toString() || '',
+      sampleGroup.longitude_recorded?.toString() || ''
   );
 
   useEffect(() => {
@@ -37,188 +34,121 @@ const LocationFields: React.FC<LocationFieldsProps> = ({
     setLongitude(sampleGroup.longitude_recorded?.toString() || '');
   }, [sampleGroup.latitude_recorded, sampleGroup.longitude_recorded]);
 
-  const validateCoordinate = (
-    value: string,
-    type: 'latitude' | 'longitude',
+  const validateCoordinate = useCallback((
+      value: string,
+      type: 'latitude' | 'longitude',
   ): boolean => {
     if (!value) return true;
     const num = parseFloat(value);
     if (isNaN(num)) return false;
     return type === 'latitude'
-      ? num >= -90 && num <= 90
-      : num >= -180 && num <= 180;
-  };
+        ? num >= -90 && num <= 90
+        : num >= -180 && num <= 180;
+  }, []);
 
-  const handleLatitudeUpdate = async (newLatitude: string) => {
+  const getErrorMessage = useCallback((
+      value: string,
+      type: 'latitude' | 'longitude'
+  ): string => {
+    if (!validateCoordinate(value, type)) {
+      return type === 'latitude'
+          ? 'Invalid latitude. Must be between -90 and 90 degrees'
+          : 'Invalid longitude. Must be between -180 and 180 degrees';
+    }
+    return '';
+  }, [validateCoordinate]);
+
+  const handleCoordinateUpdate = useCallback(async (
+      value: string,
+      type: 'latitude' | 'longitude'
+  ) => {
     if (!sampleGroup.id) {
       console.error('Sample group ID is undefined');
       return;
     }
 
     try {
-      const numericValue = newLatitude ? parseFloat(newLatitude) : null;
+      const numericValue = value ? parseFloat(value) : null;
+      const updateField = type === 'latitude' ? 'latitude_recorded' : 'longitude_recorded';
 
-      // Update local state immediately
-      setSampleGroupData((prev) => ({
-        ...prev,
-        [sampleGroup.id]: {
-          ...prev[sampleGroup.id],
-          latitude_recorded: numericValue,
-        },
-      }));
-
-      // Save to IndexedDB
-      await addOrUpdateSampleGroup({
-        ...sampleGroup,
-        latitude_recorded: numericValue,
+      await updateSampleGroup(sampleGroup.id, {
+        [updateField]: numericValue
       });
-
-      if (navigator.onLine) {
-        // Online: Update Supabase directly
-        const { error } = await supabase
-          .from('sample_group_metadata')
-          .update({ latitude_recorded: numericValue })
-          .eq('id', sampleGroup.id);
-
-        if (error) throw error;
-      } else {
-        // Offline: Queue the operation
-        const pendingOperation: PendingOperation = {
-          id: sampleGroup.id,
-          type: "update",
-          table: 'sample_group_metadata',
-          data: {
-            id: sampleGroup.id,
-            updateData: { latitude_recorded: numericValue },
-          }
-        };
-        await addPendingOperation(pendingOperation);
-      }
     } catch (error) {
-      console.error('Error updating latitude:', error);
-    }
-  };
-
-  const handleLongitudeUpdate = async (newLongitude: string) => {
-    if (!sampleGroup.id) {
-      console.error('Sample group ID is undefined');
-      return;
-    }
-
-    try {
-      const numericValue = newLongitude ? parseFloat(newLongitude) : null;
-
-      // Update local state immediately
-      setSampleGroupData((prev) => ({
-        ...prev,
-        [sampleGroup.id]: {
-          ...prev[sampleGroup.id],
-          longitude_recorded: numericValue,
-        },
-      }));
-
-      // Save to IndexedDB
-      await addOrUpdateSampleGroup({
-        ...sampleGroup,
-        longitude_recorded: numericValue,
-      });
-
-      if (navigator.onLine) {
-        // Online: Update Supabase directly
-        const { error } = await supabase
-          .from('sample_group_metadata')
-          .update({ longitude_recorded: numericValue })
-          .eq('id', sampleGroup.id);
-
-        if (error) throw error;
+      console.error(`Error updating ${type}:`, error);
+      // Reset the field to its previous value on error
+      if (type === 'latitude') {
+        setLatitude(sampleGroup.latitude_recorded?.toString() || '');
       } else {
-        // Offline: Queue the operation
-        const pendingOperation: PendingOperation = {
-          id: sampleGroup.id,
-          type: "update",
-          table: 'sample_group_metadata',
-          data: {
-            id: sampleGroup.id,
-            updateData: { longitude_recorded: numericValue },
-          },
-        };
-        await addPendingOperation(pendingOperation);
+        setLongitude(sampleGroup.longitude_recorded?.toString() || '');
       }
-    } catch (error) {
-      console.error('Error updating longitude:', error);
     }
-  };
+  }, [sampleGroup.id, updateSampleGroup]);
 
   return (
-    <>
-      <Box sx={metadataItemStyles}>
-        <Typography sx={labelStyles}>Latitude:</Typography>
-        <TextField
-          value={latitude}
-          onChange={(e) => setLatitude(e.target.value)}
-          onBlur={() => {
-            if (validateCoordinate(latitude, 'latitude')) {
-              handleLatitudeUpdate(latitude);
-            } else {
-              setLatitude(sampleGroup.latitude_recorded?.toString() || '');
-            }
-          }}
-          placeholder="Enter latitude (-90 to 90)"
-          type="number"
-          inputProps={{
-            step: 'any',
-            min: -90,
-            max: 90,
-          }}
-          fullWidth
-          variant="outlined"
-          size="small"
-          error={!validateCoordinate(latitude, 'latitude')}
-          helperText={
-            !validateCoordinate(latitude, 'latitude') ? 'Invalid latitude' : ''
-          }
-          sx={{
-            ...darkFieldStyles,
-            flex: 1,
-          }}
-        />
-      </Box>
+      <>
+        <Box sx={metadataItemStyles}>
+          <Typography sx={labelStyles}>Latitude:</Typography>
+          <TextField
+              value={latitude}
+              onChange={(e) => setLatitude(e.target.value)}
+              onBlur={() => {
+                if (validateCoordinate(latitude, 'latitude')) {
+                  handleCoordinateUpdate(latitude, 'latitude');
+                } else {
+                  setLatitude(sampleGroup.latitude_recorded?.toString() || '');
+                }
+              }}
+              placeholder="Enter latitude (-90 to 90)"
+              type="number"
+              inputProps={{
+                step: 'any',
+                min: -90,
+                max: 90,
+              }}
+              fullWidth
+              variant="outlined"
+              size="small"
+              error={!validateCoordinate(latitude, 'latitude')}
+              helperText={getErrorMessage(latitude, 'latitude')}
+              sx={{
+                ...darkFieldStyles,
+                flex: 1,
+              }}
+          />
+        </Box>
 
-      <Box sx={metadataItemStyles}>
-        <Typography sx={labelStyles}>Longitude:</Typography>
-        <TextField
-          value={longitude}
-          onChange={(e) => setLongitude(e.target.value)}
-          onBlur={() => {
-            if (validateCoordinate(longitude, 'longitude')) {
-              handleLongitudeUpdate(longitude);
-            } else {
-              setLongitude(sampleGroup.longitude_recorded?.toString() || '');
-            }
-          }}
-          placeholder="Enter longitude (-180 to 180)"
-          type="number"
-          inputProps={{
-            step: 'any',
-            min: -180,
-            max: 180,
-          }}
-          fullWidth
-          variant="outlined"
-          size="small"
-          error={!validateCoordinate(longitude, 'longitude')}
-          helperText={
-            !validateCoordinate(longitude, 'longitude')
-              ? 'Invalid longitude'
-              : ''
-          }
-          sx={{
-            ...darkFieldStyles,
-            flex: 1,
-          }}
-        />
-      </Box>
-    </>
+        <Box sx={metadataItemStyles}>
+          <Typography sx={labelStyles}>Longitude:</Typography>
+          <TextField
+              value={longitude}
+              onChange={(e) => setLongitude(e.target.value)}
+              onBlur={() => {
+                if (validateCoordinate(longitude, 'longitude')) {
+                  handleCoordinateUpdate(longitude, 'longitude');
+                } else {
+                  setLongitude(sampleGroup.longitude_recorded?.toString() || '');
+                }
+              }}
+              placeholder="Enter longitude (-180 to 180)"
+              type="number"
+              inputProps={{
+                step: 'any',
+                min: -180,
+                max: 180,
+              }}
+              fullWidth
+              variant="outlined"
+              size="small"
+              error={!validateCoordinate(longitude, 'longitude')}
+              helperText={getErrorMessage(longitude, 'longitude')}
+              sx={{
+                ...darkFieldStyles,
+                flex: 1,
+              }}
+          />
+        </Box>
+      </>
   );
 };
 

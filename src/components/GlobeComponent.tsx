@@ -1,13 +1,11 @@
-// src/renderer/components/GlobeComponent.tsx
-
-import React, { useRef, useMemo, useCallback} from 'react';
-import Globe, {GlobeMethods} from 'react-globe.gl';
+import React, { useRef, useMemo, useCallback } from 'react';
+import Globe, { GlobeMethods } from 'react-globe.gl';
 import globeImage from '../assets/globe.jpg';
 import { DateTime } from 'luxon';
-import useData from '../old_hooks/useData';
-import useUI from '../old_hooks/useUI';
 
-// Optional: Define the type for a point to improve type safety
+import { useData, useUI } from '../lib/hooks';
+import type { ResearchLocation, SampleGroup } from '../lib/types';
+
 interface GlobePoint {
     lat: number;
     lng: number;
@@ -17,13 +15,11 @@ interface GlobePoint {
 
 const GlobeComponent: React.FC = () => {
     const globeRef = useRef<React.MutableRefObject<GlobeMethods | undefined>>(null);
-    const { sampleGroupData, locations } = useData();
-    const { setSelectedRightItem, openRightSidebar, filters } = useUI();
+    const { sampleGroups, locations } = useData();
+    const { setSelectedRightItem, toggleRightSidebar, filters } = useUI();
 
-    // Memoize filteredSampleGroups to avoid recalculating on every render
     const filteredSampleGroups = useMemo(() => {
-        return Object.values(sampleGroupData).filter((group) => {
-            // Filter by location
+        return Object.values(sampleGroups).filter((group: SampleGroup) => {
             if (
                 filters.selectedLocations.length > 0 &&
                 !filters.selectedLocations.includes(group.loc_id)
@@ -31,7 +27,6 @@ const GlobeComponent: React.FC = () => {
                 return false;
             }
 
-            // Filter by date range
             const sampleDate = group.collection_date
                 ? DateTime.fromISO(group.collection_date)
                 : null;
@@ -51,9 +46,8 @@ const GlobeComponent: React.FC = () => {
 
             return true;
         });
-    }, [sampleGroupData, filters]);
+    }, [sampleGroups, filters]);
 
-    // Memoize pointsData to prevent unnecessary computations
     const pointsData = useMemo<GlobePoint[]>(() => {
         return filteredSampleGroups
             .map((group) => {
@@ -71,31 +65,38 @@ const GlobeComponent: React.FC = () => {
             .filter((point): point is GlobePoint => point !== null);
     }, [filteredSampleGroups, locations]);
 
-    // Memoize the click handler to maintain a stable reference
+    // Updated handler with correct type signature
     const handlePointClick = useCallback(
-        (point: any) => {
-            const selectedLocation = locations.find((loc) => loc.id === point.id);
+        //@ts-ignore
+        (point: object, event: MouseEvent, coords: { lat: number; lng: number; altitude: number }) => {
+            // Type assertion since we know our point data structure
+            const globePoint = point as GlobePoint;
+            const selectedLocation = locations.find((loc: ResearchLocation) => loc.id === globePoint.id);
+
             if (selectedLocation) {
                 setSelectedRightItem(selectedLocation);
-                openRightSidebar(); // Explicitly open the sidebar
-                globeRef?.current?.current?.pointOfView({
-                    lat: selectedLocation.lat,
-                    lng: selectedLocation.long,
-                    altitude: 0.5,
-                }, 1000); // Optional: Add animation duration
+                toggleRightSidebar(false);
+
+                const globeInstance = globeRef?.current?.current;
+                if (globeInstance) {
+                    globeInstance.pointOfView(
+                        {
+                            lat: selectedLocation.lat,
+                            lng: selectedLocation.long,
+                            altitude: 0.5,
+                        },
+                        1000
+                    );
+                }
             }
         },
-        [locations, setSelectedRightItem, openRightSidebar]
+        [locations, setSelectedRightItem, toggleRightSidebar]
     );
 
-    // Optional: Optimize Globe's pointColor if it depends on props/state
     const getPointColor = useCallback(() => 'cyan', []);
 
     return (
-        <div
-            className="globe-container"
-            style={{ height: '100vh', width: '100%' }}
-        >
+        <div className="globe-container">
             <Globe
                 ref={globeRef?.current || undefined}
                 globeImageUrl={globeImage}
@@ -103,19 +104,15 @@ const GlobeComponent: React.FC = () => {
                 onPointClick={handlePointClick}
                 pointAltitude={0.1}
                 pointRadius={0.05}
-                pointColor={getPointColor} // Use the memoized color function
+                pointColor={getPointColor}
                 pointLabel="name"
-                backgroundColor="#000000" // Dark background
-                // Optional: Add additional optimizations or configurations
+                backgroundColor="#000000"
                 enablePointerInteraction={true}
-                // Consider adding `animateIn` or other Globe props as needed
-                width={window.innerWidth} // Responsive width
-                height={window.innerHeight} // Responsive height
+                width={window.innerWidth}
+                height={window.innerHeight}
             />
-            {/* Optional: Add overlay components or controls here */}
         </div>
     );
 };
 
-// Wrap the component with React.memo to prevent re-renders unless props change
 export default React.memo(GlobeComponent);
