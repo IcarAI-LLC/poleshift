@@ -51,10 +51,8 @@ export class SyncManager {
         if (this.syncInProgress || !this.networkService.isOnline()) return;
 
         this.syncInProgress = true;
-
         try {
             let operation = await this.operationQueue.dequeue();
-
             while (operation) {
                 const success = await this.syncOperation(operation);
 
@@ -72,6 +70,7 @@ export class SyncManager {
             }
         } finally {
             this.syncInProgress = false;
+            console.log("Sync complete");
         }
     }
 

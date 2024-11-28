@@ -1,5 +1,5 @@
 // lib/components/LeftSidebarTree.tsx
-import React, {useCallback, useRef, useEffect, startTransition} from 'react';
+import React, {useCallback, useRef, useEffect} from 'react';
 import { Tree, NodeApi, CursorProps } from 'react-arborist';
 import {
     Folder as FolderIcon,
@@ -21,28 +21,27 @@ const LeftSidebarTree: React.FC = () => {
         setErrorMessage,
     } = useUI();
 
-    const { fileTree, isSyncing } = useData();
-    console.log(fileTree);
-
     const contextMenuRef = useRef<HTMLDivElement>(null);
 
+    const { fileTree, updateFileTree, isSyncing, deleteNode } = useData();
+
     const handleMove = useCallback(
-        ({
-             dragIds,
-             parentId,
-             index,
-         }: {
+        async ({
+                   dragIds,
+                   parentId,
+                   index,
+               }: {
             dragIds: string[];
             parentId: string | null;
             index: number;
         }) => {
             try {
-                const dragId = dragIds[0]; // Assuming single node drag-and-drop
+                const dragId = dragIds[0];
                 if (!dragId) return;
 
                 let nodeToMove: FileNode | null = null;
 
-                // Function to find the node to move
+                // Find the node to move
                 const findNode = (nodes: FileNode[]): FileNode | null => {
                     for (const node of nodes) {
                         if (node.id === dragId) {
@@ -61,7 +60,7 @@ const LeftSidebarTree: React.FC = () => {
                     throw new Error('Node to move not found');
                 }
 
-                // Remove the node from its current location
+                // Remove node from current location
                 const removeNode = (nodes: FileNode[]): FileNode[] => {
                     return nodes
                         .filter((node) => node.id !== dragId)
@@ -73,7 +72,7 @@ const LeftSidebarTree: React.FC = () => {
 
                 const updatedTreeData = removeNode(fileTree);
 
-                // Insert the node at the new location
+                // Insert node at new location
                 const insertNode = (nodes: FileNode[]): FileNode[] => {
                     return nodes.map((node) => {
                         if (node.id === parentId) {
@@ -97,7 +96,6 @@ const LeftSidebarTree: React.FC = () => {
                 let finalTreeData: FileNode[];
 
                 if (parentId === null) {
-                    // Insert at root level
                     finalTreeData = [
                         ...updatedTreeData.slice(0, index),
                         nodeToMove,
@@ -107,16 +105,14 @@ const LeftSidebarTree: React.FC = () => {
                     finalTreeData = insertNode(updatedTreeData);
                 }
 
-                // Use startTransition to defer the state update
-                startTransition(() => {
-                    setFileTreeData(finalTreeData);
-                });
+                // Update the file tree using the new method
+                await updateFileTree(finalTreeData);
             } catch (error) {
                 console.error('Error during drag and drop:', error);
                 setErrorMessage('An error occurred while moving items.');
             }
         },
-        [fileTreeData, setFileTreeData, setErrorMessage],
+        [fileTree, updateFileTree, setErrorMessage]
     );
 
     const handleContextMenu = useCallback((e: React.MouseEvent, node: NodeApi<FileNode>) => {
@@ -131,17 +127,17 @@ const LeftSidebarTree: React.FC = () => {
     }, [setSelectedLeftItem, setContextMenuState]);
 
     const handleDeleteSample = useCallback(async () => {
-        if (!contextMenu.itemId){
+        if (!contextMenu.itemId) {
             setErrorMessage('Could not determine which item to delete.');
-            return
+            return;
         }
         try {
-            await FileTreeService.deleteNode(contextMenu?.itemId);
+            await deleteNode(contextMenu.itemId);
             setContextMenuState({ ...contextMenu, isVisible: false });
         } catch (error: any) {
             setErrorMessage(error.message || 'An error occurred while deleting the item.');
         }
-    }, [contextMenu, setContextMenuState, setErrorMessage]);
+    }, [contextMenu, deleteNode, setContextMenuState, setErrorMessage]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {

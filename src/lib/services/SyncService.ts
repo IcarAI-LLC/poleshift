@@ -9,7 +9,7 @@ export class SyncService extends BaseService {
     protected storageKey: string = 'sync';
 
     constructor(
-        private supabase: SupabaseClient,
+        public supabase: SupabaseClient,
         storage: IndexedDBStorage
     ) {
         super(storage);
@@ -65,8 +65,8 @@ export class SyncService extends BaseService {
             }
 
             const { data, error } = await query;
+            console.log(error);
             if (error) throw error;
-
             if (data?.length) {
                 await this.storage.bulkSave(table, data);
             }
@@ -103,7 +103,7 @@ export class SyncService extends BaseService {
     async syncProcessedData(sampleId: string, configId: string, data: any): Promise<void> {
         try {
             const { error } = await this.supabase
-                .from('processed_data')
+                .from('sample_metadata')
                 .upsert({
                     sample_id: sampleId,
                     config_id: configId,

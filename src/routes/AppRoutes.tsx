@@ -1,21 +1,64 @@
 // src/renderer/routes/AppRoutes.tsx
 
-import React, { useState } from 'react';
-import Loading from '../components/Loading';
+import React, { useState, useEffect } from 'react';
+import LoadingScreen from '../components/PreAuth/LoadingScreen';
 import Login from '../components/PreAuth/Login';
 import SignUp from '../components/PreAuth/SignUp';
 import MainApp from '../components/MainApp';
 import ResetPassword from '../components/PreAuth/ResetPassword';
-import { useAuth } from '../lib/hooks/useAuth';
+import { useAuth, useData } from '../lib/hooks';
 
 const AppRoutes: React.FC = () => {
-  const { user, loading} = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { syncData, isSyncing } = useData();
   const [currentView, setCurrentView] = useState<
-    'login' | 'signup' | 'reset-password'
+      'login' | 'signup' | 'reset-password'
   >('login');
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  if (loading) {
-    return <Loading />;
+  useEffect(() => {
+    let initTimeout: number;
+
+    const initializeApp = async () => {
+      if (user) {
+        try {
+          await syncData();
+        } catch (error) {
+          console.error('Initial sync failed:', error);
+          // Continue loading even if sync fails
+        }
+      }
+
+      // Ensure loading screen shows for at least 1 second to avoid flash
+      initTimeout = window.setTimeout(() => {
+        setIsInitializing(false);
+      }, 1000);
+    };
+
+    if (!authLoading) {
+      initializeApp();
+    }
+
+    return () => {
+      if (initTimeout) {
+        clearTimeout(initTimeout);
+      }
+    };
+  }, [user, authLoading, syncData]);
+
+  // Show loading screen during authentication or initialization
+  if (authLoading || isInitializing) {
+    return (
+        <LoadingScreen
+            message={
+              authLoading
+                  ? "Authenticating..."
+                  : isSyncing
+                      ? "Syncing your data..."
+                      : "Initializing application..."
+            }
+        />
+    );
   }
 
   if (!user) {

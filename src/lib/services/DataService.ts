@@ -1,7 +1,7 @@
 // lib/services/DataService.ts
 import {BaseService} from "./BaseService.ts";
 import {NetworkService, OperationQueue} from "./offline";
-import {SampleGroupMetadata, SampleLocation} from "../types";
+import {FileNode, SampleGroupMetadata, SampleLocation} from "../types";
 import {SyncService} from "./SyncService.ts";
 //@ts-ignore
 import {IndexedDBStorage} from "../storage/IndexedDB.ts";
@@ -96,6 +96,48 @@ export class DataService extends BaseService {
             return await this.storage.getAllLocations();
         } catch (error) {
             this.handleError(error, 'Failed to get locations');
+        }
+    }
+
+    async updateFileTree(updatedTree: FileNode[]): Promise<void> {
+        try {
+            // Update each node in the tree
+            for (const node of updatedTree) {
+                await this.storage.saveFileNode(node);
+            }
+
+            // If online, create/update each node individually
+            if (this.networkService.isOnline()) {
+                for (const node of updatedTree) {
+                    await this.syncService.updateRemote('file_nodes', node);
+                }
+            } else {
+                // Queue for later sync - one operation per node
+                for (const node of updatedTree) {
+                    await this.operationQueue.enqueue({
+                        type: 'update',
+                        table: 'file_nodes',
+                        data: node
+                    });
+                }
+            }
+        } catch (error) {
+            this.handleError(error, 'Failed to update file tree');
+        }
+    }
+
+    async deleteNode(nodeId: string): Promise<void> {
+        try {
+            // Delete from local storage
+            await this.storage.deleteFileNode(nodeId);
+
+            // Also delete associated sample group if it exists
+            const node = await this.storage.getFileNode(nodeId);
+            if (node?.type === 'sampleGroup') {
+                await this.storage.deleteSampleGroup(nodeId);
+            }
+        } catch (error) {
+            this.handleError(error, 'Failed to delete node');
         }
     }
 }

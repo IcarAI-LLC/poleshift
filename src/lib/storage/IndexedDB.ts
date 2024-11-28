@@ -1,3 +1,4 @@
+// lib/storage/IndexedDB.ts
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import {
     FileNode,
@@ -12,16 +13,16 @@ import {
 } from '../types';
 
 interface AppDB extends DBSchema {
-    userTiers: {
+    user_tiers: {
         key: string; // 'name' is the primary key
         value: UserTier;
     };
-    licenseKeys: {
+    license_keys: {
         key: string; // 'id' as UUID string
         value: LicenseKey;
         indexes: { 'organization_id': string };
     };
-    sampleLocations: {
+    sample_locations: {
         key: string; // 'id' as UUID string
         value: SampleLocation;
     };
@@ -29,12 +30,12 @@ interface AppDB extends DBSchema {
         key: string; // 'id' as UUID string
         value: Organization;
     };
-    userProfiles: {
+    user_profiles: {
         key: string; // 'id' as UUID string
         value: UserProfile;
         indexes: { 'organization_id': string };
     };
-    sampleGroupMetadata: {
+    sample_group_metadata: {
         key: string; // 'id' as UUID string
         value: SampleGroupMetadata;
         indexes: {
@@ -44,7 +45,7 @@ interface AppDB extends DBSchema {
             'human_readable_sample_id': string;
         };
     };
-    fileNodes: {
+    file_nodes: {
         key: string; // 'id' as UUID string
         value: FileNode;
         indexes: {
@@ -53,7 +54,7 @@ interface AppDB extends DBSchema {
             'parent_id': string;
         };
     };
-    sampleMetadata: {
+    sample_metadata: {
         key: string; // 'id' as UUID string
         value: SampleMetadata;
         indexes: {
@@ -63,12 +64,12 @@ interface AppDB extends DBSchema {
             'human_readable_sample_id': string;
         };
     };
-    pendingOperations: {
+    pending_operations: {
         key: string; // 'id' as UUID string
         value: PendingOperation;
         indexes: { 'timestamp': number };
     };
-    processedData: {
+    processed_data: {
         key: string; // Composite key: `${sampleId}:${configId}`
         value: {
             key: string;
@@ -95,22 +96,22 @@ class IndexedDBStorage {
 
     private async getDB(): Promise<IDBPDatabase<AppDB>> {
         if (!this.db) {
-            this.db = await openDB<AppDB>('appDB', 1, {
+            this.db = await openDB<AppDB>('appDB', 12, {
                 upgrade(db) {
                     // User Tiers
-                    if (!db.objectStoreNames.contains('userTiers')) {
-                        db.createObjectStore('userTiers', { keyPath: 'name' });
+                    if (!db.objectStoreNames.contains('user_tiers')) {
+                        db.createObjectStore('user_tiers', { keyPath: 'name' });
                     }
 
                     // License Keys
-                    if (!db.objectStoreNames.contains('licenseKeys')) {
-                        const licenseStore = db.createObjectStore('licenseKeys', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('license_keys')) {
+                        const licenseStore = db.createObjectStore('license_keys', { keyPath: 'id' });
                         licenseStore.createIndex('organization_id', 'organization_id');
                     }
 
                     // Sample Locations
-                    if (!db.objectStoreNames.contains('sampleLocations')) {
-                        db.createObjectStore('sampleLocations', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('sample_locations')) {
+                        db.createObjectStore('sample_locations', { keyPath: 'id' });
                     }
 
                     // Organizations
@@ -119,31 +120,30 @@ class IndexedDBStorage {
                     }
 
                     // User Profiles
-                    if (!db.objectStoreNames.contains('userProfiles')) {
-                        const userProfileStore = db.createObjectStore('userProfiles', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('user_profiles')) {
+                        const userProfileStore = db.createObjectStore('user_profiles', { keyPath: 'id' });
                         userProfileStore.createIndex('organization_id', 'organization_id');
                     }
 
                     // Sample Group Metadata
-                    if (!db.objectStoreNames.contains('sampleGroupMetadata')) {
-                        const sampleGroupStore = db.createObjectStore('sampleGroupMetadata', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('sample_group_metadata')) {
+                        const sampleGroupStore = db.createObjectStore('sample_group_metadata', { keyPath: 'id' });
                         sampleGroupStore.createIndex('org_id', 'org_id');
                         sampleGroupStore.createIndex('user_id', 'user_id');
                         sampleGroupStore.createIndex('loc_id', 'loc_id');
                         sampleGroupStore.createIndex('human_readable_sample_id', 'human_readable_sample_id', { unique: true });
                     }
-
                     // File Nodes
-                    if (!db.objectStoreNames.contains('fileNodes')) {
-                        const fileNodesStore = db.createObjectStore('fileNodes', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('file_nodes')) {
+                        const fileNodesStore = db.createObjectStore('file_nodes', { keyPath: 'id' });
                         fileNodesStore.createIndex('org_id', 'org_id');
                         fileNodesStore.createIndex('sample_group_id', 'sample_group_id');
                         fileNodesStore.createIndex('parent_id', 'parent_id');
                     }
 
                     // Sample Metadata
-                    if (!db.objectStoreNames.contains('sampleMetadata')) {
-                        const sampleMetaStore = db.createObjectStore('sampleMetadata', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('sample_metadata')) {
+                        const sampleMetaStore = db.createObjectStore('sample_metadata', { keyPath: 'id' });
                         sampleMetaStore.createIndex('sample_group_id', 'sample_group_id');
                         sampleMetaStore.createIndex('org_id', 'org_id');
                         sampleMetaStore.createIndex('user_id', 'user_id');
@@ -151,14 +151,14 @@ class IndexedDBStorage {
                     }
 
                     // Pending Operations
-                    if (!db.objectStoreNames.contains('pendingOperations')) {
-                        const pendingStore = db.createObjectStore('pendingOperations', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('pending_operations')) {
+                        const pendingStore = db.createObjectStore('pending_operations', { keyPath: 'id' });
                         pendingStore.createIndex('timestamp', 'timestamp');
                     }
 
                     // Processed Data
-                    if (!db.objectStoreNames.contains('processedData')) {
-                        db.createObjectStore('processedData', { keyPath: 'key' });
+                    if (!db.objectStoreNames.contains('processed_data')) {
+                        db.createObjectStore('processed_data', { keyPath: 'key' });
                     }
                 },
             });
@@ -200,55 +200,54 @@ class IndexedDBStorage {
         //@ts-ignore
         return db.getAllFromIndex(storeName, indexName, key);
     }
-
     // Specific Store Operations
 
     // Sample Groups
     async saveSampleGroup(group: SampleGroupMetadata): Promise<void> {
-        await this.put('sampleGroupMetadata', group);
+        await this.put('sample_group_metadata', group);
     }
 
     async getSampleGroup(id: string): Promise<SampleGroupMetadata | undefined> {
-        return this.get('sampleGroupMetadata', id);
+        return this.get('sample_group_metadata', id);
     }
 
     async getSampleGroupsByOrg(orgId: string): Promise<SampleGroupMetadata[]> {
-        return this.getAllFromIndex('sampleGroupMetadata', 'org_id', orgId);
+        return this.getAllFromIndex('sample_group_metadata', 'org_id', orgId);
     }
 
     async deleteSampleGroup(id: string): Promise<void> {
-        await this.delete('sampleGroupMetadata', id);
+        await this.delete('sample_group_metadata', id);
     }
 
     // File Nodes
     async saveFileNode(node: FileNode): Promise<void> {
-        await this.put('fileNodes', node);
+        await this.put('file_nodes', node);
     }
 
     async getFileNode(id: string): Promise<FileNode | undefined> {
-        return this.get('fileNodes', id);
+        return this.get('file_nodes', id);
     }
 
     async getFileNodesByOrg(orgId: string): Promise<FileNode[]> {
-        return this.getAllFromIndex('fileNodes', 'org_id', orgId);
+        return this.getAllFromIndex('file_nodes', 'org_id', orgId);
     }
 
     async deleteFileNode(id: string): Promise<void> {
-        await this.delete('fileNodes', id);
+        await this.delete('file_nodes', id);
     }
 
     // Sample Locations
     async saveLocation(location: SampleLocation): Promise<void> {
-        await this.put('sampleLocations', location);
+        await this.put('sample_locations', location);
     }
 
     async getLocation(id: string): Promise<SampleLocation | undefined> {
-        return this.get('sampleLocations', id);
+        return this.get('sample_locations', id);
     }
 
     async getAllLocations(): Promise<SampleLocation[]> {
         const db = await this.getDB();
-        return db.getAll('sampleLocations');
+        return db.getAll('sample_locations');
     }
 
     // Organizations
@@ -259,28 +258,27 @@ class IndexedDBStorage {
     async getOrganization(id: string): Promise<Organization | undefined> {
         return this.get('organizations', id);
     }
-
     // User Profiles
     async saveUserProfile(profile: UserProfile): Promise<void> {
-        await this.put('userProfiles', profile);
+        await this.put('user_profiles', profile);
     }
 
     async getUserProfile(id: string): Promise<UserProfile | undefined> {
-        return this.get('userProfiles', id);
+        return this.get('user_profiles', id);
     }
 
     // Pending Operations - Enhanced Methods
     async getPendingOperation(id: string): Promise<PendingOperation | undefined> {
-        return this.get('pendingOperations', id);
+        return this.get('pending_operations', id);
     }
 
     async updatePendingOperation(operation: PendingOperation): Promise<void> {
-        await this.put('pendingOperations', operation);
+        await this.put('pending_operations', operation);
     }
 
     async getPendingOperationsOrderedByTimestamp(): Promise<PendingOperation[]> {
         const db = await this.getDB();
-        return db.getAllFromIndex('pendingOperations', 'timestamp');
+        return db.getAllFromIndex('pending_operations', 'timestamp');
     }
 
     async getAllFailedOperations(maxRetries: number): Promise<PendingOperation[]> {
@@ -288,17 +286,15 @@ class IndexedDBStorage {
         return operations.filter(op => op.retryCount >= maxRetries);
     }
 
-// Add implementation in IndexedDB.ts
     async deletePendingOperation(id: string): Promise<void> {
         await this.delete('pendingOperations', id);
     }
 
     async getPendingOperations(): Promise<PendingOperation[]> {
         const db = await this.getDB();
-        return db.getAll('pendingOperations');
+        return db.getAll('pending_operations');
     }
 
-    // Update the PendingOperation related methods
     async addPendingOperation(operation: Omit<PendingOperation, 'retryCount'>): Promise<void> {
         const operationWithRetry = {
             ...operation,
@@ -318,13 +314,12 @@ class IndexedDBStorage {
     async clearFailedOperations(maxRetries: number): Promise<void> {
         const failedOps = await this.getAllFailedOperations(maxRetries);
         const db = await this.getDB();
-        const tx = db.transaction('pendingOperations', 'readwrite');
+        const tx = db.transaction('pending_operations', 'readwrite');
         await Promise.all(
             failedOps.map(op => tx.store.delete(op.id))
         );
         await tx.done;
     }
-
 
     // Processed Data
     async saveProcessedData(
@@ -334,7 +329,7 @@ class IndexedDBStorage {
         updatedAt: number
     ): Promise<void> {
         const key = `${sampleId}:${configId}`;
-        await this.put('processedData', {
+        await this.put('processed_data', {
             key,
             sampleId,
             configId,
@@ -345,21 +340,27 @@ class IndexedDBStorage {
 
     async getProcessedData(sampleId: string, configId: string): Promise<any> {
         const key = `${sampleId}:${configId}`;
-        return this.get('processedData', key);
+        return this.get('processed_data', key);
     }
 
     // Bulk Operations
-    async bulkSave<T>(storeName: string, items: T[]): Promise<void> {
+    async bulkSave<StoreName extends keyof AppDB>(
+        storeName: StoreName,
+        items: AppDB[StoreName]['value'][]
+    ): Promise<void> {
         const db = await this.getDB();
+        console.log(storeName);
         //@ts-ignore
         const tx = db.transaction(storeName, 'readwrite');
-        //@ts-ignore
-        await Promise.all(items.map(item => tx.store.put(item)));
+        for (const item of items) {
+            await tx.store.put(item);
+        }
         await tx.done;
     }
 
-    async clearStore(storeName: string): Promise<void> {
+    async clearStore<StoreName extends keyof AppDB>(storeName: StoreName): Promise<void> {
         const db = await this.getDB();
+        console.log(storeName);
         //@ts-ignore
         const tx = db.transaction(storeName, 'readwrite');
         await tx.store.clear();
@@ -367,6 +368,6 @@ class IndexedDBStorage {
     }
 }
 
-// Update the exports in storage/indexedDB.ts
-export { IndexedDBStorage };  // Add this export
+// Export both the type and the singleton instance
+export type { IndexedDBStorage };
 export const storage = IndexedDBStorage.getInstance();

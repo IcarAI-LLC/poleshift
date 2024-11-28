@@ -1,9 +1,9 @@
 // lib/contexts/AppContext.tsx
-import React, { createContext, useReducer, useEffect } from 'react';
-import type {AppState, AppAction, Services} from '../types';
-// lib/contexts/AppContext.tsx
 //@ts-ignore
-import {IndexedDBStorage, storage} from '../storage/indexedDB';
+import React, { createContext, useReducer, useEffect } from 'react';
+import type { AppState, AppAction, Services } from '../types';
+//@ts-ignore
+import { IndexedDBStorage, storage } from '../storage/indexedDB';
 import { supabase } from '../supabase/client';
 import {
     NetworkService,
@@ -16,17 +16,15 @@ import {
     SyncService,
     ProcessedDataService
 } from '../services';
-import {IndexedDBProcessedDataStorage, processedDataStorage} from "../storage/processedDataDB.ts";
+import { IndexedDBProcessedDataStorage, processedDataStorage } from "../storage/processedDataDB";
+
 // Initialize services in the correct order
 const networkService = new NetworkService();
 const operationQueue = new OperationQueue(storage);
-//@ts-ignore
 const syncService = new SyncService(supabase, storage);
 const syncManager = new SyncManager(networkService, operationQueue, syncService);
-//@ts-ignore
 const authService = new AuthService(supabase, storage);
-// @ts-ignore
-const dataService = new DataService(syncService, operationQueue, networkService, storage);
+const dataService = new DataService(syncService, networkService, operationQueue, storage);
 const processedDataService = new ProcessedDataService(
     syncService,
     networkService,
@@ -124,6 +122,27 @@ function appReducer(state: AppState, action: AppAction): AppState {
                 ...state,
                 auth: { ...state.auth, organization: action.payload }
             };
+        case 'SET_AUTH_LOADING':
+            return {
+                ...state,
+                auth: { ...state.auth, loading: action.payload }
+            };
+        case 'SET_AUTH_ERROR':
+            return {
+                ...state,
+                auth: { ...state.auth, error: action.payload }
+            };
+        case 'CLEAR_AUTH':
+            return {
+                ...state,
+                auth: {
+                    user: null,
+                    userProfile: null,
+                    organization: null,
+                    loading: false,
+                    error: null
+                }
+            };
 
         // Data Actions
         case 'SET_FILE_TREE':
@@ -151,6 +170,16 @@ function appReducer(state: AppState, action: AppAction): AppState {
             return {
                 ...state,
                 data: { ...state.data, isSyncing: action.payload }
+            };
+        case 'SET_LAST_SYNCED':
+            return {
+                ...state,
+                data: { ...state.data, lastSynced: action.payload }
+            };
+        case 'SET_DATA_ERROR':
+            return {
+                ...state,
+                data: { ...state.data, error: action.payload }
             };
 
         // ProcessedData Actions
@@ -183,10 +212,29 @@ function appReducer(state: AppState, action: AppAction): AppState {
                 ...state,
                 ui: { ...state.ui, selectedLeftItem: action.payload }
             };
+        case 'SET_SELECTED_RIGHT_ITEM':
+            return {
+                ...state,
+                ui: { ...state.ui, selectedRightItem: action.payload }
+            };
+        case 'TOGGLE_SIDEBAR':
+            return {
+                ...state,
+                ui: {
+                    ...state.ui,
+                    isSidebarCollapsed: action.payload !== undefined ?
+                        action.payload : !state.ui.isSidebarCollapsed
+                }
+            };
         case 'SET_ERROR_MESSAGE':
             return {
                 ...state,
                 ui: { ...state.ui, errorMessage: action.payload }
+            };
+        case 'SET_FILTERS':
+            return {
+                ...state,
+                ui: { ...state.ui, filters: action.payload }
             };
 
         default:
@@ -196,33 +244,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
     const [state, dispatch] = useReducer(appReducer, initialState);
-
-    // Initialize auth state
-    useEffect(() => {
-        const initAuth = async () => {
-            try {
-                const session = await supabase.getSession();
-                if (session) {
-                    const userProfile = await storage.getUserProfile(session.user.id);
-                    const organization = userProfile?.organization_id ?
-                        await storage.getOrganization(userProfile.organization_id) : null;
-                    //@ts-ignore
-                    dispatch({ type: 'SET_USER', payload: session.user });
-                    //@ts-ignore
-                    dispatch({ type: 'SET_USER_PROFILE', payload: userProfile });
-                    if (organization) {
-                        dispatch({ type: 'SET_ORGANIZATION', payload: organization });
-                    }
-                }
-            } catch (error) {
-                console.error('Auth initialization failed:', error);
-            } finally {
-                dispatch({ type: 'SET_AUTH_LOADING', payload: false });
-            }
-        };
-
-        initAuth();
-    }, []);
 
     return (
         <AppContext.Provider

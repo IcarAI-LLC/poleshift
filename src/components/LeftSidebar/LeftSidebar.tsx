@@ -13,7 +13,6 @@ import {v4 as uuidv4} from 'uuid'
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
 import { useAuth } from '../../lib/hooks';
-import { FileTreeService } from '../../lib/services/FileTreeService';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleLocation } from '../../lib/types';
 import { DateTime } from 'luxon'
@@ -37,7 +36,7 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
   const theme = useTheme();
-  const { createSampleGroup, sampleGroups } = useData();
+  const { createSampleGroup, sampleGroups, updateFileTree, fileTree } = useData();
   const { isSyncing, locations } = useData();
   const { organization, user } = useAuth();
   const {
@@ -165,12 +164,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
       try {
         if (configItem.processFunctionName === "folder") {
-          await FileTreeService.createFolder(
-              organization.id,
-              modalInputs.name,
-              null // parentId - can be modified if needed
-          );
+          // Create new folder node
+          const newFolder = {
+            id: uuidv4(),
+            org_id: organization.id,
+            name: modalInputs.name,
+            type: 'folder',
+            parent_id: null,
+            droppable: true,
+            children: [],
+            version: 1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+
+          // Update file tree with new folder
+          const updatedTree = [...fileTree, newFolder];
+          await updateFileTree(updatedTree);
           setErrorMessage('');
+
         } else if (configItem.processFunctionName === "sampleGroup") {
           const { collectionDate, collectionTime, locCharId } = modalInputs;
 
@@ -215,17 +227,28 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           // Generate a unique ID
           const id: string = uuidv4();
 
-          // Create the file node first
-          await FileTreeService.createSampleGroupNodeWithId(
-              id, // Pass the generated ID
-              organization.id,
-              sampleGroupName,
-              null // parentId - can be modified if needed
-          );
+          // Create new sample group node
+          const newNode = {
+            id,
+            org_id: organization.id,
+            name: sampleGroupName,
+            type: 'sampleGroup',
+            parent_id: null,
+            droppable: false,
+            children: [],
+            version: 1,
+            sample_group_id: id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
 
-          // Create the sample group using the same ID
-          const sampleGroup = await createSampleGroup({
-            id: id, // Use the same ID
+          // Update file tree with new sample group node
+          const updatedTree = [...fileTree, newNode];
+          await updateFileTree(updatedTree);
+
+          // Create the sample group
+          await createSampleGroup({
+            id,
             human_readable_sample_id: sampleGroupName,
             loc_id: location.id,
             storage_folder: rawDataFolderPath,
@@ -240,7 +263,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             notes: undefined,
             updated_at: DateTime.now().toISO()
           });
-          console.log("Sample group created: ", sampleGroup)
+
           setErrorMessage('');
         }
       } catch (error: any) {
@@ -249,7 +272,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
       } finally {
         handleModalActions.close();
       }
-    }, [modalState, organization, user, locations, sampleGroups, createSampleGroup, setErrorMessage]),
+    }, [
+      modalState,
+      organization,
+      user,
+      locations,
+      sampleGroups,
+      fileTree,
+      updateFileTree,
+      createSampleGroup,
+      setErrorMessage
+    ]),
   };
 
   const createActions = {

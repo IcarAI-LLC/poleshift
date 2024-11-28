@@ -1,3 +1,4 @@
+// lib/components/PreAuth/SignUp.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -7,7 +8,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { api } from '../../lib/api';
+import { useAuth } from '../../lib/hooks';
 
 interface SignUpProps {
   onNavigate: (view: 'login') => void;
@@ -20,6 +21,7 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -34,7 +36,7 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
     }
 
     try {
-      await api.auth.signUpWithLicense(email, password, licenseKey);
+      await signUp(email, password, licenseKey);
       setMessage(
           'Sign-up successful! Please check your email to confirm your account before logging in.'
       );

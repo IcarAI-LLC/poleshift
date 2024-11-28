@@ -378,7 +378,7 @@ const RightSidebar: React.FC = () => {
                     {samplesAtLocation.map((sampleGroup) => (
                         <li key={sampleGroup.id}>
                           <Typography variant="body1">
-                            <strong>{sampleGroup.name}</strong> (Sample ID:{' '}
+                            <strong>{sampleGroup.human_readable_sample_id}</strong> (Sample ID:{' '}
                             {sampleGroup.id})
                           </Typography>
                           {sampleGroup.collection_date && (

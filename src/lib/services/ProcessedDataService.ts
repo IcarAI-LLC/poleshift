@@ -87,7 +87,7 @@ export class ProcessedDataService extends BaseService {
             } else {
                 await this.operationQueue.enqueue({
                     type: 'update',
-                    table: 'processedData',
+                    table: 'processed_data',
                     data: { sampleId, configId, data }
                 });
             }

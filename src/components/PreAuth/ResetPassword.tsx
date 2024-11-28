@@ -1,3 +1,4 @@
+// lib/components/PreAuth/ResetPassword.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -7,7 +8,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { api } from '../../lib/api';
+import { useAuth } from '../../lib/hooks';
 
 interface ResetPasswordProps {
   onNavigate: (view: 'login') => void;
@@ -18,6 +19,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { resetPassword } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,7 +28,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
     setIsLoading(true);
 
     try {
-      await api.auth.resetPassword(email);
+      await resetPassword(email);
       setMessage('Password reset email sent. Check your inbox.');
     } catch (err: any) {
       console.error('Reset Password error:', err);

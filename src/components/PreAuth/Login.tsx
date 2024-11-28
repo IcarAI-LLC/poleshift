@@ -1,3 +1,4 @@
+// lib/components/PreAuth/Login.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -8,7 +9,6 @@ import {
   Alert,
 } from '@mui/material';
 import { useAuth } from '../../lib/hooks';
-import { api } from '../../lib/api';
 
 interface LoginProps {
   onNavigate: (view: 'signup' | 'reset-password') => void;
@@ -19,7 +19,7 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { login } = useAuth();
+  const { login, processLicenseKey } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -28,14 +28,12 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
 
     try {
       // Attempt login
-      await login(email, password);
+      const { storedLicenseKey } = await login(email, password);
 
-      // Check for stored license key
-      const licenseKey = api.auth.getStoredLicense();
-      if (licenseKey) {
+      // Process license key if one was stored during signup
+      if (storedLicenseKey) {
         try {
-          await api.auth.processLicense(licenseKey);
-          api.auth.clearStoredLicense();
+          await processLicenseKey(storedLicenseKey);
         } catch (licenseError: any) {
           setError(licenseError.message);
           return;

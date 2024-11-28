@@ -14,17 +14,11 @@ import AccountActions from './Account/AccountActions';
 import SampleGroupMetadata from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
-// Remove the incorrect import
-// import contextMenu from "./ContextMenu";
 
 const MainApp: React.FC = () => {
   // Hooks
   const { userProfile, error: authError } = useAuth();
-  const {
-    sampleGroups,
-    deleteSampleGroup,
-    error: dataError
-  } = useData();
+  const { sampleGroups, deleteNode, error: dataError } = useData();
   const {
     selectedLeftItem,
     showAccountActions,
@@ -32,7 +26,7 @@ const MainApp: React.FC = () => {
     setErrorMessage,
     setFilters,
     setContextMenuState,
-    contextMenu, // Add this line
+    contextMenu,
   } = useUI();
   const { isOnline, hasPendingChanges } = useOffline();
 
@@ -65,26 +59,22 @@ const MainApp: React.FC = () => {
   }, [isOnline]);
 
   // Handlers
-  const handleDataProcessed = useCallback((insertData: any) => {
-    // Handle processed data
-    console.log('Data processed:', insertData);
+  const handleDataProcessed = useCallback((processedData: any) => {
+    console.log('Data processed:', processedData);
   }, []);
 
-  const handleDeleteSample = useCallback(
-      async () => {
-        if (!contextMenu.itemId) {
-          setErrorMessage('Could not determine which item to delete.');
-          return;
-        }
-        try {
-          await deleteSampleGroup(contextMenu.itemId); // Use deleteSampleGroup from useData
-          setContextMenuState({ ...contextMenu, isVisible: false });
-        } catch (error: any) {
-          setErrorMessage(error.message || 'An error occurred while deleting the item.');
-        }
-      },
-      [contextMenu, setContextMenuState, setErrorMessage, deleteSampleGroup]
-  );
+  const handleDeleteSample = useCallback(async () => {
+    if (!contextMenu.itemId) {
+      setErrorMessage('Could not determine which item to delete.');
+      return;
+    }
+    try {
+      await deleteNode(contextMenu.itemId);
+      setContextMenuState({ ...contextMenu, isVisible: false });
+    } catch (error: any) {
+      setErrorMessage(error.message || 'An error occurred while deleting the item.');
+    }
+  }, [contextMenu, deleteNode, setContextMenuState, setErrorMessage]);
 
   const handleApplyFilters = useCallback(() => {
     setIsFilterMenuOpen(false);
@@ -99,7 +89,6 @@ const MainApp: React.FC = () => {
     setIsFilterMenuOpen(false);
   }, [setFilters]);
 
-  // Modal handlers
   const openFilterMenu = useCallback(() => {
     setIsFilterMenuOpen(true);
   }, []);
@@ -120,7 +109,7 @@ const MainApp: React.FC = () => {
   return (
       <div id="app">
         <div className="app-container">
-          <LeftSidebar userTier={userProfile?.user_tier || "researcher"}/>
+          <LeftSidebar userTier={userProfile?.user_tier || "researcher"} />
 
           <Tooltip title="Open Filters" arrow>
             <IconButton

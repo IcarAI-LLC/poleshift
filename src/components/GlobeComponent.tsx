@@ -4,7 +4,7 @@ import globeImage from '../assets/globe.jpg';
 import { DateTime } from 'luxon';
 
 import { useData, useUI } from '../lib/hooks';
-import type { ResearchLocation, SampleGroup } from '../lib/types';
+import type { SampleLocation, SampleGroupMetadata } from '../lib/types';
 
 interface GlobePoint {
     lat: number;
@@ -19,10 +19,10 @@ const GlobeComponent: React.FC = () => {
     const { setSelectedRightItem, toggleRightSidebar, filters } = useUI();
 
     const filteredSampleGroups = useMemo(() => {
-        return Object.values(sampleGroups).filter((group: SampleGroup) => {
+        return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
             if (
                 filters.selectedLocations.length > 0 &&
-                !filters.selectedLocations.includes(group.loc_id)
+                !filters.selectedLocations.includes(group?.loc_id as string)
             ) {
                 return false;
             }
@@ -71,7 +71,7 @@ const GlobeComponent: React.FC = () => {
         (point: object, event: MouseEvent, coords: { lat: number; lng: number; altitude: number }) => {
             // Type assertion since we know our point data structure
             const globePoint = point as GlobePoint;
-            const selectedLocation = locations.find((loc: ResearchLocation) => loc.id === globePoint.id);
+            const selectedLocation = locations.find((loc: SampleLocation) => loc.id === globePoint.id);
 
             if (selectedLocation) {
                 setSelectedRightItem(selectedLocation);

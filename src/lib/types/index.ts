@@ -146,7 +146,7 @@ export interface AuthState {
     userProfile: UserProfile | null;
     organization: Organization | null;
     loading: boolean;
-    error: string | null;
+    error: string | null;  // Make sure this exists
 }
 
 export interface DataState {
@@ -195,22 +195,13 @@ export type LocationAction =
     | { type: 'UPDATE_LOCATION'; payload: SampleLocation }
     | { type: 'UPDATE_LOCATIONS_CACHE'; payload: { timestamp: number; data: SampleLocation[] } };
 
-// ProcessedData Types
-export type ProcessedDataAction =
-    | { type: 'SET_PROCESSED_DATA'; payload: { key: string; data: any } }
-    | { type: 'SET_PROCESSING_STATUS'; payload: { key: string; status: boolean } }
-    | { type: 'SET_PROCESSED_DATA_ERROR'; payload: string | null }
-    | { type: 'SET_PROCESSED_DATA_PROGRESS'; payload: { key: string; status: string, progress: number } }
-    | { type: 'SET_UPLOAD_DOWNLOAD_PROGRESS'; payload: { key: string; status: string, progress: number } }
-
-
-// Existing Action Types
 export type AuthAction =
     | { type: 'SET_USER'; payload: User | null }
     | { type: 'SET_USER_PROFILE'; payload: UserProfile | null }
     | { type: 'SET_ORGANIZATION'; payload: Organization | null }
     | { type: 'SET_AUTH_LOADING'; payload: boolean }
-    | { type: 'SET_AUTH_ERROR'; payload: string | null };
+    | { type: 'SET_AUTH_ERROR'; payload: string | null }
+    | { type: 'CLEAR_AUTH' }; // Added this new action
 
 export type DataAction =
     | { type: 'SET_FILE_TREE'; payload: FileNode[] }
@@ -233,6 +224,13 @@ export type UIAction =
     | { type: 'SET_FILTERS'; payload: UIState['filters'] }
     | { type: 'SET_MODAL_STATE'; payload: ModalState }
     | { type: 'SET_CONTEXT_MENU_STATE'; payload: ContextMenuState };
+
+export type ProcessedDataAction =
+    | { type: 'SET_PROCESSED_DATA'; payload: { key: string; data: any } }
+    | { type: 'SET_PROCESSING_STATUS'; payload: { key: string; status: boolean } }
+    | { type: 'SET_PROCESSED_DATA_ERROR'; payload: string | null }
+    | { type: 'SET_PROCESSED_DATA_PROGRESS'; payload: { key: string; status: string; progress: number } }
+    | { type: 'SET_UPLOAD_DOWNLOAD_PROGRESS'; payload: { key: string; status: string; progress: number } };
 
 // Combined Action Type
 export type AppAction =

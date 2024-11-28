@@ -1,7 +1,5 @@
-// hooks/useProcessedData.ts
-
 import { useContext, useCallback } from 'react';
-import { addPluginListener } from '@tauri-apps/api/core';
+import { type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { AppContext } from '../contexts/AppContext';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
@@ -18,6 +16,7 @@ interface ProcessCallback {
 }
 
 // State interfaces
+//@ts-ignore
 interface ProcessedDataState {
     data: Record<string, any>;
     isProcessing: Record<string, boolean>;
@@ -25,16 +24,6 @@ interface ProcessedDataState {
     uploadDownloadProgressStates: Record<string, ProgressState>;
     error: string | null;
 }
-
-// Initialize state directly in the file
-//@ts-ignore
-const initialState: ProcessedDataState = {
-    data: {},
-    isProcessing: {},
-    progressStates: {},
-    uploadDownloadProgressStates: {},
-    error: null
-};
 
 export function useProcessedData() {
     const { state, dispatch, services } = useContext(AppContext);
@@ -55,7 +44,7 @@ export function useProcessedData() {
             }
         });
     }, [dispatch, getProgressKey]);
-    //@ts-ignore
+//@ts-ignore
     const updateUploadDownloadProgressState = useCallback((sampleId: string, configId: string, progress: number, status: string) => {
         dispatch({
             type: 'SET_UPLOAD_DOWNLOAD_PROGRESS',
@@ -77,7 +66,7 @@ export function useProcessedData() {
         return state.processedData.uploadDownloadProgressStates[key] || { progress: 0, status: '' };
     }, [state.processedData.uploadDownloadProgressStates, getProgressKey]);
 
-    // Your existing processData implementation remains the same
+    // Updated processData function with Tauri 2.0 compatibility
     const processData = useCallback(async (
         processFunctionName: string,
         sampleGroup: SampleGroupMetadata,
@@ -107,23 +96,30 @@ export function useProcessedData() {
 
             let processedResult;
             if (network.isOnline()) {
-                const unlisten = await addPluginListener('processing-progress', (event: any) => {
-                    const { progress, status } = event.payload;
-                    updateProgressState(sampleId, configId, progress, status);
-                });
+                let unlisten: UnlistenFn | undefined;
 
                 try {
-                    processedResult = await invoke('process_data', {
+                    // Set up event listener before invoking command
+                    unlisten = await import('@tauri-apps/api/event').then(({ listen }) =>
+                        listen('processing-progress', (event) => {
+                            const { progress, status } = event.payload as { progress: number; status: string };
+                            updateProgressState(sampleId, configId, progress, status);
+                        })
+                    );
+
+                    // Invoke the command with proper type annotations
+                    processedResult = await invoke<any>('process_data', {
                         functionName: processFunctionName,
                         sampleId,
                         configId,
                         modalInputs,
                         files: files.map(f => ({ path: f, name: f.name }))
                     });
-                    console.log(unlisten);
-                } catch (error) {
-                    console.error(unlisten);
-                    throw error;
+                } finally {
+                    // Clean up event listener
+                    if (unlisten) {
+                        await unlisten();
+                    }
                 }
             } else {
                 processedResult = {
@@ -175,7 +171,7 @@ export function useProcessedData() {
         }
     }, [dispatch, network, processedDataStorage, updateProgressState, getProgressKey]);
 
-    // Your existing fetchProcessedData implementation remains the same
+    // Fetch processed data implementation
     const fetchProcessedData = useCallback(async (sampleGroup: SampleGroupMetadata) => {
         if (!sampleGroup) return;
 

@@ -15,19 +15,18 @@ import {
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { SampleGroup } from '../lib/types';
-import { SampleGroupService } from '../lib/services/SampleGroupService';
+import type { SampleGroupMetadata } from '../lib/types';
 import LocationFields from './LocationFields';
 import { useData } from '../lib/hooks';
 
 interface SampleGroupMetadataProps {
-  sampleGroup: SampleGroup;
+  sampleGroup: SampleGroupMetadata;
 }
 
 const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
                                                                    sampleGroup,
                                                                  }) => {
-  const { locations } = useData();
+  const { locations, updateSampleGroup } = useData();
   const theme = useTheme();
 
   // Initialize state directly from props
@@ -43,12 +42,10 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
 
   const location = sampleGroup
-      ? locations.find((loc: { id: string }) => loc.id === sampleGroup.loc_id)
+      ? locations.find((loc) => loc.id === sampleGroup.loc_id)
       : null;
 
   const handleCollectionTimeUpdate = async (timeString: string) => {
-    console.log('handleCollectionTimeUpdate called with:', timeString); // Debug log
-
     if (!sampleGroup.id) {
       console.error('Sample group ID is undefined');
       return;
@@ -65,22 +62,27 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
 
       // Update local state immediately
       setCollectionTimeUTC(timeString);
-      console.log('setCollectionTimeUTC called with:', timeString); // Debug log
 
-      // Use SampleGroupService to update the sample group
-      await SampleGroupService.updateSampleGroup(sampleGroup.id, {
+      // Update sample group through useData
+      await updateSampleGroup(sampleGroup.id, {
         collection_datetime_utc,
       });
 
-      console.log('Sample group updated via SampleGroupService'); // Debug log
     } catch (error) {
       console.error('Error updating collection time:', error);
+      // Reset to previous value on error
+      setCollectionTimeUTC(
+          sampleGroup.collection_datetime_utc
+              ? new Date(sampleGroup.collection_datetime_utc)
+                  .toISOString()
+                  .split('T')[1]
+                  .substring(0, 8)
+              : ''
+      );
     }
   };
 
   const handleNotesUpdate = async (newNotes: string) => {
-    console.log('handleNotesUpdate called with:', newNotes); // Debug log
-
     if (!sampleGroup.id) {
       console.error('Sample group ID is undefined');
       return;
@@ -89,16 +91,16 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
     try {
       // Update local state immediately
       setNotes(newNotes);
-      console.log('setNotes called with:', newNotes); // Debug log
 
-      // Use SampleGroupService to update the sample group
-      await SampleGroupService.updateSampleGroup(sampleGroup.id, {
+      // Update sample group through useData
+      await updateSampleGroup(sampleGroup.id, {
         notes: newNotes,
       });
 
-      console.log('Sample group updated via SampleGroupService'); // Debug log
     } catch (error) {
       console.error('Error updating notes:', error);
+      // Reset to previous value on error
+      setNotes(sampleGroup.notes || '');
     }
   };
 
@@ -208,9 +210,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
             </Box>
 
             <Box sx={metadataItemStyles}>
-              <Typography sx={labelStyles}>
-                Collection Time (UTC):
-              </Typography>
+              <Typography sx={labelStyles}>Time (UTC):</Typography>
               <Box sx={valueStyles}>
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                   <TimePicker
@@ -222,18 +222,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
                       onChange={(newValue) => {
                         if (newValue && !isNaN(newValue.getTime())) {
                           const timeString = format(newValue, 'HH:mm:ss');
-                          setCollectionTimeUTC(timeString);
-                          console.log('TimePicker onChange:', timeString); // Debug log
-                        } else {
-                          setCollectionTimeUTC('');
-                          console.log('TimePicker onChange: cleared'); // Debug log
-                        }
-                      }}
-                      onAccept={(newValue) => {
-                        if (newValue && !isNaN(newValue.getTime())) {
-                          const timeString = format(newValue, 'HH:mm:ss');
                           handleCollectionTimeUpdate(timeString);
-                          console.log('TimePicker onAccept:', timeString); // Debug log
                         }
                       }}
                       ampm={false}
@@ -246,21 +235,6 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
                           fullWidth: true,
                           size: 'small',
                           sx: darkFieldStyles,
-                        },
-                        popper: {
-                          sx: {
-                            '& .MuiPaper-root': {
-                              backgroundColor: theme.palette.background.paper,
-                              color: theme.palette.text.primary,
-                            },
-                            '& .MuiPickersDay-root': {
-                              color: theme.palette.text.primary,
-                              '&.Mui-selected': {
-                                backgroundColor: theme.palette.primary.main,
-                                color: theme.palette.common.white,
-                              },
-                            },
-                          },
                         },
                       }}
                   />
@@ -281,10 +255,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
                   multiline
                   rows={3}
                   value={notes}
-                  onChange={(e) => {
-                    setNotes(e.target.value);
-                    console.log('Notes onChange:', e.target.value); // Debug log
-                  }}
+                  onChange={(e) => setNotes(e.target.value)}
                   onBlur={() => handleNotesUpdate(notes)}
                   placeholder="Add notes about this sample..."
                   fullWidth
