@@ -1,6 +1,6 @@
 // src/components/SampleGroupMetadata.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { format, parse } from 'date-fns';
@@ -17,26 +17,31 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import type { SampleGroupMetadata } from '../lib/types';
 import LocationFields from './LocationFields';
-import { useData } from '../lib/hooks';
+import { useData, useUI } from '../lib/hooks';
 
-interface SampleGroupMetadataProps {
-  sampleGroup: SampleGroupMetadata;
-}
+interface SampleGroupMetadataProps {}
 
-const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
-                                                                   sampleGroup,
-                                                                 }) => {
-  const { locations, updateSampleGroup } = useData();
+const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = () => {
+  const { locations, updateSampleGroup, sampleGroups } = useData();
+  const { selectedLeftItem } = useUI();
+  let sampleGroup: SampleGroupMetadata;
+
+  if (!selectedLeftItem) {
+    sampleGroup = sampleGroups[""] || {};
+  } else {
+    sampleGroup = sampleGroups[selectedLeftItem?.id] || {};
+  }
+
   const theme = useTheme();
 
-  // Initialize state directly from props
+  // Initialize state variables
   const [collectionTimeUTC, setCollectionTimeUTC] = useState<string>(
       sampleGroup.collection_datetime_utc
           ? new Date(sampleGroup.collection_datetime_utc)
               .toISOString()
               .split('T')[1]
               .substring(0, 8)
-          : '',
+          : ''
   );
   const [notes, setNotes] = useState<string>(sampleGroup.notes || '');
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
@@ -44,6 +49,24 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
   const location = sampleGroup
       ? locations.find((loc) => loc.id === sampleGroup.loc_id)
       : null;
+
+  // Effect to reset state when sampleGroup changes
+  useEffect(() => {
+    setCollectionTimeUTC(
+        sampleGroup.collection_datetime_utc
+            ? new Date(sampleGroup.collection_datetime_utc)
+                .toISOString()
+                .split('T')[1]
+                .substring(0, 8)
+            : ''
+    );
+    setNotes(sampleGroup.notes || '');
+    // Add other state setters here if necessary (e.g., latitude, longitude)
+  }, [
+    sampleGroup.collection_datetime_utc,
+    sampleGroup.notes,
+    // Include other dependencies if you add more state variables
+  ]);
 
   const handleCollectionTimeUpdate = async (timeString: string) => {
     if (!sampleGroup.id) {
@@ -67,7 +90,6 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
       await updateSampleGroup(sampleGroup.id, {
         collection_datetime_utc,
       });
-
     } catch (error) {
       console.error('Error updating collection time:', error);
       // Reset to previous value on error
@@ -96,7 +118,6 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
       await updateSampleGroup(sampleGroup.id, {
         notes: newNotes,
       });
-
     } catch (error) {
       console.error('Error updating notes:', error);
       // Reset to previous value on error
@@ -155,10 +176,10 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
   const summaryContent = (
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-          {sampleGroup.human_readable_sample_id}
+          {sampleGroup.human_readable_sample_id || 'Unnamed Sample'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {sampleGroup.collection_date} •{' '}
+          {sampleGroup.collection_date || 'Unknown Date'} •{' '}
           {location ? location.label : 'Unknown Location'}
         </Typography>
       </Box>
@@ -198,14 +219,14 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
             <Box sx={metadataItemStyles}>
               <Typography sx={labelStyles}>Sample ID:</Typography>
               <Typography sx={valueStyles}>
-                {sampleGroup.human_readable_sample_id}
+                {sampleGroup.human_readable_sample_id || 'N/A'}
               </Typography>
             </Box>
 
             <Box sx={metadataItemStyles}>
               <Typography sx={labelStyles}>Date:</Typography>
               <Typography sx={valueStyles}>
-                {sampleGroup.collection_date}
+                {sampleGroup.collection_date || 'N/A'}
               </Typography>
             </Box>
 

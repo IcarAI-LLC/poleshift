@@ -1,12 +1,79 @@
 // lib/hooks/useData.ts
-import { useContext, useCallback } from 'react';
+import { useContext, useCallback, useEffect } from 'react';
 import { AppContext } from '../contexts/AppContext';
 import type { SampleGroupMetadata, FileNode } from '../types';
+import { arrayToRecord } from '../utils/arrayToRecord'; // Import the utility function
 
 export function useData() {
     const { state, dispatch, services } = useContext(AppContext);
     const { data: dataService, sync: syncService } = services;
 
+    // Initialization Effect
+    useEffect(() => {
+        let mounted = true;
+
+        async function initializeData() {
+            try {
+                console.log("Starting data initialization");
+
+                // Load fileTree from local storage
+                const localFileTree = await dataService.getAllFileNodes();
+                console.log("Local fileTree:", localFileTree);
+                if (mounted && localFileTree) {
+                    dispatch({ type: 'SET_FILE_TREE', payload: localFileTree });
+                }
+
+                // Load sampleGroups from local storage
+                const localSampleGroups = await dataService.getAllSampleGroups();
+                console.log("Local sampleGroups:", localSampleGroups);
+                if (mounted && localSampleGroups) {
+                    // Convert array to record before dispatching
+                    const sampleGroupsRecord = arrayToRecord(localSampleGroups);
+                    dispatch({ type: 'SET_SAMPLE_GROUPS', payload: sampleGroupsRecord });
+                }
+
+                // If online, sync data with remote server
+                if (mounted && services.network.isOnline()) {
+                    console.log("Syncing data with remote server");
+                    await syncService.syncFromRemote('file_nodes', state.auth.organization?.id);
+                    await syncService.syncFromRemote('sample_group_metadata', state.auth.organization?.id);
+
+                    // Reload data after sync
+                    const syncedFileTree = await dataService.getAllFileNodes();
+                    const syncedSampleGroups = await dataService.getAllSampleGroups();
+
+                    if (mounted && syncedFileTree) {
+                        dispatch({ type: 'SET_FILE_TREE', payload: syncedFileTree });
+                    }
+
+                    if (mounted && syncedSampleGroups) {
+                        // Convert array to record before dispatching
+                        const syncedSampleGroupsRecord = arrayToRecord(syncedSampleGroups);
+                        dispatch({ type: 'SET_SAMPLE_GROUPS', payload: syncedSampleGroupsRecord });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to initialize data:', error);
+                if (mounted) {
+                    dispatch({ type: 'SET_ERROR_MESSAGE', payload: 'Failed to load data' });
+                }
+            }
+        }
+
+        initializeData();
+
+        return () => {
+            mounted = false;
+        };
+    }, [
+        dispatch,
+        dataService,
+        services.network,
+        syncService,
+        state.auth.organization?.id
+    ]);
+
+    // Existing functions (createSampleGroup, updateFileTree, etc.)
     const createSampleGroup = useCallback(async (data: Partial<SampleGroupMetadata>) => {
         try {
             await dataService.createSampleGroup(data);
@@ -29,7 +96,6 @@ export function useData() {
 
     const deleteNode = useCallback(async (nodeId: string) => {
         try {
-            // Delete from local storage first
             await dataService.deleteNode(nodeId);
 
             // Update file tree state by removing the node
@@ -47,23 +113,11 @@ export function useData() {
 
             const updatedTree = removeNodeFromTree([...state.data.fileTree]);
             dispatch({ type: 'SET_FILE_TREE', payload: updatedTree });
-
-            // If online, sync with remote
-            if (services.network.isOnline()) {
-                await syncService.deleteRemote('file_nodes', nodeId);
-            } else {
-                // Queue for later sync
-                await services.operationQueue.enqueue({
-                    type: 'delete',
-                    table: 'file_nodes',
-                    data: { id: nodeId }
-                });
-            }
         } catch (error) {
             dispatch({ type: 'SET_ERROR_MESSAGE', payload: 'Failed to delete node' });
             throw error;
         }
-    }, [dataService, syncService, services.network, services.operationQueue, state.data.fileTree, dispatch]);
+    }, [dataService, state.data.fileTree, dispatch]);
 
     const syncData = useCallback(async () => {
         if (!state.auth.organization?.id) return;
@@ -71,9 +125,8 @@ export function useData() {
         try {
             dispatch({ type: 'SET_SYNCING', payload: true });
             await syncService.syncToRemote();
-            await syncService.syncFromRemote('file_nodes', state.auth.organization.id);
-            await syncService.syncFromRemote('sample_metadata', state.auth.organization.id);
-            await syncService.syncFromRemote('sample_group_metadata', state.auth.organization.id);
+            await syncService.syncFromRemote('file_nodes');
+            await syncService.syncFromRemote('sample_group_metadata');
 
             dispatch({ type: 'SET_LAST_SYNCED', payload: Date.now() });
         } catch (error) {
@@ -81,48 +134,48 @@ export function useData() {
         } finally {
             dispatch({ type: 'SET_SYNCING', payload: false });
         }
-    }, [state.auth.organization, syncService, dispatch]);
+    }, [syncService, dispatch]);
 
-    const updateSampleGroup = useCallback(async (id: string, updates: Partial<SampleGroupMetadata>) => {
+    // New Function: updateSampleGroup
+    const updateSampleGroup = useCallback(async (
+        id: string,
+        updates: Partial<SampleGroupMetadata>
+    ) => {
         try {
-            // Get the existing sample group
-            const existingSampleGroup = state.data.sampleGroups[id];
-            if (!existingSampleGroup) {
-                throw new Error('Sample group not found');
+            // Update the sample group using the DataService
+            await dataService.updateSampleGroup(id, updates);
+
+            // Fetch the updated sample group to ensure state is up-to-date
+            const allSampleGroups = await dataService.getAllSampleGroups();
+            const updatedGroup = allSampleGroups.find(group => group.id === id);
+
+            if (updatedGroup) {
+                dispatch({ type: 'UPDATE_SAMPLE_GROUP', payload: updatedGroup });
+            } else {
+                // Handle the case where the updated group is not found
+                dispatch({ type: 'SET_ERROR_MESSAGE', payload: 'Updated sample group not found' });
             }
-
-            // Create updated sample group
-            const updatedSampleGroup = {
-                ...existingSampleGroup,
-                ...updates,
-                updated_at: new Date().toISOString()
-            };
-
-            // Save to storage and handle sync
-            await dataService.updateSampleGroup(id, updatedSampleGroup);
-
-            // Update local state
-            dispatch({
-                type: 'UPDATE_SAMPLE_GROUP',
-                payload: updatedSampleGroup
-            });
         } catch (error) {
+            console.error('Failed to update sample group:', error);
             dispatch({ type: 'SET_ERROR_MESSAGE', payload: 'Failed to update sample group' });
             throw error;
         }
-    }, [state.data.sampleGroups, dataService, dispatch]);
+    }, [dataService, dispatch]);
 
-    // Return existing functions plus updateSampleGroup
+    // Return existing functions plus any new state properties
     return {
         fileTree: state.data.fileTree,
         sampleGroups: state.data.sampleGroups,
         locations: state.data.locations,
         isSyncing: state.data.isSyncing,
-        error: state.data.error,  // Add this line
+        error: state.data.error,  // Ensure this is included
         createSampleGroup,
-        updateSampleGroup,  // Add this
         updateFileTree,
         deleteNode,
-        syncData
+        syncData,
+        updateSampleGroup, // Expose the new function
+        // Optionally, you can expose the new methods if needed
+        getAllFileNodes: dataService.getAllFileNodes.bind(dataService),
+        getAllSampleGroups: dataService.getAllSampleGroups.bind(dataService),
     };
 }

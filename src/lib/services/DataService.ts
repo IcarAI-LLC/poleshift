@@ -1,22 +1,23 @@
 // lib/services/DataService.ts
-import {BaseService} from "./BaseService.ts";
-import {NetworkService, OperationQueue} from "./offline";
-import {FileNode, SampleGroupMetadata, SampleLocation} from "../types";
-import {SyncService} from "./SyncService.ts";
-//@ts-ignore
-import {IndexedDBStorage} from "../storage/IndexedDB.ts";
+import { BaseService } from "./BaseService.ts";
+import { NetworkService, OperationQueue } from "./offline";
+import { FileNode, SampleGroupMetadata, SampleLocation } from "../types";
+import { SyncService } from "./SyncService.ts";
+import { IndexedDBStorage } from "../storage/IndexedDB.ts"; // Removed @ts-ignore
 
-// Fix DataService.ts constructor
 export class DataService extends BaseService {
     protected storageKey: string = 'data';
+
     constructor(
         private syncService: SyncService,
         private networkService: NetworkService,
         private operationQueue: OperationQueue,
-        storage: IndexedDBStorage
+        readonly storage: IndexedDBStorage // Made storage a private member
     ) {
         super(storage);
     }
+
+    // Existing Methods
 
     async createSampleGroup(data: Partial<SampleGroupMetadata>): Promise<void> {
         try {
@@ -43,6 +44,7 @@ export class DataService extends BaseService {
             return await this.storage.getSampleGroupsByOrg(orgId);
         } catch (error) {
             this.handleError(error, 'Failed to get sample groups');
+            return []; // Return an empty array in case of error
         }
     }
 
@@ -96,6 +98,7 @@ export class DataService extends BaseService {
             return await this.storage.getAllLocations();
         } catch (error) {
             this.handleError(error, 'Failed to get locations');
+            return []; // Return an empty array in case of error
         }
     }
 
@@ -129,15 +132,99 @@ export class DataService extends BaseService {
     async deleteNode(nodeId: string): Promise<void> {
         try {
             // Delete from local storage
+            const node = await this.storage.getFileNode(nodeId);
+            if (!node) {
+                throw new Error('Node not found');
+            }
+
             await this.storage.deleteFileNode(nodeId);
 
-            // Also delete associated sample group if it exists
-            const node = await this.storage.getFileNode(nodeId);
-            if (node?.type === 'sampleGroup') {
+            // If the node is a sample group, delete the associated sample group
+            if (node.type === 'sampleGroup') {
                 await this.storage.deleteSampleGroup(nodeId);
+            }
+
+            // Handle sync for file_nodes
+            if (this.networkService.isOnline()) {
+                await this.syncService.deleteRemote('file_nodes', nodeId);
+                if (node.type === 'sampleGroup') {
+                    await this.syncService.deleteRemote('sample_group_metadata', nodeId);
+                }
+            } else {
+                await this.operationQueue.enqueue({
+                    type: 'delete',
+                    table: 'file_nodes',
+                    data: { id: nodeId }
+                });
+                if (node.type === 'sampleGroup') {
+                    await this.operationQueue.enqueue({
+                        type: 'delete',
+                        table: 'sample_group_metadata',
+                        data: { id: nodeId }
+                    });
+                }
             }
         } catch (error) {
             this.handleError(error, 'Failed to delete node');
         }
     }
+
+    // New Methods
+
+    /**
+     * Fetches all file nodes without filtering by organization ID.
+     * @returns Promise<FileNode[]>
+     */
+    async getAllFileNodes(): Promise<FileNode[]> {
+        try {
+            return await this.storage.getAllFileNodes();
+        } catch (error) {
+            this.handleError(error, 'Failed to get all file nodes');
+            return []; // Return an empty array in case of error
+        }
+    }
+
+    /**
+     * Fetches all sample groups without filtering by organization ID.
+     * @returns Promise<SampleGroupMetadata[]>
+     */
+    async getAllSampleGroups(): Promise<SampleGroupMetadata[]> {
+        try {
+            return await this.storage.getAllSampleGroups();
+        } catch (error) {
+            this.handleError(error, 'Failed to get all sample groups');
+            return []; // Return an empty array in case of error
+        }
+    }
+
+    /**
+     * Fetches a single file node by ID.
+     * @param nodeId string
+     * @returns Promise<FileNode | undefined>
+     */
+    async getFileNode(nodeId: string): Promise<FileNode | undefined> {
+        try {
+            return await this.storage.getFileNode(nodeId);
+        } catch (error) {
+            this.handleError(error, 'Failed to get file node');
+            return undefined;
+        }
+    }
+
+    /**
+     * Fetches all sample locations.
+     * @returns Promise<SampleLocation[]>
+     */
+    async getAllSampleLocations(): Promise<SampleLocation[]> {
+        try {
+            return await this.storage.getAllLocations();
+        } catch (error) {
+            this.handleError(error, 'Failed to get all sample locations');
+            return [];
+        }
+    }
+
+    /**
+     * Additional helper methods can be added here as needed.
+     */
 }

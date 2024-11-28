@@ -241,6 +241,18 @@ class IndexedDBStorage {
         await this.put('sample_locations', location);
     }
 
+    // File Nodes
+    async getAllFileNodes(): Promise<FileNode[]> {
+        const db = await this.getDB();
+        return db.getAll('file_nodes');
+    }
+
+    // Sample Groups
+    async getAllSampleGroups(): Promise<SampleGroupMetadata[]> {
+        const db = await this.getDB();
+        return db.getAll('sample_group_metadata');
+    }
+
     async getLocation(id: string): Promise<SampleLocation | undefined> {
         return this.get('sample_locations', id);
     }

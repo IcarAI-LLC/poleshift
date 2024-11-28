@@ -105,7 +105,6 @@ const MainApp: React.FC = () => {
       document.body.style.overflow = 'auto';
     };
   }, [isFilterMenuOpen]);
-
   return (
       <div id="app">
         <div className="app-container">
@@ -147,7 +146,7 @@ const MainApp: React.FC = () => {
                 />
             )}
 
-            {sampleGroup && <SampleGroupMetadata sampleGroup={sampleGroup} />}
+            {sampleGroup && <SampleGroupMetadata />}
 
             {displayedError && (
                 <ErrorMessage

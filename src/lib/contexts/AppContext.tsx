@@ -153,7 +153,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
         case 'SET_SAMPLE_GROUPS':
             return {
                 ...state,
-                data: { ...state.data, sampleGroups: action.payload }
+                data: {
+                    ...state.data,
+                    sampleGroups: action.payload,
+                },
             };
         case 'ADD_SAMPLE_GROUP':
             return {
@@ -165,6 +168,20 @@ function appReducer(state: AppState, action: AppAction): AppState {
                         [action.payload.id]: action.payload
                     }
                 }
+            };
+        case 'UPDATE_SAMPLE_GROUP':
+            const updatedGroup = action.payload;
+            console.log('Updating sample group:', updatedGroup);
+            console.log('Previous sample groups:', state.data.sampleGroups);
+            return {
+                ...state,
+                data: {
+                    ...state.data,
+                    sampleGroups: {
+                        ...state.data.sampleGroups,
+                        [updatedGroup.id]: updatedGroup,
+                    },
+                },
             };
         case 'SET_SYNCING':
             return {
@@ -180,6 +197,14 @@ function appReducer(state: AppState, action: AppAction): AppState {
             return {
                 ...state,
                 data: { ...state.data, error: action.payload }
+            };
+        case 'SET_LOCATIONS':
+            return {
+                ...state,
+                data: {
+                    ...state.data,
+                    locations: action.payload
+                }
             };
 
         // ProcessedData Actions
@@ -210,39 +235,85 @@ function appReducer(state: AppState, action: AppAction): AppState {
         case 'SET_SELECTED_LEFT_ITEM':
             return {
                 ...state,
-                ui: { ...state.ui, selectedLeftItem: action.payload }
+                ui: {
+                    ...state.ui,
+                    selectedLeftItem: action.payload
+                }
             };
+
         case 'SET_SELECTED_RIGHT_ITEM':
             return {
                 ...state,
-                ui: { ...state.ui, selectedRightItem: action.payload }
+                ui: {
+                    ...state.ui,
+                    selectedRightItem: action.payload
+                }
             };
+
         case 'TOGGLE_SIDEBAR':
             return {
                 ...state,
                 ui: {
                     ...state.ui,
-                    isSidebarCollapsed: action.payload !== undefined ?
-                        action.payload : !state.ui.isSidebarCollapsed
+                    isSidebarCollapsed: action.payload !== undefined
+                        ? action.payload
+                        : !state.ui.isSidebarCollapsed
                 }
             };
+
+        case 'TOGGLE_RIGHT_SIDEBAR':
+            return {
+                ...state,
+                ui: {
+                    ...state.ui,
+                    isRightSidebarCollapsed: action.payload !== undefined
+                        ? action.payload
+                        : !state.ui.isRightSidebarCollapsed
+                }
+            };
+
+        case 'SET_SHOW_ACCOUNT_ACTIONS':
+            return {
+                ...state,
+                ui: {
+                    ...state.ui,
+                    showAccountActions: action.payload
+                }
+            };
+
         case 'SET_ERROR_MESSAGE':
             return {
                 ...state,
-                ui: { ...state.ui, errorMessage: action.payload }
+                ui: {
+                    ...state.ui,
+                    errorMessage: action.payload
+                }
             };
+
         case 'SET_FILTERS':
             return {
                 ...state,
-                ui: { ...state.ui, filters: action.payload }
+                ui: {
+                    ...state.ui,
+                    filters: action.payload
+                }
             };
 
-        case 'SET_LOCATIONS':
+        case 'SET_MODAL_STATE':
             return {
                 ...state,
-                data: {
-                    ...state.data,
-                    locations: action.payload
+                ui: {
+                    ...state.ui,
+                    modal: action.payload
+                }
+            };
+
+        case 'SET_CONTEXT_MENU_STATE':
+            return {
+                ...state,
+                ui: {
+                    ...state.ui,
+                    contextMenu: action.payload
                 }
             };
         default:

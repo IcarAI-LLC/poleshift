@@ -45,7 +45,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     setErrorMessage,
     setShowAccountActions,
   } = useUI();
-
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     title: '',

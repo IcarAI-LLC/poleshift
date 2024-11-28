@@ -10,8 +10,8 @@ import {
   useTheme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { useUI } from '../../lib/hooks/useUI.ts';
-import { useAuth } from '../../lib/hooks/useAuth.ts';
+import { useUI } from '../../lib/hooks';
+import { useAuth } from '../../lib/hooks';
 
 const AccountActions: React.FC = () => {
   const { showAccountActions, setShowAccountActions } = useUI();
@@ -56,7 +56,7 @@ const AccountActions: React.FC = () => {
     flex: 1,
     textAlign: 'right',
   };
-
+  console.log("Component Account Actions: ", showAccountActions);
   return (
     <Dialog
       open={showAccountActions}

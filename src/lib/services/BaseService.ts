@@ -5,7 +5,7 @@ import {IndexedDBStorage} from "../storage/IndexedDB.ts";
 export abstract class BaseService {
     protected abstract storageKey: string;
 
-    constructor(readonly storage: IndexedDBStorage) {}
+    protected constructor(readonly storage: IndexedDBStorage) {}
 
     handleError(error: unknown, message: string): never {
         console.error(`${message}:`, error);
