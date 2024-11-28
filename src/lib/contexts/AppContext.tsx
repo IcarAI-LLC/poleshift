@@ -3,7 +3,7 @@
 import React, { createContext, useReducer, useEffect } from 'react';
 import type { AppState, AppAction, Services } from '../types';
 //@ts-ignore
-import { IndexedDBStorage, storage } from '../storage/indexedDB';
+import { IndexedDBStorage, storage } from '../storage/IndexedDB';
 import { supabase } from '../supabase/client';
 import {
     NetworkService,
