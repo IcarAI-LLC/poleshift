@@ -75,7 +75,8 @@ export function useProcessedData() {
             filePaths: string[],
             configItem: DropboxConfigItem,
             onDataProcessed: ProcessCallback,
-            onError: (message: string) => void
+            onError: (message: string) => void,
+            orgId: string
         ) => {
             const sampleId = sampleGroup.human_readable_sample_id;
             const configId = configItem.id;
@@ -101,7 +102,8 @@ export function useProcessedData() {
                     // onUploadProgress callback
                     (progress, status) => {
                         updateUploadDownloadProgressState(sampleId, configId, progress, status);
-                    }
+                    },
+                    orgId
                 );
 
                 // Update global state with processed data

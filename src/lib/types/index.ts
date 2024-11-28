@@ -250,20 +250,20 @@ export interface ProcessedDataState {
 }
 
 export interface ProcessedDataEntry {
-    key?: string; // Used internally by IndexedDB
-    sampleId: string;
-    configId: string;
+    key: string; // `${sampleId}:${configId}`
+    human_readable_sample_id: string,
+    sample_id: string;
+    config_id: string;
+    org_id: string; // Added orgId
     data: any;
-    rawFilePaths: string[];
-    processedPath: string | null;
+    raw_file_paths: string[];
+    processed_path: string | null;
     timestamp: number;
-    status: 'pending' | 'processing' | 'processed' | 'error';
-    error?: string;
-    metadata?: {
-        processFunction: string;
-        processedDateTime: string;
-    };
+    status: string;
+    metadata?: any;
 }
+
+
 
 export interface ProcessingQueueItem {
     id: string;

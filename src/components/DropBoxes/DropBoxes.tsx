@@ -18,6 +18,7 @@ import KrakenVisualization from '../KrakenVisualization/KrakenVisualization';
 
 import { processKrakenDataForModal } from '../../lib/utils/dataProcessingUtils';
 import { processCTDDataForModal} from "../../lib/utils/processCTDDataForModal.ts";
+import { useAuth } from "../../lib/hooks";
 
 interface ModalState {
   isOpen: boolean;
@@ -43,6 +44,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
   const { selectedLeftItem } = useUI();
   const { sampleGroups } = useData();
   const { processData, fetchProcessedData, processedData, isProcessing } = useProcessedData();
+
   const { getLocationById } = useLocations();
 
   const [modalState, setModalState] = useState<ModalState>({
@@ -55,7 +57,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
   const getProgressKey = useCallback((sampleId: string, configId: string): string =>
       `${sampleId}:${configId}`, []
   );
-
+  const { organization } = useAuth();
   // Get sample group data
   const { sampleGroup, sampleLocation } = useMemo(() => {
     const sampleGroupId = selectedLeftItem?.type === 'sampleGroup' ? selectedLeftItem.id : null;
@@ -185,7 +187,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
   const handleModalSubmit = useCallback(async () => {
     const { configItem, modalInputs, uploadedFiles } = modalState;
 
-    if (!configItem || !sampleGroup) return;
+    if (!configItem || !sampleGroup || !organization?.id) return;
 
     try {
       await processData(
@@ -196,6 +198,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
           configItem,
           onDataProcessed,
           onError,
+          organization.id
       );
       closeModal();
     } catch (error) {

@@ -3,6 +3,7 @@ import {SupabaseClient} from "@supabase/supabase-js";
 import {BaseService} from "./BaseService.ts";
 // @ts-ignore
 import {IndexedDBStorage} from "../storage/IndexedDB.ts";
+import {ProcessedDataEntry} from "../types";
 
 // Fix SyncService.ts constructor
 export class SyncService extends BaseService {
@@ -109,6 +110,9 @@ export class SyncService extends BaseService {
                     case 'delete':
                         await this.deleteRemote(op.table, op.data.id);
                         break;
+                    case 'upsert':
+                        await this.upsertRemote(op.table, op.data);
+                        break;
                 }
 
                 await this.storage.deletePendingOperation(op.id);
@@ -118,19 +122,19 @@ export class SyncService extends BaseService {
         }
     }
 
-    // Add missing method to SyncService
-    async syncProcessedData(sampleId: string, configId: string, data: any): Promise<void> {
+    async syncProcessedData(entry: ProcessedDataEntry): Promise<void> {
         try {
-            const { error } = await this.supabase
-                .from('sample_metadata')
-                .upsert({
-                    sample_id: sampleId,
-                    config_id: configId,
-                    data: data,
-                    updated_at: new Date().toISOString()
-                });
+            console.log("Syncing processed data: ", entry)
+            const { data, error } = await this.supabase
+                .from('processed_data')
+                .upsert(entry);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase error:', error);
+                throw error;
+            }
+
+            console.log('Processed data synced:', data);
         } catch (error) {
             this.handleError(error, 'Failed to sync processed data');
         }

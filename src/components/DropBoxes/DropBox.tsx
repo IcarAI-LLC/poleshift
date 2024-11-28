@@ -16,7 +16,7 @@ import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useRef } from 'react';
-
+import {useAuth} from "../../lib/hooks";
 interface DropBoxProps {
     configItem: DropboxConfigItem;
     isProcessing: boolean;
@@ -48,7 +48,7 @@ const DropBox = memo(({
 
     const sampleId = sampleGroup.human_readable_sample_id;
     const configId = configItem.id;
-
+    const { organization } = useAuth();
     // Get progress states using hooks
     const progressState = useMemo(
         () => getProgressState(sampleId, configId),
@@ -104,7 +104,10 @@ const DropBox = memo(({
                 onError('No files were selected.');
                 return;
             }
-
+            if (!organization){
+                onError('No organization found for user.');
+                return;
+            }
             await processData(
                 configItem.processFunctionName,
                 sampleGroup,
@@ -112,7 +115,8 @@ const DropBox = memo(({
                 filePaths,
                 configItem,
                 onDataProcessed,
-                onError
+                onError,
+                organization?.org_short_id
             );
         } catch (error: any) {
             console.error('File selection error:', error);

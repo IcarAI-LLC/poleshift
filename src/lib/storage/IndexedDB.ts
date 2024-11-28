@@ -79,6 +79,7 @@ interface AppDB extends DBSchema {
         key: string; // `${sampleId}:${configId}`
         value: ProcessedDataEntry;
         indexes: {
+            'human_readable_sample_id': string;
             'sample_id': string;
             'timestamp': number;
             'status': string;
@@ -134,7 +135,7 @@ class IndexedDBStorage {
 
     private async getDB(): Promise<IDBPDatabase<AppDB>> {
         if (!this.db) {
-            this.db = await openDB<AppDB>('appDB', 2, {
+            this.db = await openDB<AppDB>('appDB', 5, {
                 upgrade(db, oldVersion, newVersion, transaction) {
                     // User Tiers
                     if (!db.objectStoreNames.contains('user_tiers')) {
@@ -198,6 +199,7 @@ class IndexedDBStorage {
                     // Processed Data
                     if (!db.objectStoreNames.contains('processed_data')) {
                         const store = db.createObjectStore('processed_data', { keyPath: 'key' });
+                        store.createIndex('human_readable_sample_id', 'human_readable_sample_id');
                         store.createIndex('sample_id', 'sample_id');
                         store.createIndex('timestamp', 'timestamp');
                         store.createIndex('status', 'status');
@@ -440,22 +442,20 @@ class IndexedDBStorage {
 
     // Processed Data
     async saveProcessedData(
-        sampleId: string,
-        configId: string,
-        data: any,
-        options: {
+        sampleId: string, configId: string, data: any, orgId: string, humanReadableSampleId: string, options: {
             rawFilePaths?: string[];
             processedPath?: string;
             metadata?: ProcessedDataEntry['metadata'];
-        } = {}
-    ): Promise<void> {
+        }    ): Promise<void> {
         const entry: ProcessedDataEntry = {
             key: `${sampleId}:${configId}`,
-            sampleId,
-            configId,
+            sample_id: sampleId,
+            human_readable_sample_id: humanReadableSampleId,
+            config_id: configId,
+            org_id: orgId, // Include orgId
             data,
-            rawFilePaths: options.rawFilePaths || [],
-            processedPath: options?.processedPath || null,
+            raw_file_paths: options.rawFilePaths || [],
+            processed_path: options.processedPath || null,
             timestamp: Date.now(),
             status: 'processed',
             metadata: options.metadata,
@@ -464,15 +464,16 @@ class IndexedDBStorage {
         await this.put('processed_data', entry);
     }
 
+
     async getProcessedData(sampleId: string, configId: string): Promise<ProcessedDataEntry | null> {
         const key = `${sampleId}:${configId}`;
         const entry = await this.get('processed_data', key);
         return entry || null;
     }
 
-    async getAllProcessedData(sampleId: string): Promise<Record<string, ProcessedDataEntry>> {
-        const entries = await this.getAllFromIndex('processed_data', 'sample_id', sampleId);
-
+    async getAllProcessedData(humanReadableSampleId: string): Promise<Record<string, ProcessedDataEntry>> {
+        console.log("Get all processed data from: ", humanReadableSampleId)
+        const entries = await this.getAllFromIndex('processed_data', 'human_readable_sample_id', humanReadableSampleId);
         return entries.reduce((acc, entry) => {
             if (entry.key) {
                 acc[entry.key] = entry;

@@ -22,7 +22,7 @@ const GlobeComponent: React.FC = () => {
         return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
             if (
                 filters.selectedLocations.length > 0 &&
-                !filters.selectedLocations.includes(group?.loc_id as string)
+                !filters.selectedLocations.includes(group.loc_id as string)
             ) {
                 return false;
             }

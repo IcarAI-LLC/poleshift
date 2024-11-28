@@ -1,7 +1,6 @@
 // lib/services/UploadManager.ts
 
 import {IndexedDBStorage } from '../storage/IndexedDB';
-import { SupabaseClient } from '@supabase/supabase-js';
 import { NetworkService } from './offline';
 import { ProcessingQueueItem } from '../types';
 import { storage } from '../storage/IndexedDB';
