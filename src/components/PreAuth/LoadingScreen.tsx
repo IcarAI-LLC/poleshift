@@ -1,4 +1,4 @@
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { CircularProgress, Typography, Box } from '@mui/material';
 
 const LoadingScreen = ({ message = 'Loading application...' }) => {
     return (
@@ -22,17 +22,34 @@ const LoadingScreen = ({ message = 'Loading application...' }) => {
 
             <Typography
                 variant="h5"
-                className="mb-4 text-gray-100 font-medium"
+                className="mb-4 text-gray-100 font-medium text-center"
             >
                 {message}
             </Typography>
 
-            <Typography
-                variant="body1"
-                className="text-gray-400 max-w-md text-center"
-            >
-                Please wait while we initialize your workspace and sync your data
-            </Typography>
+            <Box className="max-w-md text-center space-y-2">
+                <Typography
+                    variant="body1"
+                    className="text-gray-400"
+                >
+                    {(() => {
+                        if (message.includes("Authenticating")) {
+                            return "Verifying your credentials and retrieving your user profile...";
+                        }
+                        if (message.includes("Syncing")) {
+                            return "Retrieving and synchronizing your data with the server...";
+                        }
+                        return "Setting up your workspace and preparing the application...";
+                    })()}
+                </Typography>
+
+                <Typography
+                    variant="body2"
+                    className="text-gray-500"
+                >
+                    If this takes longer than expected, try refreshing the page
+                </Typography>
+            </Box>
         </Box>
     );
 };

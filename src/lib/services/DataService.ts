@@ -25,11 +25,11 @@ export class DataService extends BaseService {
 
             // Handle sync
             if (this.networkService.isOnline()) {
-                await this.syncService.createRemote('sampleGroups', data);
+                await this.syncService.createRemote('sample_group_metadata', data);
             } else {
                 await this.operationQueue.enqueue({
                     type: 'create',
-                    table: 'sampleGroups',
+                    table: 'sample_group_metadata',
                     data
                 });
             }
@@ -58,11 +58,11 @@ export class DataService extends BaseService {
 
             // Handle sync
             if (this.networkService.isOnline()) {
-                await this.syncService.updateRemote('sampleGroups', updatedGroup);
+                await this.syncService.updateRemote('sample_group_metadata', updatedGroup);
             } else {
                 await this.operationQueue.enqueue({
                     type: 'update',
-                    table: 'sampleGroups',
+                    table: 'sample_group_metadata',
                     data: updatedGroup
                 });
             }
@@ -78,11 +78,11 @@ export class DataService extends BaseService {
 
             // Handle sync
             if (this.networkService.isOnline()) {
-                await this.syncService.deleteRemote('sampleGroups', id);
+                await this.syncService.deleteRemote('sample_group_metadata', id);
             } else {
                 await this.operationQueue.enqueue({
                     type: 'delete',
-                    table: 'sampleGroups',
+                    table: 'sample_group_metadata',
                     data: { id }
                 });
             }

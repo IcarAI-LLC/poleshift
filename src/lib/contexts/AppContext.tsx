@@ -237,6 +237,14 @@ function appReducer(state: AppState, action: AppAction): AppState {
                 ui: { ...state.ui, filters: action.payload }
             };
 
+        case 'SET_LOCATIONS':
+            return {
+                ...state,
+                data: {
+                    ...state.data,
+                    locations: action.payload
+                }
+            };
         default:
             return state;
     }

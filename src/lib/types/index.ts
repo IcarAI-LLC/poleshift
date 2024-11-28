@@ -134,11 +134,14 @@ export interface ProgressState {
 }
 
 export interface ProcessedDataState {
-    uploadDownloadProgressStates: Record<string, ProgressState>;
-    processedData: Record<string, any>;
+    data: Record<string, any>;
     isProcessing: Record<string, boolean>;
-    progressStates: Record<string, ProgressState>;
+    error: string | null;
+    processedData: Record<string, any>;
+    progressStates: Record<string, any>;
+    uploadDownloadProgressStates: Record<string, any>;
 }
+
 
 // Context State Types
 export interface AuthState {

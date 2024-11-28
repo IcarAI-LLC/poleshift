@@ -74,6 +74,7 @@ export function useData() {
             await syncService.syncFromRemote('file_nodes', state.auth.organization.id);
             await syncService.syncFromRemote('sample_metadata', state.auth.organization.id);
             await syncService.syncFromRemote('sample_group_metadata', state.auth.organization.id);
+
             dispatch({ type: 'SET_LAST_SYNCED', payload: Date.now() });
         } catch (error) {
             dispatch({ type: 'SET_ERROR_MESSAGE', payload: 'Sync failed' });

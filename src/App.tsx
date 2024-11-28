@@ -12,15 +12,16 @@ import {ProcessedDataProvider} from "./lib/contexts/ProcessedDataContext.tsx";
 
 function App() {
   return (
+      <AppProvider>
         <LocalizationProvider dateAdapter={AdapterLuxon}>
-          <AppProvider>
           <ThemeProvider theme={theme}>
               <ProcessedDataProvider>
                 <AppRoutes />
               </ProcessedDataProvider>
           </ThemeProvider>
-          </AppProvider>
         </LocalizationProvider>
+      </AppProvider>
+
   );
 }
 

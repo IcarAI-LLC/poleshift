@@ -96,7 +96,7 @@ class IndexedDBStorage {
 
     private async getDB(): Promise<IDBPDatabase<AppDB>> {
         if (!this.db) {
-            this.db = await openDB<AppDB>('appDB', 12, {
+            this.db = await openDB<AppDB>('appDB', 13, {
                 upgrade(db) {
                     // User Tiers
                     if (!db.objectStoreNames.contains('user_tiers')) {

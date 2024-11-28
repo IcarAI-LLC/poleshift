@@ -18,15 +18,14 @@ export class AuthService extends BaseService {
 
     async getSession(): Promise<Session | null> {
         try {
-            // First try to get session from Supabase
-            const { data, error } = await this.supabase.auth.getSession();
+            const { data: { session }, error } = await this.supabase.auth.getSession();
 
             if (error) {
                 console.error('Session fetch error:', error);
                 return null;
             }
 
-            return data.session;
+            return session;
         } catch (error) {
             console.error('GetSession error:', error);
             return null;

@@ -53,25 +53,46 @@ export class SyncService extends BaseService {
         }
     }
 
-    async syncFromRemote(table: string, orgId: string, since?: number): Promise<void> {
-        try {
-            let query = this.supabase
-                .from(table)
-                .select('*')
-                .eq('org_id', orgId);
+    async syncFromRemote(table: string, orgId?: string, since?: number): Promise<void> {
+        if (!orgId) {
+            try {
+                let query = this.supabase
+                    .from(table)
+                    .select('*')
 
-            if (since) {
-                query = query.gt('updated_at', new Date(since).toISOString());
-            }
+                if (since) {
+                    query = query.gt('updated_at', new Date(since).toISOString());
+                }
 
-            const { data, error } = await query;
-            console.log(error);
-            if (error) throw error;
-            if (data?.length) {
-                await this.storage.bulkSave(table, data);
+                const {data, error} = await query;
+                console.log(error);
+                if (error) throw error;
+                if (data?.length) {
+                    await this.storage.bulkSave(table, data);
+                }
+            } catch (error) {
+                this.handleError(error, `Failed to sync ${table} from remote`);
             }
-        } catch (error) {
-            this.handleError(error, `Failed to sync ${table} from remote`);
+        } else {
+            try {
+                let query = this.supabase
+                    .from(table)
+                    .select('*')
+                    .eq('org_id', orgId);
+
+                if (since) {
+                    query = query.gt('updated_at', new Date(since).toISOString());
+                }
+
+                const {data, error} = await query;
+                console.log(error);
+                if (error) throw error;
+                if (data?.length) {
+                    await this.storage.bulkSave(table, data);
+                }
+            } catch (error) {
+                this.handleError(error, `Failed to sync ${table} from remote`);
+            }
         }
     }
 
