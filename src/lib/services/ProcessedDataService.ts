@@ -25,6 +25,7 @@ export class ProcessedDataService extends BaseService {
     constructor(
         private syncService: SyncService,
         private networkService: NetworkService,
+        //@ts-ignore
         private operationQueue: OperationQueue,
         readonly storage: IndexedDBStorage,
     ) {
@@ -45,6 +46,7 @@ export class ProcessedDataService extends BaseService {
         const humanReadableSampleId = sampleGroup.human_readable_sample_id;
         const configId = configItem.id;
         const sampleId = sampleGroup.id;
+        //@ts-ignore
         const key = `${humanReadableSampleId}:${configId}`;
 
         try {

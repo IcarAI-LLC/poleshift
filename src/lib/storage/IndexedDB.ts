@@ -136,6 +136,7 @@ class IndexedDBStorage {
     private async getDB(): Promise<IDBPDatabase<AppDB>> {
         if (!this.db) {
             this.db = await openDB<AppDB>('appDB', 5, {
+                //@ts-ignore
                 upgrade(db, oldVersion, newVersion, transaction) {
                     // User Tiers
                     if (!db.objectStoreNames.contains('user_tiers')) {
@@ -270,6 +271,7 @@ class IndexedDBStorage {
         key: IDBValidKey | IDBKeyRange
     ): Promise<AppDB[StoreName]['value'][]> {
         const db = await this.getDB();
+        //@ts-ignore
         return db.getAllFromIndex(storeName, indexName as string, key);
     }
 
