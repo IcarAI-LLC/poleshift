@@ -16,7 +16,6 @@ import {
     SyncService,
     ProcessedDataService
 } from '../services';
-import { IndexedDBProcessedDataStorage, processedDataStorage } from "../storage/processedDataDB";
 
 // Initialize services in the correct order
 const networkService = new NetworkService();
@@ -100,7 +99,6 @@ export const AppContext = createContext<{
         network: networkService,
         operationQueue: operationQueue,
         syncManager: syncManager,
-        processedDataStorage: processedDataStorage
     }
 });
 
@@ -335,7 +333,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     network: networkService,
                     operationQueue: operationQueue,
                     syncManager: syncManager,
-                    processedDataStorage: IndexedDBProcessedDataStorage.getInstance()
                 }
             }}
         >

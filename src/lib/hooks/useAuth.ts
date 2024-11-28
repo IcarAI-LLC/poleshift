@@ -1,6 +1,6 @@
 // lib/hooks/useAuth.ts
 
-import { useContext, useCallback, useEffect } from 'react';
+import { useContext, useCallback} from 'react';
 import { AppContext } from '../contexts/AppContext';
 import { AuthAction, User } from "../types";
 

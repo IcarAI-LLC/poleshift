@@ -1,71 +1,180 @@
 // lib/services/ProcessedDataService.ts
+
 import { BaseService } from './BaseService';
 import { NetworkService } from './offline';
 import { OperationQueue } from './offline';
 import { SyncService } from './SyncService';
-import type { SampleGroupMetadata } from '../types';
-//@ts-ignore
-import {IndexedDBStorage} from "../storage/IndexedDB";
+import type { SampleGroupMetadata, SampleMetadata } from '../types';
+import { DropboxConfigItem } from '../../config/dropboxConfig';
+import { IndexedDBStorage } from '../storage/IndexedDB';
+import { ProcessedDataEntry } from '../types';
+import { v4 as uuidv4 } from 'uuid';
+import { readFile } from '@tauri-apps/plugin-fs';
+import { UploadManager } from './UploadManager';
+import { invoke } from '@tauri-apps/api/core';
+import { UnlistenFn, listen } from '@tauri-apps/api/event';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface ProcessCallback {
     (progress: number, status: string): void;
 }
 
-// Fix ProcessedDataService.ts constructor
 export class ProcessedDataService extends BaseService {
-    protected storageKey: string = 'processed';
+    protected storageKey: string = 'data';
+    private uploadManager: UploadManager;
+
     constructor(
         private syncService: SyncService,
         private networkService: NetworkService,
         private operationQueue: OperationQueue,
-        storage: IndexedDBStorage
+        readonly storage: IndexedDBStorage,
+        supabaseClient: SupabaseClient
     ) {
         super(storage);
+        this.uploadManager = new UploadManager(supabaseClient, this.networkService);
     }
 
     async processData(
         processFunctionName: string,
         sampleGroup: SampleGroupMetadata,
         modalInputs: Record<string, string>,
-        files: File[],
+        filePaths: string[],
+        configItem: DropboxConfigItem,
         onProcessProgress: ProcessCallback,
-        //@ts-ignore
         onUploadProgress: ProcessCallback
     ): Promise<any> {
+        const sampleId = sampleGroup.human_readable_sample_id;
+        const configId = configItem.id;
+        const key = `${sampleId}:${configId}`;
+
         try {
-            // Start processing
-            onProcessProgress(0, 'Starting processing...');
+            // 1. Create initial metadata record
+            const metadataRecord: SampleMetadata = {
+                id: uuidv4(),
+                human_readable_sample_id: sampleId,
+                org_id: sampleGroup.org_id,
+                user_id: sampleGroup.user_id,
+                data_type: configItem.dataType,
+                status: 'processing',
+                upload_datetime_utc: new Date().toISOString(),
+                process_function_name: processFunctionName,
+                sample_group_id: sampleGroup.id,
+                raw_storage_paths: filePaths.map(file =>
+                    `${sampleGroup.org_id}/${sampleId}/${file.replace(/^.*[\\\/]/, '')}`
+                ),
+                processed_storage_path: `${sampleGroup.org_id}/${sampleId}/processed/${configId}.json`,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
 
-            let processedData: any;
+            // Save initial metadata to IndexedDB
+            await this.storage.saveSampleMetadata(metadataRecord);
 
-            // Handle different processing types
-            switch (processFunctionName) {
-                case 'handleCTDDataUpload':
-                    processedData = await this.processCTDData(files[0], onProcessProgress);
-                    break;
-                case 'handleNutrientAmmoniaInput':
-                    processedData = this.processNutrientData(modalInputs);
-                    break;
-                case 'handleSequencingData':
-                    processedData = await this.processSequencingData(files, onProcessProgress);
-                    break;
-                default:
-                    throw new Error(`Unknown process function: ${processFunctionName}`);
+            // 2. Queue raw files for upload with correct paths
+            for (const filePath of filePaths) {
+                const fileName = filePath.replace(/^.*[\\\/]/, '');
+                const storagePath = `${sampleGroup.org_id}/${sampleId}/${fileName}`;
+
+                const fileBuffer = await readFile(filePath);
+                const file = new File([fileBuffer], fileName);
+                await this.queueRawFile(sampleId, configId, file, { customPath: storagePath });
             }
 
-            // Save processed data
-            const sampleId = sampleGroup.human_readable_sample_id;
-            const configId = processFunctionName;
+            // Start the upload process
+            await this.uploadManager.startUploadProcess(onUploadProgress);
 
-            await this.saveProcessedData(sampleId, configId, processedData);
+            // 3. Process the data using Tauri command
+            onProcessProgress(0, 'Processing data...');
+
+            let unlisten: UnlistenFn | undefined;
+            let result: any;
+            try {
+                unlisten = await listen('progress', (event) => {
+                    const { progress, status } = event.payload as { progress: number; status: string };
+                    onProcessProgress(progress, status);
+                });
+
+                result = await invoke<any>(configItem.processFunctionName, {
+                    functionName: processFunctionName,
+                    sampleId,
+                    modalInputs,
+                    filePaths,
+                });
+            } finally {
+                if (unlisten) {
+                    await unlisten();
+                }
+            }
+
+            // 4. Prepare and queue processed data
+            const processedData = {
+                data: result,
+                metadata: {
+                    processFunction: processFunctionName,
+                    processedDateTime: new Date().toISOString(),
+                },
+                rawFilePaths: metadataRecord.raw_storage_paths,
+            };
+
+            const processedBlob = new Blob([JSON.stringify(processedData)], {
+                type: 'application/json',
+            });
+
+            await this.queueProcessedFile(sampleId, configId, processedBlob, {
+                customPath: metadataRecord.processed_storage_path,
+            });
+
+            // Trigger the upload process after queuing processed data
+            await this.uploadManager.startUploadProcess(onUploadProgress);
+
+            // 5. Update metadata record with completion status
+            const updatedMetadata: SampleMetadata = {
+                ...metadataRecord,
+                status: 'processed',
+                processed_datetime_utc: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+
+            await this.storage.saveSampleMetadata(updatedMetadata);
+
+            // 6. Save processed data to local IndexedDB
+            await this.storage.saveProcessedData(sampleId, configId, processedData, {
+                rawFilePaths: metadataRecord.raw_storage_paths || undefined,
+                processedPath: metadataRecord.processed_storage_path,
+                metadata: processedData.metadata,
+            });
 
             onProcessProgress(100, 'Processing complete');
             return processedData;
-
         } catch (error) {
             this.handleError(error, 'Failed to process data');
+            throw error;
         }
     }
+
+    // Add these methods to fix the TypeScript errors
+
+    // Queue raw file for upload
+    async queueRawFile(
+        sampleId: string,
+        configId: string,
+        file: File,
+        options: { customPath?: string } = {}
+    ): Promise<void> {
+        await this.storage.queueRawFile(sampleId, configId, file, options);
+    }
+
+    // Queue processed file for upload
+    async queueProcessedFile(
+        sampleId: string,
+        configId: string,
+        data: Blob,
+        options: { customPath?: string } = {}
+    ): Promise<void> {
+        await this.storage.queueProcessedFile(sampleId, configId, data, options);
+    }
+
+    // Existing methods...
 
     async saveProcessedData(
         sampleId: string,
@@ -78,7 +187,6 @@ export class ProcessedDataService extends BaseService {
                 sampleId,
                 configId,
                 data,
-                Date.now()
             );
 
             // Handle sync
@@ -88,7 +196,7 @@ export class ProcessedDataService extends BaseService {
                 await this.operationQueue.enqueue({
                     type: 'update',
                     table: 'processed_data',
-                    data: { sampleId, configId, data }
+                    data: { sampleId, configId, data },
                 });
             }
         } catch (error) {
@@ -104,24 +212,16 @@ export class ProcessedDataService extends BaseService {
         }
     }
 
-    async getAllProcessedData(sampleId: string): Promise<Record<string, any>> {
+    async getAllProcessedData(sampleId: string): Promise<Record<string, ProcessedDataEntry>> {
         try {
-            // Get all processed data for a sample
-            const configTypes = ['ctd_data', 'nutrient_ammonia', 'sequencing_data'];
-            const result: Record<string, any> = {};
-
-            for (const configId of configTypes) {
-                const data = await this.getProcessedData(sampleId, configId);
-                if (data) {
-                    result[`${sampleId}:${configId}`] = data;
-                }
-            }
-
-            return result;
+            const data = await this.storage.getAllProcessedData(sampleId);
+            return data;
         } catch (error) {
-            this.handleError(error, 'Failed to get all processed data');
+            console.error('Detailed error:', error);
+            throw new Error('Failed to get all processed data');
         }
     }
+
 
     async syncProcessedData(sampleId: string): Promise<void> {
         if (!this.networkService.isOnline()) return;
@@ -130,82 +230,12 @@ export class ProcessedDataService extends BaseService {
             const localData = await this.getAllProcessedData(sampleId);
 
             // Sync each piece of processed data
-            for (const [key, data] of Object.entries(localData)) {
-                const [, configId] = key.split(':');
+            for (const entry of Object.values(localData)) {
+                const { sampleId, configId, data } = entry;
                 await this.syncService.syncProcessedData(sampleId, configId, data);
             }
         } catch (error) {
             this.handleError(error, 'Failed to sync processed data');
         }
-    }
-
-    private async processCTDData(file: File, onProgress: ProcessCallback): Promise<any> {
-        try {
-            onProgress(0, 'Reading CTD file...');
-            //@ts-ignore
-            const fileContent = await this.readFile(file);
-
-            onProgress(50, 'Processing CTD data...');
-            // Add your CTD processing logic here
-
-            onProgress(100, 'CTD processing complete');
-            return {}; // Return processed data
-        } catch (error) {
-            this.handleError(error, 'Failed to process CTD data');
-        }
-    }
-
-    private processNutrientData(inputs: Record<string, string>): any {
-        try {
-            const ammoniaValue = parseFloat(inputs.ammoniaValue);
-            if (isNaN(ammoniaValue)) {
-                throw new Error('Invalid ammonia value');
-            }
-
-            // Convert ammonia to ammonium
-            const ammoniumValue = ammoniaValue * 1.05; // Example conversion factor
-
-            return {
-                ammoniaValue,
-                ammoniumValue,
-                timestamp: Date.now()
-            };
-        } catch (error) {
-            this.handleError(error, 'Failed to process nutrient data');
-        }
-    }
-
-    private async processSequencingData(files: File[], onProgress: ProcessCallback): Promise<any> {
-        try {
-            const totalFiles = files.length;
-            let processedFiles = 0;
-
-            const results = await Promise.all(files.map(async file => {
-                onProgress(
-                    (processedFiles / totalFiles) * 100,
-                    `Processing file ${processedFiles + 1} of ${totalFiles}`
-                );
-                //@ts-ignore
-                const fileContent = await this.readFile(file);
-                // Add your sequencing data processing logic here
-
-                processedFiles++;
-                return {}; // Return processed data
-            }));
-
-            onProgress(100, 'Sequencing processing complete');
-            return results;
-        } catch (error) {
-            this.handleError(error, 'Failed to process sequencing data');
-        }
-    }
-
-    private readFile(file: File): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsText(file);
-        });
     }
 }

@@ -1,5 +1,4 @@
 // types/services.ts
-import type { processedDataStorage } from '../storage/processedDataDB.ts';
 import type { NetworkService } from '../services/offline/NetworkService';
 import type { OperationQueue } from '../services/offline/OperationQueue';
 import type { SyncService } from '../services/SyncService';
@@ -16,5 +15,4 @@ export interface Services {
     network: NetworkService;
     operationQueue: OperationQueue;
     syncManager: SyncManager;
-    processedDataStorage: typeof processedDataStorage;
 }

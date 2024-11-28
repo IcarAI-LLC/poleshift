@@ -11,9 +11,12 @@ import {
     UserProfile,
     UserTier,
     SampleMetadata,
-    User   // Added User type
+    User,
+    ProcessedDataEntry,
+    ProcessingQueueItem
 } from '../types';
 import type { Session } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 
 interface AppDB extends DBSchema {
     user_tiers: {
@@ -73,16 +76,23 @@ interface AppDB extends DBSchema {
         indexes: { 'timestamp': number };
     };
     processed_data: {
-        key: string; // Composite key: `${sampleId}:${configId}`
-        value: {
-            key: string;
-            sampleId: string;
-            configId: string;
-            data: any;
-            updatedAt: number;
+        key: string; // `${sampleId}:${configId}`
+        value: ProcessedDataEntry;
+        indexes: {
+            'sample_id': string;
+            'timestamp': number;
+            'status': string;
         };
     };
-    // Added stores for session and user data
+    processing_queue: {
+        key: string; // UUID
+        value: ProcessingQueueItem;
+        indexes: {
+            'status': string;
+            'timestamp': number;
+            'type': string;
+        };
+    };
     sessions: {
         key: string; // 'id' as UUID string or constant key
         value: Session;
@@ -92,6 +102,22 @@ interface AppDB extends DBSchema {
         value: User;
     };
 }
+
+// Define StoreNames as a union of all store names
+type StoreNames =
+    | 'user_tiers'
+    | 'license_keys'
+    | 'sample_locations'
+    | 'organizations'
+    | 'user_profiles'
+    | 'sample_group_metadata'
+    | 'file_nodes'
+    | 'sample_metadata'
+    | 'pending_operations'
+    | 'processed_data'
+    | 'processing_queue'
+    | 'sessions'
+    | 'users';
 
 class IndexedDBStorage {
     private db: IDBPDatabase<AppDB> | null = null;
@@ -108,7 +134,7 @@ class IndexedDBStorage {
 
     private async getDB(): Promise<IDBPDatabase<AppDB>> {
         if (!this.db) {
-            this.db = await openDB<AppDB>('appDB', 41, {
+            this.db = await openDB<AppDB>('appDB', 2, {
                 upgrade(db, oldVersion, newVersion, transaction) {
                     // User Tiers
                     if (!db.objectStoreNames.contains('user_tiers')) {
@@ -171,7 +197,18 @@ class IndexedDBStorage {
 
                     // Processed Data
                     if (!db.objectStoreNames.contains('processed_data')) {
-                        db.createObjectStore('processed_data', { keyPath: 'key' });
+                        const store = db.createObjectStore('processed_data', { keyPath: 'key' });
+                        store.createIndex('sample_id', 'sample_id');
+                        store.createIndex('timestamp', 'timestamp');
+                        store.createIndex('status', 'status');
+                    }
+
+                    // Processing Queue
+                    if (!db.objectStoreNames.contains('processing_queue')) {
+                        const store = db.createObjectStore('processing_queue', { keyPath: 'id' });
+                        store.createIndex('status', 'status');
+                        store.createIndex('timestamp', 'timestamp');
+                        store.createIndex('type', 'type');
                     }
 
                     // Sessions
@@ -190,38 +227,48 @@ class IndexedDBStorage {
     }
 
     // Generic CRUD Operations
-    private async add<T>(storeName: keyof AppDB, item: T): Promise<void> {
+    private async add<StoreName extends keyof AppDB>(
+        storeName: StoreNames,
+        item: AppDB[StoreName]['value']
+    ): Promise<void> {
         const db = await this.getDB();
-        //@ts-ignore
         await db.add(storeName, item);
     }
 
-    private async put<T>(storeName: keyof AppDB, item: T): Promise<void> {
+    private async put<StoreName extends keyof AppDB>(
+        storeName: StoreNames,
+        item: AppDB[StoreName]['value']
+    ): Promise<void> {
         const db = await this.getDB();
-        //@ts-ignore
         await db.put(storeName, item);
     }
 
-    private async get<T>(storeName: keyof AppDB, key: string): Promise<T | undefined> {
+    private async get<StoreName extends keyof AppDB>(
+        storeName: StoreNames,
+        key: AppDB[StoreName]['key']
+    ): Promise<AppDB[StoreName]['value'] | undefined> {
         const db = await this.getDB();
-        //@ts-ignore
-        return db.get(storeName, key);
+        return db.get(storeName, key.toString());
     }
 
-    private async delete(storeName: keyof AppDB, key: string): Promise<void> {
+    private async delete<StoreName extends keyof AppDB>(
+        storeName: StoreNames,
+        key: AppDB[StoreName]['key']
+    ): Promise<void> {
         const db = await this.getDB();
-        //@ts-ignore
-        await db.delete(storeName, key);
+        await db.delete(storeName, key.toString());
     }
 
-    private async getAllFromIndex<T>(
-        storeName: keyof AppDB,
-        indexName: string,
-        key: any
-    ): Promise<T[]> {
+    private async getAllFromIndex<
+        StoreName extends keyof AppDB,
+        IndexName extends keyof AppDB[StoreName]['indexes']
+    >(
+        storeName: StoreName,
+        indexName: IndexName,
+        key: IDBValidKey | IDBKeyRange
+    ): Promise<AppDB[StoreName]['value'][]> {
         const db = await this.getDB();
-        //@ts-ignore
-        return db.getAllFromIndex(storeName, indexName, key);
+        return db.getAllFromIndex(storeName, indexName as string, key);
     }
 
     // Methods for Session and User Data
@@ -396,21 +443,140 @@ class IndexedDBStorage {
         sampleId: string,
         configId: string,
         data: any,
-        updatedAt: number
+        options: {
+            rawFilePaths?: string[];
+            processedPath?: string;
+            metadata?: ProcessedDataEntry['metadata'];
+        } = {}
     ): Promise<void> {
-        const key = `${sampleId}:${configId}`;
-        await this.put('processed_data', {
-            key,
+        const entry: ProcessedDataEntry = {
+            key: `${sampleId}:${configId}`,
             sampleId,
             configId,
             data,
-            updatedAt
-        });
+            rawFilePaths: options.rawFilePaths || [],
+            processedPath: options?.processedPath || null,
+            timestamp: Date.now(),
+            status: 'processed',
+            metadata: options.metadata,
+        };
+
+        await this.put('processed_data', entry);
     }
 
-    async getProcessedData(sampleId: string, configId: string): Promise<any> {
+    async getProcessedData(sampleId: string, configId: string): Promise<ProcessedDataEntry | null> {
         const key = `${sampleId}:${configId}`;
-        return this.get('processed_data', key);
+        const entry = await this.get('processed_data', key);
+        return entry || null;
+    }
+
+    async getAllProcessedData(sampleId: string): Promise<Record<string, ProcessedDataEntry>> {
+        const entries = await this.getAllFromIndex('processed_data', 'sample_id', sampleId);
+
+        return entries.reduce((acc, entry) => {
+            if (entry.key) {
+                acc[entry.key] = entry;
+            }
+            return acc;
+        }, {} as Record<string, ProcessedDataEntry>);
+    }
+
+    async deleteProcessedData(sampleId: string, configId: string): Promise<void> {
+        const key = `${sampleId}:${configId}`;
+        await this.delete('processed_data', key);
+    }
+
+    // Processing Queue Methods
+    async queueRawFile(
+        sampleId: string,
+        configId: string,
+        file: File,
+        options: { customPath?: string } = {}
+    ): Promise<void> {
+        const filePath = options.customPath || `${sampleId}/${configId}/raw/${file.name}`;
+
+        const queueItem: ProcessingQueueItem = {
+            id: uuidv4(),
+            type: 'raw',
+            sampleId,
+            configId,
+            filePath,
+            fileBlob: file,
+            timestamp: Date.now(),
+            retryCount: 0,
+            status: 'pending'
+        };
+
+        await this.add('processing_queue', queueItem);
+    }
+
+    async queueProcessedFile(
+        sampleId: string,
+        configId: string,
+        data: Blob,
+        options: { customPath?: string } = {}
+    ): Promise<void> {
+        const filePath = options.customPath || `${sampleId}/${configId}/processed/data.json`;
+
+        const queueItem: ProcessingQueueItem = {
+            id: uuidv4(),
+            type: 'processed',
+            sampleId,
+            configId,
+            filePath,
+            fileBlob: data,
+            timestamp: Date.now(),
+            retryCount: 0,
+            status: 'pending'
+        };
+
+        await this.add('processing_queue', queueItem);
+    }
+
+    async getPendingUploads(): Promise<ProcessingQueueItem[]> {
+        return this.getAllFromIndex('processing_queue', 'status', 'pending');
+    }
+
+    async markUploadComplete(id: string): Promise<void> {
+        await this.delete('processing_queue', id);
+    }
+
+    async markUploadError(id: string, error: string): Promise<void> {
+        const item = await this.get('processing_queue', id);
+        if (item) {
+            const updatedItem: ProcessingQueueItem = {
+                ...item,
+                status: 'error',
+                retryCount: item.retryCount + 1,
+                error
+            };
+            await this.put('processing_queue', updatedItem);
+        }
+    }
+
+    // Utility methods
+    async getQueueStats(): Promise<{ pending: number; error: number }> {
+        const pending = await this.getAllFromIndex('processing_queue', 'status', 'pending');
+        const errors = await this.getAllFromIndex('processing_queue', 'status', 'error');
+
+        return {
+            pending: pending.length,
+            error: errors.length
+        };
+    }
+
+    async clearErroredItems(maxRetries: number = 3): Promise<void> {
+        const db = await this.getDB();
+        const tx = db.transaction('processing_queue', 'readwrite');
+        const erroredItems = await tx.store.index('status').getAll('error');
+
+        for (const item of erroredItems) {
+            if (item.retryCount >= maxRetries) {
+                await tx.store.delete(item.id);
+            }
+        }
+
+        await tx.done;
     }
 
     // Bulk Operations
