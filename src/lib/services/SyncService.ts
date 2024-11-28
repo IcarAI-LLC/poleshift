@@ -135,4 +135,16 @@ export class SyncService extends BaseService {
             this.handleError(error, 'Failed to sync processed data');
         }
     }
+
+    async upsertRemote<T>(table: string, data: T): Promise<void> {
+        try {
+            const { error } = await this.supabase
+                .from(table)
+                .upsert(data);
+
+            if (error) throw error;
+        } catch (error) {
+            this.handleError(error, `Failed to upsert remote ${table}`);
+        }
+    }
 }

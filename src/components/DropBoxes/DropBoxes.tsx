@@ -16,7 +16,8 @@ import DropBox from './DropBox';
 import NutrientAmmoniaView from '../NutrientAmmoniaView';
 import KrakenVisualization from '../KrakenVisualization/KrakenVisualization';
 
-import { processCTDDataForModal, processKrakenDataForModal } from '../../lib/utils/dataProcessingUtils';
+import { processKrakenDataForModal } from '../../lib/utils/dataProcessingUtils';
+import { processCTDDataForModal} from "../../lib/utils/processCTDDataForModal.ts";
 
 interface ModalState {
   isOpen: boolean;
@@ -24,7 +25,7 @@ interface ModalState {
   type: 'input' | 'data';
   configItem?: DropboxConfigItem;
   modalInputs?: Record<string, string>;
-  uploadedFiles?: File[];
+  uploadedFiles?: string[];
   data?: any;
   units?: Record<string, string>;
 }
@@ -75,7 +76,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
   }, [sampleGroup, fetchProcessedData]);
 
   const openModal = useCallback(
-      (title: string, configItem: DropboxConfigItem, uploadedFiles: File[] = []) => {
+      (title: string, configItem: DropboxConfigItem, uploadedFiles: string[] = []) => { // Changed to string[]
         if (!configItem.modalFields?.length) return;
 
         setModalState({
@@ -90,7 +91,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
             lat: sampleLocation?.lat?.toString() || '',
             long: sampleLocation?.long?.toString() || '',
           },
-          uploadedFiles,
+          uploadedFiles, // Array of file paths
         });
       },
       [sampleLocation]
@@ -120,18 +121,31 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
   );
 
   const processModalData = async (dataItem: any, configItem: DropboxConfigItem) => {
-    console.log(dataItem);
+    console.log('Processing modal data:', dataItem);
+
     switch (configItem.id) {
       case 'ctd_data': {
-        const { processedData: ctdData, variableUnits } = processCTDDataForModal(dataItem.data);
-        return { modalData: ctdData, units: variableUnits };
+        const { processedData, variableUnits} = processCTDDataForModal(dataItem[0])
+        return {
+          modalData: processedData,
+          units: variableUnits
+        };
       }
       case 'nutrient_ammonia':
-        return { modalData: dataItem.data, units: undefined };
+        return {
+          modalData: dataItem,
+          units: undefined
+        };
       case 'sequencing_data':
-        return { modalData: processKrakenDataForModal(dataItem), units: undefined };
+        return {
+          modalData: processKrakenDataForModal(dataItem.data.data),
+          units: undefined
+        };
       default:
-        return { modalData: dataItem, units: undefined };
+        return {
+          modalData: dataItem.data || dataItem,
+          units: undefined
+        };
     }
   };
 
@@ -178,7 +192,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
           configItem.processFunctionName,
           sampleGroup,
           modalInputs!,
-          uploadedFiles || [],
+          uploadedFiles || [], // Array of file paths
           configItem,
           onDataProcessed,
           onError,
@@ -226,7 +240,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
               <Box key={key} sx={boxStyles}>
                 <DropBox
                     configItem={configItem}
-                    isProcessing={isProcessing[key]}
+                    isProcessing={isProcessing[key] || false}
                     hasData={!!processedData[key]}
                     openModal={openModal}
                     isLocked={false}

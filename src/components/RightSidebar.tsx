@@ -12,7 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { DateTime } from 'luxon';
 
 import { useData, useUI } from '../lib/hooks';
-import { useProcessedData } from '../lib/hooks/useProcessedData.ts';
+import { useProcessedData } from '../lib/hooks';
 import type { SampleGroupMetadata } from '../lib/types';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
@@ -114,14 +114,12 @@ const RightSidebar: React.FC = () => {
       fetchProcessedData(sampleGroup);
     });
   }, [samplesAtLocation, fetchProcessedData]);
-
   // Process CTD data for a specific sample
   const processCTDData = useCallback((_sampleId: string, data: any) => {
-    if (!data?.channels || !Array.isArray(data.data)) return null;
-
+    data = data[0]
     const channelMap: Record<string, string> = {};
     data.channels.forEach((channel: any) => {
-      channelMap[channel.longName] = `channel${String(channel.channelID).padStart(2, '0')}`;
+      channelMap[channel.long_name] = `channel${String(channel.channel_id).padStart(2, '0')}`;
     });
 
     let tempSum = 0, tempCount = 0;
@@ -172,7 +170,7 @@ const RightSidebar: React.FC = () => {
 
       // Get CTD data
       const ctdKey = `${sampleId}:ctd_data`;
-      const ctdData = processedData[ctdKey]?.data;
+      const ctdData = processedData[ctdKey];
       if (ctdData) {
         const processed = processCTDData(sampleId, ctdData);
         if (processed) {
@@ -189,15 +187,17 @@ const RightSidebar: React.FC = () => {
 
       // Get nutrient data
       const nutrientKey = `${sampleId}:nutrient_ammonia`;
-      const nutrientData = processedData[nutrientKey]?.data;
-      if (nutrientData?.ammoniumValue != null) {
-        const ammValue = nutrientData.ammoniumValue;
-        totalAmm += ammValue;
-        ammCount++;
-        minAmm = minAmm === null ? ammValue : Math.min(minAmm, ammValue);
-        maxAmm = maxAmm === null ? ammValue : Math.max(maxAmm, ammValue);
+      const nutrientArray = processedData[nutrientKey];
+      if (nutrientArray) {
+        const nutrientData = nutrientArray[0];
+        if (nutrientData?.ammonium_value != null) {
+          const ammValue = nutrientData.ammonium_value;
+          totalAmm += ammValue;
+          ammCount++;
+          minAmm = minAmm === null ? ammValue : Math.min(minAmm, ammValue);
+          maxAmm = maxAmm === null ? ammValue : Math.max(maxAmm, ammValue);
+        }
       }
-
       // Get sequencing data
       const seqKey = `${sampleId}:sequencing_data`;
       const seqData = processedData[seqKey]?.data;

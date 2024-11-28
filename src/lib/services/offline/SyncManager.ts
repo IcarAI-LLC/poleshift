@@ -85,6 +85,9 @@ export class SyncManager {
                 case 'delete':
                     await this.syncService.deleteRemote(operation.table, operation.data.id);
                     break;
+                case 'upsert':
+                    await this.syncService.upsertRemote(operation.table, operation.data);
+                    break;
             }
             return true;
         } catch (error) {

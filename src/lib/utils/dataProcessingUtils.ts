@@ -1,20 +1,6 @@
 // src/utils/dataProcessingUtils.ts
 
-interface CTDChannel {
-    channelID: number;
-    longName: string;
-    units: string;
-}
 
-interface CTDData {
-    channels: CTDChannel[];
-    data: Record<string, number>[];
-}
-
-interface ProcessedCTDData {
-    processedData: Record<string, number>[];
-    variableUnits: Record<string, string>;
-}
 
 interface KrakenReportEntry {
     depth: number;
@@ -71,52 +57,7 @@ const RANK_NAMES: Record<string, string> = {
     S: 'Species',
 };
 
-export const processCTDDataForModal = (dataItem: CTDData): ProcessedCTDData => {
-    const { channels } = dataItem;
-    const dataRows = dataItem.data;
 
-    // Create mapping of channel keys to their info
-    const channelKeyToInfo = channels.reduce(
-        (acc: Record<string, CTDChannel>, channel) => {
-            const key = `channel${String(channel.channelID).padStart(2, '0')}`;
-            acc[key] = {
-                channelID: channel.channelID,
-                longName: channel.longName,
-                units: channel.units,
-            };
-            return acc;
-        },
-        {},
-    );
-
-    // Process data rows
-    const processedData = dataRows.map((item) => {
-        const newItem: Record<string, number> = { depth: item.channel06 };
-
-        for (const key in item) {
-            if (key.startsWith('channel') && key !== 'channel06') {
-                const channelInfo = channelKeyToInfo[key];
-                if (channelInfo) {
-                    const variableName = channelInfo.longName;
-                    newItem[variableName] = item[key];
-                }
-            }
-        }
-
-        return newItem;
-    });
-
-    // Create units mapping
-    const variableUnits: Record<string, string> = {};
-    for (const key in channelKeyToInfo) {
-        if (key !== 'channel06') {
-            const channelInfo = channelKeyToInfo[key];
-            variableUnits[channelInfo.longName] = channelInfo.units;
-        }
-    }
-
-    return { processedData, variableUnits };
-};
 
 export const processKrakenDataForModal = (
     dataItem: any,

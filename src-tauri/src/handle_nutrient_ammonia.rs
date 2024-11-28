@@ -46,7 +46,9 @@ pub async fn handle_nutrient_ammonia(
         .ok_or("ammoniaValue is missing or not a string")?;
 
     // Parse 'ammoniaValue' to f64
-    let ammonia_value: f64 = ammonia_value_str.parse().map_err(|_| "Invalid Ammonia Value")?;
+    let ammonia_value: f64 = ammonia_value_str
+        .parse()
+        .map_err(|_| "Invalid Ammonia Value")?;
 
     // Emit progress: 50%
     app_handle
@@ -85,7 +87,7 @@ pub async fn handle_nutrient_ammonia(
         &temp_report_file_path,
         serde_json::to_string_pretty(&report).map_err(|e| format!("Serialization Error: {}", e))?,
     )
-        .map_err(|e| format!("Failed to write report file: {}", e))?;
+    .map_err(|e| format!("Failed to write report file: {}", e))?;
 
     // Emit progress: 100%
     app_handle

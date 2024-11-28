@@ -23,6 +23,8 @@
     "@mui/x-tree-view": "^7.22.1",
     "@supabase/supabase-js": "^2.46.1",
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-dialog": "^2.0.1",
+    "@tauri-apps/plugin-fs": "^2.0.2",
     "@tauri-apps/plugin-shell": "^2",
     "@tauri-apps/plugin-store": "^2.1.0",
     "compromise": "^14.14.2",

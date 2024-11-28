@@ -51,7 +51,7 @@ const dropboxConfig: DropboxConfigItem[] = [
     expectedFileTypes: { 'application/octet-stream': ['.rsk'] },
     isEnabled: true,
     isModalInput: false,
-    processFunctionName: 'handleCTDDataUpload',
+    processFunctionName: 'handle_ctd_data_upload',
     requiredSubscriptionLevel: 1,
     modalFields: [], // No modal inputs needed for CTD data
   },
@@ -66,7 +66,7 @@ const dropboxConfig: DropboxConfigItem[] = [
     },
     isEnabled: true,
     isModalInput: false,
-    processFunctionName: 'handleSequencingData',
+    processFunctionName: 'handle_sequencing_data',
     requiredSubscriptionLevel: 1, // Adjust subscription level as needed
     modalFields: [], // No modal inputs needed for sequencing data
     acceptsMultipleFiles: true,

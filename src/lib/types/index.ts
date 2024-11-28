@@ -185,7 +185,7 @@ export class SyncError extends AppError {
 
 export interface PendingOperation {
     id: string;
-    type: 'create' | 'update' | 'delete';
+    type: 'create' | 'update' | 'delete' | 'upsert';
     table: string;
     data: any;
     timestamp: number;

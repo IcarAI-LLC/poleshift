@@ -1,7 +1,7 @@
 // lib/services/DataService.ts
 import { BaseService } from "./BaseService.ts";
 import { NetworkService, OperationQueue } from "./offline";
-import { FileNode, SampleGroupMetadata, SampleLocation } from "../types";
+import {FileNode, SampleGroupMetadata, SampleLocation, SampleMetadata} from "../types";
 import { SyncService } from "./SyncService.ts";
 import { IndexedDBStorage } from "../storage/IndexedDB.ts"; // Removed @ts-ignore
 
@@ -36,6 +36,26 @@ export class DataService extends BaseService {
             }
         } catch (error) {
             this.handleError(error, 'Failed to create sample group');
+        }
+    }
+
+    async saveSampleMetadata(data: SampleMetadata): Promise<void> {
+        try {
+            // Save locally
+            await this.storage.saveSampleMetadata(data);
+
+            // Handle sync
+            if (this.networkService.isOnline()) {
+                await this.syncService.upsertRemote('sample_metadata', data);
+            } else {
+                await this.operationQueue.enqueue({
+                    type: 'upsert',
+                    table: 'sample_metadata',
+                    data
+                });
+            }
+        } catch (error) {
+            this.handleError(error, 'Failed to save sample metadata');
         }
     }
 

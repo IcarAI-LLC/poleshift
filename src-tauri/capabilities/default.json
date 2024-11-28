@@ -8,6 +8,9 @@
   "permissions": [
     "core:default",
     "shell:allow-open",
-    "store:default"
+    "store:default",
+    "dialog:default",
+    "dialog:default",
+    "fs:default"
   ]
 }

@@ -7,9 +7,9 @@ import {
     PendingOperation,
     SampleGroupMetadata,
     SampleLocation,
-    SampleMetadata,
     UserProfile,
-    UserTier
+    UserTier,
+    SampleMetadata
 } from '../types';
 
 interface AppDB extends DBSchema {
@@ -96,7 +96,7 @@ class IndexedDBStorage {
 
     private async getDB(): Promise<IDBPDatabase<AppDB>> {
         if (!this.db) {
-            this.db = await openDB<AppDB>('appDB', 13, {
+            this.db = await openDB<AppDB>('appDB', 40, {
                 upgrade(db) {
                     // User Tiers
                     if (!db.objectStoreNames.contains('user_tiers')) {
@@ -226,6 +226,15 @@ class IndexedDBStorage {
 
     async getFileNode(id: string): Promise<FileNode | undefined> {
         return this.get('file_nodes', id);
+    }
+
+    // File Nodes
+    async saveSampleMetadata(sampleMetadata: SampleMetadata): Promise<void> {
+        await this.put('sample_metadata', sampleMetadata);
+    }
+
+    async getSampleMetadata(id: string): Promise<SampleMetadata | undefined> {
+        return await this.get('sample_metadata', id);
     }
 
     async getFileNodesByOrg(orgId: string): Promise<FileNode[]> {
