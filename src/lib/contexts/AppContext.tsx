@@ -171,8 +171,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
             };
         case 'UPDATE_SAMPLE_GROUP':
             const updatedGroup = action.payload;
-            console.log('Updating sample group:', updatedGroup);
-            console.log('Previous sample groups:', state.data.sampleGroups);
             return {
                 ...state,
                 data: {

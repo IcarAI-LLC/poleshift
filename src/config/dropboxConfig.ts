@@ -31,7 +31,7 @@ const dropboxConfig: DropboxConfigItem[] = [
     expectedFileTypes: null,
     isEnabled: true,
     isModalInput: true,
-    processFunctionName: 'handleNutrientAmmoniaInput',
+    processFunctionName: 'handle_nutrient_ammonia',
     requiredSubscriptionLevel: 1,
     modalFields: [
       {

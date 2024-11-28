@@ -4,16 +4,16 @@ import React from 'react';
 import { Box, Typography, Grid, Paper } from '@mui/material';
 
 interface NutrientAmmoniaData {
-  ammoniaValue: number;
-  ammoniumValue: number;
+  ammonia_value: number;
+  ammonium_value: number;
 }
 
 interface NutrientAmmoniaViewProps {
-  data: NutrientAmmoniaData;
+  data: NutrientAmmoniaData[];
 }
 
 const NutrientAmmoniaView: React.FC<NutrientAmmoniaViewProps> = ({ data }) => {
-  const { ammoniaValue, ammoniumValue } = data;
+  const { ammonia_value, ammonium_value } = data[0];
 
   return (
     <Box sx={{ padding: 2 }}>
@@ -27,7 +27,7 @@ const NutrientAmmoniaView: React.FC<NutrientAmmoniaViewProps> = ({ data }) => {
               Ammonia Value (NH₃) mg/L
             </Typography>
             <Typography variant="h5" color="primary">
-              {ammoniaValue.toFixed(2)}
+              {ammonia_value.toFixed(2)}
             </Typography>
           </Paper>
         </Grid>
@@ -37,7 +37,7 @@ const NutrientAmmoniaView: React.FC<NutrientAmmoniaViewProps> = ({ data }) => {
               Ammonium Value (NH₄⁺) μmol/L
             </Typography>
             <Typography variant="h5" color="primary">
-              {ammoniumValue.toFixed(2)}
+              {ammonium_value.toFixed(2)}
             </Typography>
           </Paper>
         </Grid>

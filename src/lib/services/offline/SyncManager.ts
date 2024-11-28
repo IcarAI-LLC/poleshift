@@ -70,7 +70,6 @@ export class SyncManager {
             }
         } finally {
             this.syncInProgress = false;
-            console.log("Sync complete");
         }
     }
 

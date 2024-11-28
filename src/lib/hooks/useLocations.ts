@@ -13,11 +13,9 @@ export function useLocations() {
 
         async function initializeLocations() {
             try {
-                console.log("Starting locations initialization");
 
                 // First try to load from IndexedDB
                 const localLocations = await dataService.storage.getAllLocations();
-                console.log("Local locations:", localLocations);
 
                 if (mounted && localLocations && localLocations.length > 0) {
                     // Immediately dispatch local locations
@@ -26,17 +24,14 @@ export function useLocations() {
 
                 // Then sync with remote if online
                 if (mounted && services.network.isOnline()) {
-                    console.log("Syncing with remote locations");
                     await syncService.syncFromRemote('sample_locations');
                     const remoteLocations = await dataService.storage.getAllLocations();
-                    console.log("Remote locations:", remoteLocations);
 
                     if (mounted && remoteLocations && remoteLocations.length > 0) {
                         dispatch({ type: 'SET_LOCATIONS', payload: remoteLocations });
                     }
                 }
             } catch (error) {
-                console.error('Failed to initialize locations:', error);
                 if (mounted) {
                     dispatch({ type: 'SET_ERROR_MESSAGE', payload: 'Failed to load locations' });
                 }
@@ -53,9 +48,7 @@ export function useLocations() {
 
     // Get locations from state with additional logging
     const allLocations = useMemo(() => {
-        const locations = state.data.locations || [];
-        console.log("Current locations in state:", locations);
-        return locations;
+        return state.data.locations || [];
     }, [state.data.locations]);
 
     // Get enabled locations
@@ -80,11 +73,9 @@ export function useLocations() {
             dispatch({ type: 'SET_SYNCING', payload: true });
             await syncService.syncFromRemote('sample_locations');
             const locations = await dataService.storage.getAllLocations();
-            console.log("Synced locations:", locations);
             dispatch({ type: 'SET_LOCATIONS', payload: locations });
             dispatch({ type: 'SET_LAST_SYNCED', payload: Date.now() });
         } catch (error) {
-            console.error('Failed to sync locations:', error);
             dispatch({ type: 'SET_ERROR_MESSAGE', payload: 'Failed to sync locations' });
         } finally {
             dispatch({ type: 'SET_SYNCING', payload: false });

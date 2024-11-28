@@ -56,7 +56,6 @@ const AccountActions: React.FC = () => {
     flex: 1,
     textAlign: 'right',
   };
-  console.log("Component Account Actions: ", showAccountActions);
   return (
     <Dialog
       open={showAccountActions}

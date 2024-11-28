@@ -84,7 +84,6 @@ export class SyncService extends BaseService {
                 }
 
                 const {data, error} = await query;
-                console.log(error);
                 if (error) throw error;
                 if (data?.length) {
                     await this.storage.bulkSave(table, data);

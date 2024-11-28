@@ -247,7 +247,6 @@ const buildTaxonomyTreeIterative = (
 };
 
 const processKrakenReport = (reportContent: string): ProcessedKrakenData => {
-    console.log(reportContent);
     // Parse report lines into structured data
     const lines = reportContent.split('\n').filter((line) => line.trim());
 

@@ -6,7 +6,7 @@ import type { SxProps } from '@mui/system';
 import dropboxConfig, { DropboxConfigItem } from '../../config/dropboxConfig';
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
-import { useLocations } from '../../lib/hooks/useLocations';
+import { useLocations } from '../../lib/hooks';
 import { useProcessedData } from '../../lib/hooks';
 
 import Modal from '../Modal';
@@ -120,6 +120,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
   );
 
   const processModalData = async (dataItem: any, configItem: DropboxConfigItem) => {
+    console.log(dataItem);
     switch (configItem.id) {
       case 'ctd_data': {
         const { processedData: ctdData, variableUnits } = processCTDDataForModal(dataItem.data);

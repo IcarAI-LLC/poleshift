@@ -108,7 +108,7 @@ export function useProcessedData() {
                     );
 
                     // Invoke the command with proper type annotations
-                    processedResult = await invoke<any>('process_data', {
+                    processedResult = await invoke<any>(configItem.processFunctionName, {
                         functionName: processFunctionName,
                         sampleId,
                         configId,

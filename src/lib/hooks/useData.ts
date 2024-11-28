@@ -14,18 +14,15 @@ export function useData() {
 
         async function initializeData() {
             try {
-                console.log("Starting data initialization");
 
                 // Load fileTree from local storage
                 const localFileTree = await dataService.getAllFileNodes();
-                console.log("Local fileTree:", localFileTree);
                 if (mounted && localFileTree) {
                     dispatch({ type: 'SET_FILE_TREE', payload: localFileTree });
                 }
 
                 // Load sampleGroups from local storage
                 const localSampleGroups = await dataService.getAllSampleGroups();
-                console.log("Local sampleGroups:", localSampleGroups);
                 if (mounted && localSampleGroups) {
                     // Convert array to record before dispatching
                     const sampleGroupsRecord = arrayToRecord(localSampleGroups);
@@ -34,7 +31,6 @@ export function useData() {
 
                 // If online, sync data with remote server
                 if (mounted && services.network.isOnline()) {
-                    console.log("Syncing data with remote server");
                     await syncService.syncFromRemote('file_nodes', state.auth.organization?.id);
                     await syncService.syncFromRemote('sample_group_metadata', state.auth.organization?.id);
 
@@ -53,7 +49,6 @@ export function useData() {
                     }
                 }
             } catch (error) {
-                console.error('Failed to initialize data:', error);
                 if (mounted) {
                     dispatch({ type: 'SET_ERROR_MESSAGE', payload: 'Failed to load data' });
                 }

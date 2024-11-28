@@ -39,7 +39,7 @@ pub struct FileMeta {
 }
 
 #[tauri::command]
-pub async fn handle_ctd_data_upload(
+pub async fn handle_ctd_data(
     app_handle: AppHandle,
     sample_id: String,
     modal_inputs: serde_json::Value,

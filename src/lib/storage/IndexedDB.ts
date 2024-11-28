@@ -361,7 +361,6 @@ class IndexedDBStorage {
         items: AppDB[StoreName]['value'][]
     ): Promise<void> {
         const db = await this.getDB();
-        console.log(storeName);
         //@ts-ignore
         const tx = db.transaction(storeName, 'readwrite');
         for (const item of items) {
@@ -372,7 +371,6 @@ class IndexedDBStorage {
 
     async clearStore<StoreName extends keyof AppDB>(storeName: StoreName): Promise<void> {
         const db = await this.getDB();
-        console.log(storeName);
         //@ts-ignore
         const tx = db.transaction(storeName, 'readwrite');
         await tx.store.clear();

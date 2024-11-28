@@ -37,7 +37,6 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
     const firstInputRef = useRef<HTMLInputElement>(null);
     const { filters, setFilters } = useUI();
     const { allLocations: locations } = useLocations();
-    console.log("Locations: ", locations);
     // Memoize style objects
     const styles = {
         container: {
