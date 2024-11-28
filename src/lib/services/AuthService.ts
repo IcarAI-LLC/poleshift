@@ -89,7 +89,7 @@ export class AuthService extends BaseService {
     async getLocalSession(): Promise<Session | null> {
         try {
             const session = await this.storage.getSession();
-            if (session) {
+            if (session && session.expires_at) {
                 // Check if session is still valid
                 if (new Date(session.expires_at * 1000) > new Date()) {
                     return session;
@@ -117,6 +117,8 @@ export class AuthService extends BaseService {
         }
     }
 
+// lib/services/AuthService.ts
+
     async signIn(email: string, password: string): Promise<{
         user: User;
         profile: UserProfile;
@@ -130,13 +132,17 @@ export class AuthService extends BaseService {
             });
 
             if (error) throw error;
-            if (!data.user) throw new Error('No user returned from sign in');
+            if (!data.user || !data.session) throw new Error('No user or session returned from sign in');
 
             const user: User = {
                 id: data.user.id,
                 email: data.user.email || '',
-                last_sign_in_at: data.user?.last_sign_in_at || null
+                last_sign_in_at: data.user.last_sign_in_at || null
             };
+
+            // **Add these lines to store session and user data locally**
+            await this.storage.saveSession(data.session);
+            await this.storage.saveUser(user);
 
             const profile = await this.getUserProfile(user.id);
             let organization: Organization | undefined;
@@ -145,7 +151,7 @@ export class AuthService extends BaseService {
                 organization = await this.getOrganization(profile.organization_id);
             }
 
-            // Store locally
+            // Store profile and organization locally
             await this.storage.saveUserProfile(profile);
             if (organization) {
                 await this.storage.saveOrganization(organization);
@@ -159,6 +165,7 @@ export class AuthService extends BaseService {
             throw error;
         }
     }
+
 
     async signUp(email: string, password: string, licenseKey: string): Promise<void> {
         try {
