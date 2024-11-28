@@ -1,74 +1,54 @@
 // src/renderer/routes/AppRoutes.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import LoadingScreen from '../components/PreAuth/LoadingScreen';
 import Login from '../components/PreAuth/Login';
 import SignUp from '../components/PreAuth/SignUp';
 import MainApp from '../components/MainApp';
 import ResetPassword from '../components/PreAuth/ResetPassword';
-import {useAuth, useData, useLocations} from '../lib/hooks';
+import { AppContext } from "../lib/contexts/AppContext";
+import { useAuth } from '../lib/hooks';
 
 const AppRoutes: React.FC = () => {
-  const { user, loading: authLoading, error: authError } = useAuth();
-  const { syncData, isSyncing, error: syncError } = useData();
-  const { syncLocations } = useLocations();
+  const { state } = useContext(AppContext);
+  const { user, loading: authLoading, error: authError } = state.auth;
   const [currentView, setCurrentView] = useState<
       'login' | 'signup' | 'reset-password'
   >('login');
   const [isInitializing, setIsInitializing] = useState(true);
-  const [initAttempts, setInitAttempts] = useState(0);
-  const MAX_INIT_ATTEMPTS = 3;
+
+  // Auth hook to handle authentication logic
+  const { initializeAuth } = useAuth();
 
   useEffect(() => {
-    let initTimeout: number;
-    let mounted = true;
+    let isMounted = true;
 
     const initializeApp = async () => {
-      if (!mounted) return;
-
-      if (user) {
-        try {
-          await syncData();
-          await syncLocations();
-        } catch (error) {
-          console.error('Initial sync failed:', error);
-          // Increment attempt counter
-          setInitAttempts(prev => prev + 1);
-        }
-      }
-
-      // Only proceed if still mounted
-      if (mounted) {
-        initTimeout = window.setTimeout(() => {
+      try {
+        await initializeAuth();
+      } catch (error) {
+        console.error('Initialization error:', error);
+      } finally {
+        if (isMounted) {
           setIsInitializing(false);
-        }, 1000);
+        }
       }
     };
 
-    // Only initialize if auth is done loading and we haven't exceeded max attempts
-    if (!authLoading && isInitializing && initAttempts < MAX_INIT_ATTEMPTS) {
+    if (isInitializing) {
       initializeApp();
-    } else if (initAttempts >= MAX_INIT_ATTEMPTS) {
-      // If we've exceeded max attempts, stop initializing
-      setIsInitializing(false);
-      console.error('Max initialization attempts reached');
     }
 
     return () => {
-      mounted = false;
-      if (initTimeout) {
-        clearTimeout(initTimeout);
-      }
+      isMounted = false;
     };
-  }, [user, authLoading, syncData, isInitializing, initAttempts]);
+  }, [initializeAuth, isInitializing]);
 
   // Get loading message based on state
   const getLoadingMessage = () => {
     if (authError) return `Authentication error: ${authError}`;
-    if (syncError) return `Sync error: ${syncError}`;
     if (authLoading) return "Authenticating...";
-    if (isSyncing) return "Syncing your data...";
-    if (isInitializing) return `Initializing application... Attempt ${initAttempts + 1}/${MAX_INIT_ATTEMPTS}`;
+    if (isInitializing) return "Initializing application...";
     return "Loading...";
   };
 
@@ -78,7 +58,7 @@ const AppRoutes: React.FC = () => {
   }
 
   // Handle errors
-  if (authError || syncError) {
+  if (authError) {
     return <Login onNavigate={setCurrentView} />;
   }
 

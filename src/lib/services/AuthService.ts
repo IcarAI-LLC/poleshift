@@ -20,14 +20,31 @@ export class AuthService extends BaseService {
         try {
             const { data: { session }, error } = await this.supabase.auth.getSession();
 
-            if (error) {
+            if (error || !session) {
                 console.error('Session fetch error:', error);
+
+                // Attempt to retrieve session from local storage
+                const localSession = await this.storage.getSession();
+                if (localSession) {
+                    return localSession;
+                }
+
                 return null;
             }
+
+            // Update local session
+            await this.storage.saveSession(session);
 
             return session;
         } catch (error) {
             console.error('GetSession error:', error);
+
+            // Attempt to retrieve session from local storage
+            const localSession = await this.storage.getSession();
+            if (localSession) {
+                return localSession;
+            }
+
             return null;
         }
     }
@@ -37,16 +54,65 @@ export class AuthService extends BaseService {
             const { data: { user }, error } = await this.supabase.auth.getUser();
 
             if (error || !user) {
+                // Attempt to retrieve user from local storage
+                const localUser = await this.storage.getUser();
+                if (localUser) {
+                    return localUser;
+                }
                 return null;
             }
 
-            return {
+            const currentUser: User = {
                 id: user.id,
                 email: user.email || '',
                 last_sign_in_at: user?.last_sign_in_at || null
             };
+
+            // Update local user data
+            await this.storage.saveUser(currentUser);
+
+            return currentUser;
         } catch (error) {
             console.error('GetUser error:', error);
+
+            // Attempt to retrieve user from local storage
+            const localUser = await this.storage.getUser();
+            if (localUser) {
+                return localUser;
+            }
+
+            return null;
+        }
+    }
+
+    // Get session from local storage
+    async getLocalSession(): Promise<Session | null> {
+        try {
+            const session = await this.storage.getSession();
+            if (session) {
+                // Check if session is still valid
+                if (new Date(session.expires_at * 1000) > new Date()) {
+                    return session;
+                } else {
+                    // Session expired, remove from storage
+                    await this.storage.removeSession();
+                    return null;
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Error retrieving local session:', error);
+            return null;
+        }
+    }
+
+    // Get user from local storage
+    async getLocalUser(): Promise<User | null> {
+        try {
+            const user = await this.storage.getUser();
+            return user || null;
+        } catch (error) {
+            console.error('Error retrieving local user:', error);
             return null;
         }
     }
@@ -220,6 +286,8 @@ export class AuthService extends BaseService {
             // Clear local storage
             await this.storage.clearStore('user_profiles');
             await this.storage.clearStore('organizations');
+            await this.storage.removeSession();
+            await this.storage.removeUser();
             localStorage.removeItem(LICENSE_KEY_STORAGE_KEY);
         } catch (error) {
             console.error('SignOut error:', error);

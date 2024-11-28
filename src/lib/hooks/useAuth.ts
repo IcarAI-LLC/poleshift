@@ -1,7 +1,8 @@
 // lib/hooks/useAuth.ts
+
 import { useContext, useCallback, useEffect } from 'react';
 import { AppContext } from '../contexts/AppContext';
-import {AuthAction} from "../types";
+import { AuthAction, User } from "../types";
 
 interface AuthError {
     message: string;
@@ -13,73 +14,61 @@ export function useAuth() {
     const { state, dispatch, services } = useContext(AppContext);
     const { auth: authService } = services;
 
-    // Auth initialization effect
-    useEffect(() => {
-        let isMounted = true;
-        const initAuth = async () => {
-            try {
-                if (!isMounted) return;
+    const initializeAuth = useCallback(async () => {
+        dispatch({ type: 'SET_AUTH_LOADING', payload: true });
 
-                if (!state.auth.loading) {
-                    dispatch({ type: 'SET_AUTH_LOADING', payload: true });
-                }
+        try {
+            let session = await authService.getSession();
+            let user: User | null = null;
 
-                const session = await authService.getSession();
-                if (!session) {
-                    dispatch({ type: 'CLEAR_AUTH' });
-                    return;
-                }
-
-                const user = await authService.getCurrentUser();
-                if (!user) {
-                    dispatch({ type: 'CLEAR_AUTH' });
-                    return;
-                }
-
-                // Create an array that can hold any AuthAction type
-                const updates: AuthAction[] = [
-                    { type: 'SET_USER', payload: user }
-                ];
-
-                try {
-                    const userProfile = await authService.getUserProfile(user.id);
-                    updates.push({ type: 'SET_USER_PROFILE', payload: userProfile });
-
-                    if (userProfile.organization_id) {
-                        const organization = await authService.getOrganization(userProfile.organization_id);
-                        updates.push({ type: 'SET_ORGANIZATION', payload: organization });
-                    }
-                } catch (err) {
-                    console.error('Failed to load user data:', err);
-                    await authService.signOut();
-                    dispatch({ type: 'CLEAR_AUTH' });
-                    return;
-                }
-
-                // Apply all updates
-                updates.forEach(update => dispatch(update));
-
-            } catch (err) {
-                console.error('Auth initialization error:', err);
-                dispatch({
-                    type: 'SET_AUTH_ERROR',
-                    payload: err instanceof Error ? err.message : 'Authentication failed'
-                });
-            } finally {
-                if (isMounted) {
-                    dispatch({ type: 'SET_AUTH_LOADING', payload: false });
-                }
+            if (session) {
+                user = await authService.getCurrentUser();
             }
-        };
 
-        if (!state.auth.user) {
-            initAuth();
+            if (!session || !user) {
+                // Attempt to get session and user from local storage (offline mode)
+                session = await authService.getLocalSession();
+                user = await authService.getLocalUser();
+            }
+
+            if (!session || !user) {
+                dispatch({ type: 'CLEAR_AUTH' });
+                return;
+            }
+
+            // Update state with user data
+            dispatch({ type: 'SET_USER', payload: user });
+
+            const updates: AuthAction[] = [];
+
+            try {
+                const userProfile = await authService.getUserProfile(user.id);
+                updates.push({ type: 'SET_USER_PROFILE', payload: userProfile });
+
+                if (userProfile.organization_id) {
+                    const organization = await authService.getOrganization(userProfile.organization_id);
+                    updates.push({ type: 'SET_ORGANIZATION', payload: organization });
+                }
+            } catch (err) {
+                console.error('Failed to load user data:', err);
+                await authService.signOut();
+                dispatch({ type: 'CLEAR_AUTH' });
+                return;
+            }
+
+            // Apply all updates
+            updates.forEach(update => dispatch(update));
+
+        } catch (err) {
+            console.error('Auth initialization error:', err);
+            dispatch({
+                type: 'SET_AUTH_ERROR',
+                payload: err instanceof Error ? err.message : 'Authentication failed'
+            });
+        } finally {
+            dispatch({ type: 'SET_AUTH_LOADING', payload: false });
         }
-
-        return () => {
-            isMounted = false;
-        };
-    }, [authService, dispatch, state.auth.user, state.auth.loading]);
+    }, [authService, dispatch]);
 
     const login = useCallback(async (email: string, password: string) => {
         try {
@@ -171,6 +160,7 @@ export function useAuth() {
         organization: state.auth.organization,
         loading: state.auth.loading,
         error: state.auth.error,
+        initializeAuth,
         login,
         signUp,
         resetPassword,

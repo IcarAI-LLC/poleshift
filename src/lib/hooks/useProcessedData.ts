@@ -100,8 +100,8 @@ export function useProcessedData() {
             const sampleId = sampleGroup.human_readable_sample_id;
             const configId = configItem.id;
             const key = getProgressKey(sampleId, configId);
-            const user = await services.auth.getCurrentUser()
-            const organization = await services.auth.getOrganization(<string>user?.id)
+            const user = state.auth.user;
+            const organization = state.auth.organization
             try {
                 dispatch({
                     type: 'SET_PROCESSING_STATUS',
