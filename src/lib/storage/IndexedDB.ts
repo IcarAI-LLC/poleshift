@@ -135,7 +135,7 @@ class IndexedDBStorage {
 
     private async getDB(): Promise<IDBPDatabase<AppDB>> {
         if (!this.db) {
-            this.db = await openDB<AppDB>('appDB', 5, {
+            this.db = await openDB<AppDB>('appDB', 2, {
                 //@ts-ignore
                 upgrade(db, oldVersion, newVersion, transaction) {
                     // User Tiers
@@ -316,8 +316,39 @@ class IndexedDBStorage {
     }
 
     async deleteSampleGroup(id: string): Promise<void> {
-        await this.delete('sample_group_metadata', id);
+        const db = await this.getDB();
+
+        const tx = db.transaction(['sample_group_metadata', 'sample_metadata', 'processed_data'], 'readwrite');
+        const sampleGroupStore = tx.objectStore('sample_group_metadata');
+        const sampleMetadataStore = tx.objectStore('sample_metadata');
+        const processedDataStore = tx.objectStore('processed_data');
+
+        // Delete the sample_group_metadata entry
+        sampleGroupStore.delete(id);
+
+        // Get all sample_metadata entries where sample_group_id == id
+        const sampleMetadataIndex = sampleMetadataStore.index('sample_group_id');
+        const sampleMetadataEntries = await sampleMetadataIndex.getAll(id);
+
+        // For each sampleMetadata entry, delete it and associated processedData entries
+        for (const sampleMetadata of sampleMetadataEntries) {
+            const sampleId = sampleMetadata.id;
+
+            // Delete the sampleMetadata entry
+            sampleMetadataStore.delete(sampleId);
+
+            // Get all processedData entries where sample_id == sampleId
+            const processedDataIndex = processedDataStore.index('sample_id');
+            const processedDataEntries = await processedDataIndex.getAll(sampleId);
+
+            for (const processedData of processedDataEntries) {
+                processedDataStore.delete(processedData.key);
+            }
+        }
+
+        await tx.done;
     }
+
 
     // File Nodes
     async saveFileNode(node: FileNode): Promise<void> {
@@ -444,7 +475,7 @@ class IndexedDBStorage {
 
     // Processed Data
     async saveProcessedData(
-        sampleId: string, configId: string, data: any, orgId: string, humanReadableSampleId: string, options: {
+        sampleId: string, configId: string, data: any, org_short_id: string, humanReadableSampleId: string, options: {
             rawFilePaths?: string[];
             processedPath?: string;
             metadata?: ProcessedDataEntry['metadata'];
@@ -454,7 +485,7 @@ class IndexedDBStorage {
             sample_id: sampleId,
             human_readable_sample_id: humanReadableSampleId,
             config_id: configId,
-            org_id: orgId, // Include orgId
+            org_short_id, // Include orgId
             data,
             raw_file_paths: options.rawFilePaths || [],
             processed_path: options.processedPath || null,
@@ -473,9 +504,9 @@ class IndexedDBStorage {
         return entry || null;
     }
 
-    async getAllProcessedData(humanReadableSampleId: string): Promise<Record<string, ProcessedDataEntry>> {
-        console.log("Get all processed data from: ", humanReadableSampleId)
-        const entries = await this.getAllFromIndex('processed_data', 'human_readable_sample_id', humanReadableSampleId);
+    async getAllProcessedData(sampleId: string): Promise<Record<string, ProcessedDataEntry>> {
+        console.log("Get all processed data from: ", sampleId)
+        const entries = await this.getAllFromIndex('processed_data', 'sample_id', sampleId);
         return entries.reduce((acc, entry) => {
             if (entry.key) {
                 acc[entry.key] = entry;

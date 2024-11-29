@@ -1,3 +1,5 @@
+// src/components/KrakenVisualization.tsx
+
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   AppBar,
@@ -8,7 +10,10 @@ import {
   Button,
   Box,
   Grid,
+  Dialog,
+  IconButton,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { Download } from '@mui/icons-material';
 
 import SummaryCard from './SummaryCard';
@@ -23,16 +28,6 @@ enum SortDirection {
   DESC = 'desc',
 }
 
-interface TaxonomyNode {
-  depth: number;
-  percentage: number;
-  cladeReads: number;
-  taxonReads: number;
-  rankCode: string;
-  taxId: number;
-  name: string;
-}
-
 interface KrakenData {
   type: 'report';
   data: Array<{
@@ -41,17 +36,35 @@ interface KrakenData {
     plotData: Array<{
       taxon: string;
       percentage: number;
-      cladeReads: number;
-      taxonReads: number;
+      reads: number;
+      taxReads: number;
+      kmers: number;
+      dup: number;
+      cov: number;
       depth: number;
-      rankLevel: number;
     }>;
   }>;
-  hierarchy: TaxonomyNode[];
+  hierarchy: KrakenReportEntry[];
+  unclassifiedReads: any;
+}
+
+interface KrakenReportEntry {
+  depth: number;
+  percentage: number;
+  reads: number;
+  taxReads: number;
+  kmers: number;
+  dup: number;
+  cov: number;
+  taxId: number;
+  rank: string;
+  name: string;
 }
 
 interface Props {
   data?: KrakenData;
+  open: boolean;
+  onClose: () => void;
 }
 
 const formatNumber = (num: number): string => {
@@ -62,7 +75,7 @@ const formatPercentage = (num: number): string => {
   return `${num.toFixed(2)}%`;
 };
 
-const KrakenVisualization: React.FC<Props> = ({ data }) => {
+const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRank, setSelectedRank] = useState('all');
@@ -82,20 +95,19 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
       };
     }
 
-    const rootNode = data.hierarchy.find((node) => node.rankCode === 'R');
-    const unclassifiedNode = data.hierarchy.find(
-      (node) => node.rankCode === 'U',
-    );
-
-    const classifiedReads = rootNode?.cladeReads || 0;
-    const unclassifiedReads = unclassifiedNode?.cladeReads || 0;
+    const rootNode = data.hierarchy.find((node) => node.depth === 0);
+    const classifiedReads = rootNode?.reads || 0;
+    const unclassifiedReads = data.unclassifiedReads || 0;
     const totalReads = classifiedReads + unclassifiedReads;
 
-    const classificationRate = totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
-    const uniqueTaxa = data.data?.reduce(
-      (sum, rankData) => sum + (rankData.plotData?.length || 0),
-      0,
-    ) || 0;
+    const classificationRate =
+        totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
+
+    const uniqueTaxa =
+        data.data?.reduce(
+            (sum, rankData) => sum + (rankData.plotData?.length || 0),
+            0
+        ) || 0;
 
     return {
       totalReads,
@@ -119,14 +131,13 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
     if (!data?.data) return [];
 
     const rankData =
-      selectedRank === 'all'
-        ? data.data.flatMap((d) => d.plotData || [])
-        : data.data.find((d) => d.rankBase === selectedRank)?.plotData || [];
+        selectedRank === 'all'
+            ? data.data.flatMap((d) => d.plotData || [])
+            : data.data.find((d) => d.rankBase === selectedRank)?.plotData || [];
 
-    return rankData
-      .filter((item) =>
+    return rankData.filter((item) =>
         item.taxon?.toLowerCase().includes(searchTerm.toLowerCase() || '')
-      );
+    );
   }, [data, searchTerm, selectedRank, sortConfig]);
 
   const handleExport = useCallback(() => {
@@ -151,7 +162,7 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
     URL.revokeObjectURL(url);
   }, [data, summaryStats]);
 
-  const handleTabChange = useCallback((_: any, newValue: React.SetStateAction<number>) => {
+  const handleTabChange = useCallback((_: any, newValue: number) => {
     setActiveTab(newValue);
   }, []);
 
@@ -162,14 +173,14 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
       sortable: true,
     },
     {
-      key: 'cladeReads',
-      header: 'Clade Reads',
+      key: 'reads',
+      header: 'Reads',
       sortable: true,
       render: (value: number) => formatNumber(value || 0),
     },
     {
-      key: 'taxonReads',
-      header: 'Taxon Reads',
+      key: 'taxReads',
+      header: 'Tax Reads',
       sortable: true,
       render: (value: number) => formatNumber(value || 0),
     },
@@ -183,127 +194,131 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
 
   if (!data) {
     return (
-      <Box p={3}>
-        <Typography>No data available</Typography>
-      </Box>
+        <Box p={3}>
+          <Typography>No data available</Typography>
+        </Box>
     );
   }
 
   return (
-    <div>
-      <AppBar position="static" color="default">
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Taxonomic Classification Analysis
-          </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<Download />}
-            onClick={handleExport}
+      <Dialog open={open} onClose={onClose} fullScreen>
+        <AppBar position="static" color="primary" sx={{ position: 'relative' }}>
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              Taxonomic Classification Analysis
+            </Typography>
+            <Button
+                variant="outlined"
+                startIcon={<Download />}
+                onClick={handleExport}
+                sx={{ mr: 2, color: '#fff', borderColor: '#fff' }}
+            >
+              Export Data
+            </Button>
+            <IconButton edge="end" color="inherit" onClick={onClose} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+          </Toolbar>
+          <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              textColor="inherit"
+              indicatorColor="secondary"
+              variant="scrollable"
           >
-            Export Data
-          </Button>
-        </Toolbar>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="scrollable"
-        >
-          <Tab label="Summary" />
-          <Tab label="Taxonomy Distribution" />
-          <Tab label="Taxonomy Hierarchy" />
-        </Tabs>
-      </AppBar>
+            <Tab label="Summary" />
+            <Tab label="Taxonomy Distribution" />
+            <Tab label="Taxonomy Hierarchy" />
+          </Tabs>
+        </AppBar>
 
-      <Box p={3}>
-        {activeTab === 0 && (
-          <div>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={3}>
-                <SummaryCard
-                  title="Total Reads"
-                  value={formatNumber(summaryStats.totalReads)}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <SummaryCard
-                  title="Classified"
-                  value={formatNumber(summaryStats.classifiedReads)}
-                  subtitle={formatPercentage(summaryStats.classificationRate)}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <SummaryCard
-                  title="Unclassified"
-                  value={formatNumber(summaryStats.unclassifiedReads)}
-                  subtitle={formatPercentage(
-                    100 - summaryStats.classificationRate,
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <SummaryCard
-                  title="Unique Taxa"
-                  value={formatNumber(summaryStats.uniqueTaxa)}
-                />
-              </Grid>
-            </Grid>
+        <Box p={3}>
+          {activeTab === 0 && (
+              <div>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={3}>
+                    <SummaryCard
+                        title="Total Reads"
+                        value={formatNumber(summaryStats.totalReads)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <SummaryCard
+                        title="Classified"
+                        value={formatNumber(summaryStats.classifiedReads)}
+                        subtitle={formatPercentage(summaryStats.classificationRate)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <SummaryCard
+                        title="Unclassified"
+                        value={formatNumber(summaryStats.unclassifiedReads)}
+                        subtitle={formatPercentage(
+                            100 - summaryStats.classificationRate
+                        )}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <SummaryCard
+                        title="Unique Taxa"
+                        value={formatNumber(summaryStats.uniqueTaxa)}
+                    />
+                  </Grid>
+                </Grid>
 
-            {data.data?.length > 0 ? (
-              data.data.map((rankData) => (
-                <DistributionChart
-                  key={rankData.rankBase}
-                  data={rankData.plotData || []}
-                  title={`${rankData.rankName} Distribution`}
-                />
-              ))
-            ) : (
-              <Typography>No data available</Typography>
-            )}
-          </div>
-        )}
+                {data.data?.length > 0 ? (
+                    data.data.map((rankData) => (
+                        <DistributionChart
+                            key={rankData.rankBase}
+                            data={rankData.plotData || []}
+                            title={`${rankData.rankName} Distribution`}
+                        />
+                    ))
+                ) : (
+                    <Typography>No data available</Typography>
+                )}
+              </div>
+          )}
 
-        {activeTab === 1 && (
-          <div>
-            <Grid container spacing={2} alignItems="flex-end">
-              <Grid item xs={12} sm={6}>
-                <SearchInput
-                  value={searchTerm}
-                  onChange={setSearchTerm}
-                  placeholder="Search by taxonomy name..."
+          {activeTab === 1 && (
+              <div>
+                <Grid container spacing={2} alignItems="flex-end">
+                  <Grid item xs={12} sm={6}>
+                    <SearchInput
+                        value={searchTerm}
+                        onChange={setSearchTerm}
+                        placeholder="Search by taxonomy name..."
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FilterSelect
+                        value={selectedRank}
+                        onChange={setSelectedRank}
+                        options={[
+                          { value: 'all', label: 'All Ranks' },
+                          ...availableRanks,
+                        ]}
+                        label="Rank"
+                    />
+                  </Grid>
+                </Grid>
+                <DataTable
+                    data={filteredData}
+                    columns={taxonomyColumns}
+                    onSort={(key, direction) =>
+                        setSortConfig({ key, direction: direction as SortDirection })
+                    }
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FilterSelect
-                  value={selectedRank}
-                  onChange={setSelectedRank}
-                  options={[
-                    { value: 'all', label: 'All Ranks' },
-                    ...availableRanks,
-                  ]}
-                  label="Rank"
-                />
-              </Grid>
-            </Grid>
-            <DataTable
-              data={filteredData}
-              columns={taxonomyColumns}
-              onSort={(key, direction) =>
-                setSortConfig({ key, direction: direction as SortDirection })
-              }
-            />
-          </div>
-        )}
+              </div>
+          )}
 
-        {activeTab === 2 && data.hierarchy && (
-          <div>
-            <HierarchyTree nodes={ [] } />
-          </div>
-        )}
-      </Box>
-    </div>
+          {activeTab === 2 && data.hierarchy && (
+              <div>
+                <HierarchyTree nodes={data.hierarchy} />
+              </div>
+          )}
+        </Box>
+      </Dialog>
   );
 };
 

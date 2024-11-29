@@ -47,7 +47,7 @@ export class ProcessedDataService extends BaseService {
         const configId = configItem.id;
         const sampleId = sampleGroup.id;
         //@ts-ignore
-        const key = `${humanReadableSampleId}:${configId}`;
+        const key = `${sampleId}:${configId}`;
 
         try {
             // 1. Create initial metadata record
@@ -62,9 +62,9 @@ export class ProcessedDataService extends BaseService {
                 process_function_name: processFunctionName,
                 sample_group_id: sampleGroup.id,
                 raw_storage_paths: filePaths.map(file =>
-                    `${sampleGroup.org_id}/${humanReadableSampleId}/${file.replace(/^.*[\\\/]/, '')}`
+                    `${sampleGroup.org_id}/${sampleId}/${file.replace(/^.*[\\\/]/, '')}`
                 ),
-                processed_storage_path: `${sampleGroup.org_id}/${humanReadableSampleId}/processed/${configId}.json`,
+                processed_storage_path: `${sampleGroup.org_id}/${sampleId}/processed/${configId}.json`,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             };
@@ -75,11 +75,11 @@ export class ProcessedDataService extends BaseService {
             // 2. Queue raw files for upload with correct paths
             for (const filePath of filePaths) {
                 const fileName = filePath.replace(/^.*[\\\/]/, '');
-                const storagePath = `${sampleGroup.org_id}/${humanReadableSampleId}/${fileName}`;
+                const storagePath = `${sampleGroup.org_id}/${sampleId}/${fileName}`;
 
                 const fileBuffer = await readFile(filePath);
                 const file = new File([fileBuffer], fileName);
-                await this.queueRawFile(humanReadableSampleId, configId, file, { customPath: storagePath });
+                await this.queueRawFile(sampleId, configId, file, { customPath: storagePath });
             }
 
             // Start the upload process
@@ -98,7 +98,7 @@ export class ProcessedDataService extends BaseService {
 
                 result = await invoke<any>(configItem.processFunctionName, {
                     functionName: processFunctionName,
-                    sampleId: humanReadableSampleId,
+                    sampleId: sampleId,
                     modalInputs,
                     filePaths,
                 });
@@ -122,7 +122,7 @@ export class ProcessedDataService extends BaseService {
                 type: 'application/json',
             });
 
-            await this.queueProcessedFile(humanReadableSampleId, configId, processedBlob, {
+            await this.queueProcessedFile(sampleId, configId, processedBlob, {
                 customPath: metadataRecord.processed_storage_path,
             });
 
@@ -158,36 +158,36 @@ export class ProcessedDataService extends BaseService {
 
     // Queue raw file for upload
     async queueRawFile(
-        humanReadableSampleId: string,
+        sampleId: string,
         configId: string,
         file: File,
         options: { customPath?: string } = {}
     ): Promise<void> {
-        await this.storage.queueRawFile(humanReadableSampleId, configId, file, options);
+        await this.storage.queueRawFile(sampleId, configId, file, options);
     }
 
     // Queue processed file for upload
     async queueProcessedFile(
-        humanReadableSampleId: string,
+        sampleId: string,
         configId: string,
         data: Blob,
         options: { customPath?: string } = {}
     ): Promise<void> {
-        await this.storage.queueProcessedFile(humanReadableSampleId, configId, data, options);
+        await this.storage.queueProcessedFile(sampleId, configId, data, options);
     }
 
 
-    async getProcessedData(humanReadableSampleId: string, configId: string): Promise<any> {
+    async getProcessedData(sampleId: string, configId: string): Promise<any> {
         try {
-            return await this.storage.getProcessedData(humanReadableSampleId, configId);
+            return await this.storage.getProcessedData(sampleId, configId);
         } catch (error) {
             this.handleError(error, 'Failed to get processed data');
         }
     }
 
-    async getAllProcessedData(humanReadableSampleId: string): Promise<Record<string, ProcessedDataEntry>> {
+    async getAllProcessedData(sampleId: string): Promise<Record<string, ProcessedDataEntry>> {
         try {
-            const data = await this.storage.getAllProcessedData(humanReadableSampleId);
+            const data = await this.storage.getAllProcessedData(sampleId);
             return data;
         } catch (error) {
             console.error('Detailed error:', error);
@@ -196,12 +196,12 @@ export class ProcessedDataService extends BaseService {
     }
 
 
-    async syncProcessedData(humanReadableSampleId: string): Promise<void> {
-        console.log("Processed data service called sync on", humanReadableSampleId);
+    async syncProcessedData(sampleId: string): Promise<void> {
+        console.log("Processed data service called sync on", sampleId);
         if (!this.networkService.isOnline()) return;
-
+        await this.syncService.syncToRemote()
         try {
-            const localData = await this.getAllProcessedData(humanReadableSampleId);
+            const localData = await this.getAllProcessedData(sampleId);
             console.log("Local data: ", localData);
             // Sync each piece of processed data
             for (const entry of Object.values(localData)) {

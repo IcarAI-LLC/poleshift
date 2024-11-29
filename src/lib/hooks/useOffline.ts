@@ -20,7 +20,7 @@ export function useOffline() {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
-    }, []);
+    }, [navigator.onLine, window]);
 
     useEffect(() => {
         const checkPendingChanges = async () => {

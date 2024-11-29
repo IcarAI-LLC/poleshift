@@ -1,16 +1,15 @@
 // src/utils/dataProcessingUtils.ts
 
-
-
 interface KrakenReportEntry {
     depth: number;
     percentage: number;
-    cladeReads: number;
-    taxonReads: number;
-    rankCode: string;
-    rankLevel: number;
-    rankBase: string;
+    reads: number;
+    taxReads: number;
+    kmers: number;
+    dup: number;
+    cov: number;
     taxId: number;
+    rank: string;
     name: string;
 }
 
@@ -20,21 +19,25 @@ interface RankData {
     plotData: Array<{
         taxon: string;
         percentage: number;
-        cladeReads: number;
-        taxonReads: number;
+        reads: number;
+        taxReads: number;
+        kmers: number;
+        dup: number;
+        cov: number;
         depth: number;
-        rankLevel: number;
     }>;
 }
 
-interface TaxonomyNode {
+export interface TaxonomyNode {
     name: string;
     taxId: number;
-    rankCode: string;
-    rankLevel: number;
+    rank: string;
     percentage: number;
-    cladeReads: number;
-    taxonReads: number;
+    reads: number;
+    taxReads: number;
+    kmers: number;
+    dup: number;
+    cov: number;
     depth: number;
     children: TaxonomyNode[];
 }
@@ -43,21 +46,23 @@ interface ProcessedKrakenData {
     type: 'report';
     data: RankData[];
     hierarchy: KrakenReportEntry[];
+    unclassifiedReads?: number;
 }
 
 const RANK_NAMES: Record<string, string> = {
-    R: 'Root',
-    D: 'Domain',
-    K: 'Kingdom',
-    P: 'Phylum',
-    C: 'Class',
-    O: 'Order',
-    F: 'Family',
-    G: 'Genus',
-    S: 'Species',
+    'NO RANK': 'No Rank',
+    'DOMAIN': 'Domain',
+    'SUPERGROUP': 'Supergroup',
+    'DIVISION': 'Division',
+    'SUBDIVISION': 'Subdivision',
+    'CLASS': 'Class',
+    'ORDER': 'Order',
+    'FAMILY': 'Family',
+    'GENUS': 'Genus',
+    'SPECIES': 'Species',
+    'ASSEMBLY': 'Assembly',
+    'SEQUENCE': 'Sequence',
 };
-
-
 
 export const processKrakenDataForModal = (
     dataItem: any,
@@ -96,148 +101,23 @@ export const processKrakenDataForModal = (
     }
 };
 
-// Modify the processKrakenEntries function
 const processKrakenEntries = (
     entries: KrakenReportEntry[],
 ): ProcessedKrakenData => {
-    // Build the taxonomy tree using the iterative method
-    // const hierarchyTree = buildTaxonomyTreeIterative(entries);
-
-    // Generate rank data for plotting
-    const rankGroups = entries.reduce(
-        (acc, item) => {
-            const { rankBase } = item;
-            if (!acc[rankBase]) {
-                acc[rankBase] = [];
-            }
-            acc[rankBase].push(item);
-            return acc;
-        },
-        {} as Record<string, KrakenReportEntry[]>,
+    // Filter out any entries with rank 'RANK'
+    const filteredEntries = entries.filter(
+        (item) => item.rank.toUpperCase() !== 'RANK',
     );
 
-    const plotDataPerRank: RankData[] = Object.entries(rankGroups)
-        .map(([rankBase, items]) => {
-            const rankName = RANK_NAMES[rankBase] || rankBase;
-
-            const plotData = items
-                .sort((a, b) => b.percentage - a.percentage)
-                .map((item) => ({
-                    taxon: item.name,
-                    percentage: item.percentage,
-                    cladeReads: item.cladeReads,
-                    taxonReads: item.taxonReads,
-                    depth: item.depth,
-                    rankLevel: item.rankLevel,
-                }));
-
-            return {
-                rankBase,
-                rankName,
-                plotData,
-            };
-        })
-        // Sort ranks in biological order
-        .sort((a, b) => {
-            const rankOrder = Object.keys(RANK_NAMES);
-            return rankOrder.indexOf(a.rankBase) - rankOrder.indexOf(b.rankBase);
-        });
-
-    return {
-        hierarchy: [],
-        type: 'report',
-        data: plotDataPerRank
-    };
-};
-
-
-// @ts-ignore
-const buildTaxonomyTreeIterative = (
-    entries: KrakenReportEntry[],
-): TaxonomyNode[] => {
-    const rootNodes: TaxonomyNode[] = [];
-    const stack: TaxonomyNode[] = [];
-
-    for (const entry of entries) {
-        const node: TaxonomyNode = {
-            name: entry.name,
-            taxId: entry.taxId,
-            rankCode: entry.rankCode,
-            rankLevel: entry.rankLevel,
-            percentage: entry.percentage,
-            cladeReads: entry.cladeReads,
-            taxonReads: entry.taxonReads,
-            depth: entry.depth,
-            children: [],
-        };
-
-        while (stack.length > 0 && stack[stack.length - 1].depth >= node.depth) {
-            stack.pop();
-        }
-
-        if (stack.length === 0) {
-            rootNodes.push(node);
-        } else {
-            stack[stack.length - 1].children.push(node);
-        }
-
-        stack.push(node);
-    }
-
-    return rootNodes;
-};
-
-const processKrakenReport = (reportContent: string): ProcessedKrakenData => {
-    // Parse report lines into structured data
-    const lines = reportContent.split('\n').filter((line) => line.trim());
-
-    const hierarchicalData: KrakenReportEntry[] = lines
-        .map((line) => {
-            const match = line.match(
-                /^([\t\s]*)([\d.]+)\t(\d+)\t(\d+)\t([A-Z][\d]*)\t(\d+)\t(.+)$/
-            );
-
-            if (!match) return null;
-
-            const [
-                ,
-                indent,
-                percentage,
-                cladeReads,
-                taxonReads,
-                rankStr,
-                taxId,
-                name,
-            ] = match;
-
-            // Calculate depth based on tabs and spaces
-            const depth = indent.replace(/ {2}/g, '\t').length;
-
-            return {
-                depth: depth,
-                percentage: parseFloat(percentage),
-                cladeReads: parseInt(cladeReads, 10),
-                taxonReads: parseInt(taxonReads, 10),
-                rankCode: rankStr,
-                rankLevel: parseInt(rankStr.match(/\d+/)?.[0] || '0', 10),
-                rankBase: rankStr.charAt(0),
-                taxId: parseInt(taxId, 10),
-                name: name.trim(),
-            };
-        })
-        .filter((item): item is KrakenReportEntry => item !== null);
     // Group entries by rank
-    const rankGroups = hierarchicalData.reduce(
-        (acc, item) => {
-            const { rankBase } = item;
-            if (!acc[rankBase]) {
-                acc[rankBase] = [];
-            }
-            acc[rankBase].push(item);
-            return acc;
-        },
-        {} as Record<string, KrakenReportEntry[]>,
-    );
+    const rankGroups = filteredEntries.reduce((acc, item) => {
+        const rankBase = item.rank.toUpperCase();
+        if (!acc[rankBase]) {
+            acc[rankBase] = [];
+        }
+        acc[rankBase].push(item);
+        return acc;
+    }, {} as Record<string, KrakenReportEntry[]>);
 
     // Create plot data for each rank
     const plotDataPerRank: RankData[] = Object.entries(rankGroups)
@@ -249,10 +129,12 @@ const processKrakenReport = (reportContent: string): ProcessedKrakenData => {
                 .map((item) => ({
                     taxon: item.name,
                     percentage: item.percentage,
-                    cladeReads: item.cladeReads,
-                    taxonReads: item.taxonReads,
+                    reads: item.reads,
+                    taxReads: item.taxReads,
+                    kmers: item.kmers,
+                    dup: item.dup,
+                    cov: item.cov,
                     depth: item.depth,
-                    rankLevel: item.rankLevel,
                 }));
 
             return {
@@ -261,7 +143,122 @@ const processKrakenReport = (reportContent: string): ProcessedKrakenData => {
                 plotData,
             };
         })
-        // Sort ranks in biological order
+        // Optionally sort ranks in a specific order
+        .sort((a, b) => {
+            const rankOrder = Object.keys(RANK_NAMES);
+            return rankOrder.indexOf(a.rankBase) - rankOrder.indexOf(b.rankBase);
+        });
+
+    return {
+        hierarchy: filteredEntries,
+        type: 'report',
+        data: plotDataPerRank,
+    };
+};
+
+const processKrakenReport = (reportContent: string): ProcessedKrakenData => {
+    // Split the content into lines and filter out empty lines
+    const lines = reportContent.split('\n').filter((line) => line.trim());
+
+    // Skip the header line
+    const dataLines = lines.slice(1);
+
+    // Extract unclassified reads from the first line if present
+    let unclassifiedReads = 0;
+    const unclassifiedLineMatch = dataLines[0]?.match(
+        /^(\d+\.\d+)\t(\d+)\t(\d+)\t.*unclassified$/i,
+    );
+    if (unclassifiedLineMatch) {
+        const [, , readsStr] = unclassifiedLineMatch;
+        unclassifiedReads = parseInt(readsStr, 10);
+
+        // Remove unclassified line from dataLines
+        dataLines.shift();
+    }
+
+    const hierarchicalData: KrakenReportEntry[] = dataLines
+        .map((line) => {
+            // Split the line by tabs
+            const columns = line.split('\t');
+            if (columns.length < 9) return null;
+
+            const [
+                percentageStr,
+                readsStr,
+                taxReadsStr,
+                kmersStr,
+                dupStr,
+                covStr,
+                taxIdStr,
+                rankStr,
+                taxNameWithIndent,
+            ] = columns;
+
+            // Calculate depth based on leading spaces in taxName
+            const matchIndent = taxNameWithIndent.match(/^(\s*)(\S.*)$/);
+            if (!matchIndent) return null;
+
+            const indentSpaces = matchIndent[1];
+            const taxName = matchIndent[2];
+
+            const depth = indentSpaces.length / 2; // Assuming each level is indented by 2 spaces
+
+            // Filter out any record that has a rank of "RANK"
+            const rank = rankStr.trim().toUpperCase();
+            if (rank === 'RANK') {
+                return null;
+            }
+
+            return {
+                depth,
+                percentage: parseFloat(percentageStr),
+                reads: parseInt(readsStr, 10),
+                taxReads: parseInt(taxReadsStr, 10),
+                kmers: parseInt(kmersStr, 10),
+                dup: parseFloat(dupStr),
+                cov: parseFloat(covStr),
+                taxId: parseInt(taxIdStr, 10),
+                rank,
+                name: taxName.trim(),
+            };
+        })
+        .filter((item): item is KrakenReportEntry => item !== null);
+
+    // Group entries by rank
+    const rankGroups = hierarchicalData.reduce((acc, item) => {
+        const rankBase = item.rank.toUpperCase();
+        if (!acc[rankBase]) {
+            acc[rankBase] = [];
+        }
+        acc[rankBase].push(item);
+        return acc;
+    }, {} as Record<string, KrakenReportEntry[]>);
+
+    // Create plot data for each rank
+    const plotDataPerRank: RankData[] = Object.entries(rankGroups)
+        .map(([rankBase, items]) => {
+            const rankName = RANK_NAMES[rankBase] || rankBase;
+
+            const plotData = items
+                .sort((a, b) => b.percentage - a.percentage)
+                .map((item) => ({
+                    taxon: item.name,
+                    percentage: item.percentage,
+                    reads: item.reads,
+                    taxReads: item.taxReads,
+                    kmers: item.kmers,
+                    dup: item.dup,
+                    cov: item.cov,
+                    depth: item.depth,
+                }));
+
+            return {
+                rankBase,
+                rankName,
+                plotData,
+            };
+        })
+        // Optionally sort ranks in a specific order
         .sort((a, b) => {
             const rankOrder = Object.keys(RANK_NAMES);
             return rankOrder.indexOf(a.rankBase) - rankOrder.indexOf(b.rankBase);
@@ -271,31 +268,32 @@ const processKrakenReport = (reportContent: string): ProcessedKrakenData => {
         type: 'report',
         data: plotDataPerRank,
         hierarchy: hierarchicalData,
+        unclassifiedReads,
     };
 };
 
 export const calculateKrakenSummaryStats = (data: ProcessedKrakenData) => {
-    const rootNode = data.hierarchy.find((node) => node.rankBase === 'R');
-    const totalReads = rootNode?.cladeReads || 0;
+    const classifiedReads = data.hierarchy.reduce(
+        (sum, node) => sum + node.reads,
+        0,
+    );
+    const unclassifiedReads = data.unclassifiedReads || 0;
+    const totalReads = classifiedReads + unclassifiedReads;
 
-    // Calculate maximum classified reads across all ranks
-    const classifiedReads = data.data.reduce((max, rankData) => {
-        const rankTotal = rankData.plotData.reduce(
-            (sum, item) => sum + item.cladeReads,
-            0,
-        );
-        return Math.max(max, rankTotal);
-    }, 0);
+    const classificationRate =
+        totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
+
+    const uniqueTaxa = data.data.reduce(
+        (sum, rankData) => sum + rankData.plotData.length,
+        0,
+    );
 
     return {
         totalReads,
         classifiedReads,
-        unclassifiedReads: totalReads - classifiedReads,
-        classificationRate: (classifiedReads / totalReads) * 100,
-        uniqueTaxa: data.data.reduce(
-            (sum, rankData) => sum + rankData.plotData.length,
-            0,
-        ),
+        unclassifiedReads,
+        classificationRate,
+        uniqueTaxa,
     };
 };
 
@@ -324,6 +322,7 @@ export const searchKrakenData = (
 
 export {
     processKrakenReport,
+    processKrakenEntries,
     type ProcessedKrakenData,
     type KrakenReportEntry,
     type RankData,

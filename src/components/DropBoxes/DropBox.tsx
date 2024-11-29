@@ -16,7 +16,8 @@ import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useRef } from 'react';
-import {useAuth} from "../../lib/hooks";
+import { useAuth } from "../../lib/hooks";
+
 interface DropBoxProps {
     configItem: DropboxConfigItem;
     isProcessing: boolean;
@@ -46,7 +47,7 @@ const DropBox = memo(({
     const { processData, getProgressState, getUploadDownloadProgressState } = useProcessedData();
     const dropRef = useRef<HTMLDivElement>(null);
 
-    const sampleId = sampleGroup.human_readable_sample_id;
+    const sampleId = sampleGroup.id; // Changed from human_readable_sample_id to sample_id
     const configId = configItem.id;
     const { organization } = useAuth();
     // Get progress states using hooks

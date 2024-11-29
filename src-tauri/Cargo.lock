@@ -2647,6 +2647,7 @@ dependencies = [
 name = "poleshift-tauri"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "rusqlite",
  "serde",
@@ -2657,6 +2658,7 @@ dependencies = [
  "tauri-plugin-fs",
  "tauri-plugin-shell",
  "tauri-plugin-store",
+ "thiserror 2.0.3",
  "uuid",
 ]
 

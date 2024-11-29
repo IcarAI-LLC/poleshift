@@ -78,7 +78,7 @@ export function useProcessedData() {
             onError: (message: string) => void,
             orgId: string
         ) => {
-            const sampleId = sampleGroup.human_readable_sample_id;
+            const sampleId = sampleGroup.id; // Changed from human_readable_sample_id to sample_id
             const configId = configItem.id;
             const key = getProgressKey(sampleId, configId);
 
@@ -105,13 +105,20 @@ export function useProcessedData() {
                     },
                     orgId
                 );
-
+                console.log(processedData.data.report_content);
                 // Update global state with processed data
-                dispatch({
-                    type: 'SET_PROCESSED_DATA',
-                    payload: { key, data: processedData.data },
-                });
-
+                if (configItem.dataType == 'sequence_data'){
+                    dispatch({
+                        type: 'SET_PROCESSED_DATA',
+                        payload: { key, data: processedData.data.report_content },
+                    });
+                }
+                else{
+                    dispatch({
+                        type: 'SET_PROCESSED_DATA',
+                        payload: { key, data: processedData.data },
+                    });
+                }
                 onDataProcessed(
                     {
                         sampleId,
@@ -148,7 +155,7 @@ export function useProcessedData() {
 
             try {
                 const localData = await services.processedData.getAllProcessedData(
-                    sampleGroup.human_readable_sample_id
+                    sampleGroup.id // Changed from human_readable_sample_id to sample_id
                 );
 
                 Object.entries(localData).forEach(([key, value]) => {
@@ -161,7 +168,7 @@ export function useProcessedData() {
                 });
 
                 if (services.network.isOnline()) {
-                    await services.processedData.syncProcessedData(sampleGroup.human_readable_sample_id);
+                    await services.processedData.syncProcessedData(sampleGroup.id); // Changed
                 }
             } catch (error: any) {
                 console.error('Error fetching processed data:', error);

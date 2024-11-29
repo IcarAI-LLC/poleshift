@@ -66,7 +66,7 @@ const dropboxConfig: DropboxConfigItem[] = [
     },
     isEnabled: true,
     isModalInput: false,
-    processFunctionName: 'handle_sequencing_data',
+    processFunctionName: 'handle_sequence_data',
     requiredSubscriptionLevel: 1, // Adjust subscription level as needed
     modalFields: [], // No modal inputs needed for sequencing data
     acceptsMultipleFiles: true,

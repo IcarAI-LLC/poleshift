@@ -254,7 +254,7 @@ export interface ProcessedDataEntry {
     human_readable_sample_id: string,
     sample_id: string;
     config_id: string;
-    org_id: string; // Added orgId
+    org_short_id: string; // Added orgId
     data: any;
     raw_file_paths: string[];
     processed_path: string | null;

@@ -114,6 +114,7 @@ const RightSidebar: React.FC = () => {
       fetchProcessedData(sampleGroup);
     });
   }, [samplesAtLocation, fetchProcessedData]);
+
   // Process CTD data for a specific sample
   const processCTDData = useCallback((_sampleId: string, data: any) => {
     data = data[0]
@@ -166,7 +167,7 @@ const RightSidebar: React.FC = () => {
     const genusSet: Record<string, Set<string>> = {};
 
     samplesAtLocation.forEach((group) => {
-      const sampleId = group.human_readable_sample_id;
+      const sampleId = group.id; // Changed from human_readable_sample_id to sample_id
 
       // Get CTD data
       const ctdKey = `${sampleId}:ctd_data`;
