@@ -1,7 +1,8 @@
-// src/hooks/useProcessedData.ts
+// useProcessedData.ts
 
 import { useContext, useCallback } from 'react';
 import { AppContext } from '../contexts/AppContext';
+import { useNetworkStatus } from './useNetworkStatus';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleGroupMetadata } from '../types';
 
@@ -16,12 +17,12 @@ interface ProcessCallback {
 
 export function useProcessedData() {
     const { state, dispatch, services } = useContext(AppContext);
+    const { isOnline } = useNetworkStatus();
 
     const getProgressKey = useCallback((sampleId: string, configId: string): string => {
         return `${sampleId}:${configId}`;
     }, []);
 
-    // Progress tracking functions
     const updateProgressState = useCallback(
         (sampleId: string, configId: string, progress: number, status: string) => {
             dispatch({
@@ -66,7 +67,6 @@ export function useProcessedData() {
         [state.processedData.uploadDownloadProgressStates, getProgressKey]
     );
 
-    // Updated processData function
     const processData = useCallback(
         async (
             processFunctionName: string,
@@ -78,7 +78,7 @@ export function useProcessedData() {
             onError: (message: string) => void,
             orgId: string
         ) => {
-            const sampleId = sampleGroup.id; // Changed from human_readable_sample_id to sample_id
+            const sampleId = sampleGroup.id;
             const configId = configItem.id;
             const key = getProgressKey(sampleId, configId);
 
@@ -88,37 +88,34 @@ export function useProcessedData() {
                     payload: { key, status: true },
                 });
 
-                // Call the service's processData method
-                const processedData = await services.processedData.processData(
+                const result = await services.processedData.processData(
                     processFunctionName,
                     sampleGroup,
                     modalInputs,
                     filePaths,
                     configItem,
-                    // onProcessProgress callback
                     (progress, status) => {
                         updateProgressState(sampleId, configId, progress, status);
                     },
-                    // onUploadProgress callback
                     (progress, status) => {
                         updateUploadDownloadProgressState(sampleId, configId, progress, status);
                     },
                     orgId
                 );
-                console.log(processedData.data.report_content);
+
+                if (!result.success) {
+                    throw new Error(result.error?.message || 'Processing failed');
+                }
+
+                const processedData = result.data;
+
                 // Update global state with processed data
-                if (configItem.dataType == 'sequence_data'){
-                    dispatch({
-                        type: 'SET_PROCESSED_DATA',
-                        payload: { key, data: processedData.data.report_content },
-                    });
-                }
-                else{
-                    dispatch({
-                        type: 'SET_PROCESSED_DATA',
-                        payload: { key, data: processedData.data },
-                    });
-                }
+                const dataKey = getProgressKey(sampleId, configId);
+                dispatch({
+                    type: 'SET_PROCESSED_DATA',
+                    payload: { key: dataKey, data: processedData.data },
+                });
+
                 onDataProcessed(
                     {
                         sampleId,
@@ -154,21 +151,23 @@ export function useProcessedData() {
             if (!sampleGroup) return;
 
             try {
+                // First get local data
                 const localData = await services.processedData.getAllProcessedData(
-                    sampleGroup.id // Changed from human_readable_sample_id to sample_id
+                    sampleGroup.id
                 );
 
+                // Update state with local data
                 Object.entries(localData).forEach(([key, value]) => {
-                    // Extract the actual data
-                    const data = value.data.data; // Adjusted to extract the actual data
+                    const data = value.data.data;
                     dispatch({
                         type: 'SET_PROCESSED_DATA',
                         payload: { key, data },
                     });
                 });
 
-                if (services.network.isOnline()) {
-                    await services.processedData.syncProcessedData(sampleGroup.id); // Changed
+                // If online, sync with remote data
+                if (isOnline) {
+                    await services.processedData.syncProcessedData(sampleGroup.id);
                 }
             } catch (error: any) {
                 console.error('Error fetching processed data:', error);
@@ -178,7 +177,7 @@ export function useProcessedData() {
                 });
             }
         },
-        [dispatch, services.network, services.processedData]
+        [dispatch, services.processedData, isOnline]
     );
 
     return {

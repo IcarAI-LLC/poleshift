@@ -22,6 +22,7 @@ import SearchInput from './SearchInput';
 import FilterSelect from './FilterSelect';
 import HierarchyTree from './HierarchyTree';
 import DistributionChart from './DistributionChart';
+import TaxonomyStarburst from './TaxonomyStarburst';
 
 enum SortDirection {
   ASC = 'asc',
@@ -229,6 +230,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
             <Tab label="Summary" />
             <Tab label="Taxonomy Distribution" />
             <Tab label="Taxonomy Hierarchy" />
+            <Tab label="Taxonomy Starburst" /> {/* New Tab */}
           </Tabs>
         </AppBar>
 
@@ -315,6 +317,11 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
           {activeTab === 2 && data.hierarchy && (
               <div>
                 <HierarchyTree nodes={data.hierarchy} />
+              </div>
+          )}
+          {activeTab === 3 && data.hierarchy && (
+              <div>
+                <TaxonomyStarburst nodes={data.hierarchy} />
               </div>
           )}
         </Box>

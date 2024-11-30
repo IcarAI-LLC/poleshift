@@ -1,5 +1,4 @@
 // types/services.ts
-import type { NetworkService } from '../services/offline/NetworkService';
 import type { OperationQueue } from '../services/offline/OperationQueue';
 import type { SyncService } from '../services/SyncService';
 import type { AuthService } from '../services/AuthService';
@@ -12,7 +11,6 @@ export interface Services {
     data: DataService;
     sync: SyncService;
     processedData: ProcessedDataService;
-    network: NetworkService;
     operationQueue: OperationQueue;
     syncManager: SyncManager;
 }

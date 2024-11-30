@@ -1,8 +1,6 @@
-// lib/services/offline/OperationQueue.ts
 import { v4 as uuidv4 } from 'uuid';
 import type { PendingOperation } from '../../types';
-//@ts-ignore
-import {IndexedDBStorage} from "../../storage/IndexedDB.ts";
+import { IndexedDBStorage } from "../../storage/IndexedDB";
 
 export class OperationQueue {
     constructor(private storage: IndexedDBStorage) {}
@@ -31,5 +29,13 @@ export class OperationQueue {
 
     async shouldRetry(operation: PendingOperation): Promise<boolean> {
         return operation.retryCount < this.MAX_RETRIES;
+    }
+
+    async updateRetryCount(operation: PendingOperation): Promise<void> {
+        const updatedOperation = {
+            ...operation,
+            retryCount: operation.retryCount + 1
+        };
+        await this.storage.updatePendingOperation(updatedOperation);
     }
 }

@@ -1,9 +1,8 @@
 // src/handle_nutrient_ammonia_input.rs
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fs;
-use std::path::PathBuf;
-use tauri::{AppHandle, Emitter};
+use tauri::{Emitter, Manager, Runtime, Window};
 use uuid::Uuid;
 
 /// Structure representing the ammonia and ammonium values.
@@ -22,22 +21,33 @@ pub struct FileMeta {
     path: String,
 }
 
+/// Helper function to emit progress events to the frontend.
+fn emit_progress<R: Runtime>(
+    window: &Window<R>,
+    progress: u8,
+    status: &str,
+) -> Result<(), String> {
+    window
+        .emit(
+            "progress",
+            serde_json::json!({
+                "progress": progress,
+                "status": status
+            }),
+        )
+        .map_err(|e| format!("Failed to emit progress: {}", e))
+}
+
 /// Tauri command to handle nutrient ammonia input processing.
 #[tauri::command]
 pub async fn handle_nutrient_ammonia(
-    app_handle: AppHandle,
+    window: Window,
     sample_id: String,
     modal_inputs: serde_json::Value,
     // Assuming 'files' are not needed for this specific function.
-    // If they are required, adjust the parameter accordingly.
 ) -> Result<(NutrientAmmoniaReport, FileMeta), String> {
     // Emit initial progress: 0%
-    app_handle
-        .emit(
-            "progress",
-            serde_json::json!({"progress": 0, "status": "Starting calculation..."}),
-        )
-        .map_err(|e| format!("Failed to emit progress: {}", e))?;
+    emit_progress(&window, 0, "Starting calculation...")?;
 
     // Extract 'ammoniaValue' from modal_inputs
     let ammonia_value_str = modal_inputs
@@ -51,12 +61,7 @@ pub async fn handle_nutrient_ammonia(
         .map_err(|_| "Invalid Ammonia Value")?;
 
     // Emit progress: 50%
-    app_handle
-        .emit(
-            "progress",
-            serde_json::json!({"progress": 50, "status": "Converting to ammonium..."}),
-        )
-        .map_err(|e| format!("Failed to emit progress: {}", e))?;
+    emit_progress(&window, 50, "Converting to ammonium...")?;
 
     // Perform the conversion from ammonia to ammonium
     let ammonium_value = ammonia_value * (17.0 / 14.0);
@@ -68,12 +73,7 @@ pub async fn handle_nutrient_ammonia(
     };
 
     // Emit progress: 75%
-    app_handle
-        .emit(
-            "progress",
-            serde_json::json!({"progress": 75, "status": "Generating report..."}),
-        )
-        .map_err(|e| format!("Failed to emit progress: {}", e))?;
+    emit_progress(&window, 75, "Generating report...")?;
 
     // Generate a unique filename for the report
     let report_filename = format!("nutrient_ammonia_report_{}.json", Uuid::new_v4());
@@ -87,15 +87,10 @@ pub async fn handle_nutrient_ammonia(
         &temp_report_file_path,
         serde_json::to_string_pretty(&report).map_err(|e| format!("Serialization Error: {}", e))?,
     )
-    .map_err(|e| format!("Failed to write report file: {}", e))?;
+        .map_err(|e| format!("Failed to write report file: {}", e))?;
 
     // Emit progress: 100%
-    app_handle
-        .emit(
-            "progress",
-            serde_json::json!({"progress": 100, "status": "Complete"}),
-        )
-        .map_err(|e| format!("Failed to emit progress: {}", e))?;
+    emit_progress(&window, 100, "Complete")?;
 
     // Prepare the file metadata to return to the frontend
     let report_file = FileMeta {

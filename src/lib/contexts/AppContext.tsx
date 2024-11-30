@@ -1,32 +1,25 @@
-// lib/contexts/AppContext.tsx
-//@ts-ignore
-import React, { createContext, useReducer, useEffect } from 'react';
+import React, { createContext, useReducer } from 'react';
 import type { AppState, AppAction, Services } from '../types';
-//@ts-ignore
 import { IndexedDBStorage, storage } from '../storage/IndexedDB';
 import { supabase } from '../supabase/client';
-import {
-    NetworkService,
-    OperationQueue,
-    SyncManager
-} from '../services/offline';
+import { OperationQueue, SyncManager } from '../services/offline';
 import {
     AuthService,
     DataService,
     SyncService,
     ProcessedDataService
 } from '../services';
+import { networkService } from '../services/EnhancedNetworkService';
+import { NetworkStateProvider } from './NetworkStateContext';
 
 // Initialize services in the correct order
-const networkService = new NetworkService();
 const operationQueue = new OperationQueue(storage);
 const syncService = new SyncService(supabase, storage);
-const syncManager = new SyncManager(networkService, operationQueue, syncService);
+const syncManager = new SyncManager(operationQueue, syncService);
 const authService = new AuthService(supabase, storage);
-const dataService = new DataService(syncService, networkService, operationQueue, storage);
+const dataService = new DataService(syncService, operationQueue, storage);
 const processedDataService = new ProcessedDataService(
     syncService,
-    networkService,
     operationQueue,
     storage
 );
@@ -96,7 +89,6 @@ export const AppContext = createContext<{
         data: dataService,
         sync: syncService,
         processedData: processedDataService,
-        network: networkService,
         operationQueue: operationQueue,
         syncManager: syncManager,
     }
@@ -317,26 +309,28 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
 }
 
+// Updated AppProvider to include NetworkStateProvider
 export function AppProvider({ children }: { children: React.ReactNode }) {
     const [state, dispatch] = useReducer(appReducer, initialState);
 
     return (
-        <AppContext.Provider
-            value={{
-                state,
-                dispatch,
-                services: {
-                    auth: authService,
-                    data: dataService,
-                    sync: syncService,
-                    processedData: processedDataService,
-                    network: networkService,
-                    operationQueue: operationQueue,
-                    syncManager: syncManager,
-                }
-            }}
-        >
-            {children}
-        </AppContext.Provider>
+        <NetworkStateProvider>
+            <AppContext.Provider
+                value={{
+                    state,
+                    dispatch,
+                    services: {
+                        auth: authService,
+                        data: dataService,
+                        sync: syncService,
+                        processedData: processedDataService,
+                        operationQueue: operationQueue,
+                        syncManager: syncManager,
+                    }
+                }}
+            >
+                {children}
+            </AppContext.Provider>
+        </NetworkStateProvider>
     );
 }

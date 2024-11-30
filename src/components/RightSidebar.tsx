@@ -1,3 +1,5 @@
+// src/components/RightSidebar.tsx
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
@@ -6,7 +8,7 @@ import {
   Typography,
   Grid,
   Divider,
-  IconButton
+  IconButton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { DateTime } from 'luxon';
@@ -16,6 +18,9 @@ import { useProcessedData } from '../lib/hooks';
 import type { SampleGroupMetadata } from '../lib/types';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
+
+// Import the processKrakenDataForModal function
+import { processKrakenDataForModal } from '../lib/utils/dataProcessingUtils';
 
 interface DataStats {
   averageTemperature: number | null;
@@ -35,43 +40,49 @@ const initialDataStats: DataStats = {
   averageSalinity: null,
   ammoniumStats: { average: null, min: null, max: null, count: 0 },
   speciesData: {},
-  genusData: {}
+  genusData: {},
 };
 
 const RightSidebar: React.FC = () => {
-  const { selectedRightItem, setSelectedRightItem, isRightSidebarCollapsed, toggleRightSidebar, filters } = useUI();
-  const { sampleGroups } = useData();
   const {
-    processedData,
-    fetchProcessedData,
-  } = useProcessedData();
+    selectedRightItem,
+    setSelectedRightItem,
+    isRightSidebarCollapsed,
+    toggleRightSidebar,
+    filters,
+  } = useUI();
+  const { sampleGroups } = useData();
+  const { processedData, fetchProcessedData } = useProcessedData();
 
   const [stats, setStats] = useState<DataStats>(initialDataStats);
 
-  const styles = useMemo((): Record<string, SxProps<Theme>> => ({
-    closeButton: {
-      position: 'absolute',
-      top: '15px',
-      left: '15px',
-      color: 'common.white',
-      backgroundColor: 'transparent',
-      boxShadow: 'none',
-      '&:hover': {
-        color: 'primary.main',
-      },
-    },
-    contentBox: {
-      padding: 2,
-      overflowY: 'auto',
-      height: '100%',
-    },
-    card: {
-      mb: 2
-    },
-    divider: {
-      my: 2
-    }
-  }), []);
+  const styles = useMemo(
+      (): Record<string, SxProps<Theme>> => ({
+        closeButton: {
+          position: 'absolute',
+          top: '15px',
+          left: '15px',
+          color: 'common.white',
+          backgroundColor: 'transparent',
+          boxShadow: 'none',
+          '&:hover': {
+            color: 'primary.main',
+          },
+        },
+        contentBox: {
+          padding: 2,
+          overflowY: 'auto',
+          height: '100%',
+        },
+        card: {
+          mb: 2,
+        },
+        divider: {
+          my: 2,
+        },
+      }),
+      []
+  );
 
   const closeSidebar = useCallback(() => {
     setSelectedRightItem(null);
@@ -117,27 +128,32 @@ const RightSidebar: React.FC = () => {
 
   // Process CTD data for a specific sample
   const processCTDData = useCallback((_sampleId: string, data: any) => {
-    data = data[0]
+    data = data[0];
     const channelMap: Record<string, string> = {};
     data.channels.forEach((channel: any) => {
-      channelMap[channel.long_name] = `channel${String(channel.channel_id).padStart(2, '0')}`;
+      channelMap[channel.long_name] = `channel${String(channel.channel_id).padStart(
+          2,
+          '0'
+      )}`;
     });
 
-    let tempSum = 0, tempCount = 0;
-    let salSum = 0, salCount = 0;
+    let tempSum = 0,
+        tempCount = 0;
+    let salSum = 0,
+        salCount = 0;
 
     data.data.forEach((point: any) => {
-      const depth = point[channelMap.Depth];
+      const depth = point[channelMap['Depth']];
       if (depth != null && depth <= 2) {
-        if (channelMap.Temperature) {
-          const temp = point[channelMap.Temperature];
+        if (channelMap['Temperature']) {
+          const temp = point[channelMap['Temperature']];
           if (temp != null && !isNaN(temp)) {
             tempSum += temp;
             tempCount++;
           }
         }
-        if (channelMap.Salinity) {
-          const sal = point[channelMap.Salinity];
+        if (channelMap['Salinity']) {
+          const sal = point[channelMap['Salinity']];
           if (sal != null && !isNaN(sal)) {
             salSum += sal;
             salCount++;
@@ -148,7 +164,7 @@ const RightSidebar: React.FC = () => {
 
     return {
       temperature: tempCount > 0 ? tempSum / tempCount : null,
-      salinity: salCount > 0 ? salSum / salCount : null
+      salinity: salCount > 0 ? salSum / salCount : null,
     };
   }, []);
 
@@ -159,15 +175,19 @@ const RightSidebar: React.FC = () => {
       return;
     }
 
-    let tempSum = 0, tempCount = 0;
-    let salSum = 0, salCount = 0;
-    let totalAmm = 0, ammCount = 0;
-    let minAmm: number | null = null, maxAmm: number | null = null;
+    let tempSum = 0,
+        tempCount = 0;
+    let salSum = 0,
+        salCount = 0;
+    let totalAmm = 0,
+        ammCount = 0;
+    let minAmm: number | null = null,
+        maxAmm: number | null = null;
     const speciesSet: Record<string, Set<string>> = {};
     const genusSet: Record<string, Set<string>> = {};
 
     samplesAtLocation.forEach((group) => {
-      const sampleId = group.id; // Changed from human_readable_sample_id to sample_id
+      const sampleId = group.id; // sample ID
 
       // Get CTD data
       const ctdKey = `${sampleId}:ctd_data`;
@@ -199,24 +219,36 @@ const RightSidebar: React.FC = () => {
           maxAmm = maxAmm === null ? ammValue : Math.max(maxAmm, ammValue);
         }
       }
+
       // Get sequencing data
       const seqKey = `${sampleId}:sequencing_data`;
-      const seqData = processedData[seqKey]?.data;
-      if (Array.isArray(seqData)) {
-        seqData.forEach((entry: any) => {
-          const taxName = entry.name || entry.taxonName;
-          const rank = (entry.rank || entry.rankCode || '').toLowerCase();
-
-          if (taxName) {
-            if (rank === 'species') {
-              if (!speciesSet[taxName]) speciesSet[taxName] = new Set();
-              speciesSet[taxName].add(sampleId);
-            } else if (rank === 'genus') {
-              if (!genusSet[taxName]) genusSet[taxName] = new Set();
-              genusSet[taxName].add(sampleId);
-            }
+      const seqData = processedData[seqKey];
+      if (seqData) {
+        try {
+          // Process the Kraken sequencing data
+          const krakenData = processKrakenDataForModal(seqData.report_content);
+          if (krakenData && Array.isArray(krakenData.data)) {
+            krakenData.data.forEach((rankData) => {
+              const rank = rankData.rankBase.toUpperCase();
+              if (rank === 'SPECIES' || rank === 'GENUS') {
+                rankData.plotData.forEach((item) => {
+                  const taxName = item.taxon;
+                  if (taxName) {
+                    if (rank === 'SPECIES') {
+                      if (!speciesSet[taxName]) speciesSet[taxName] = new Set();
+                      speciesSet[taxName].add(sampleId);
+                    } else if (rank === 'GENUS') {
+                      if (!genusSet[taxName]) genusSet[taxName] = new Set();
+                      genusSet[taxName].add(sampleId);
+                    }
+                  }
+                });
+              }
+            });
           }
-        });
+        } catch (error) {
+          console.error('Error processing sequencing data:', error);
+        }
       }
     });
 
@@ -227,14 +259,14 @@ const RightSidebar: React.FC = () => {
         average: ammCount > 0 ? totalAmm / ammCount : null,
         min: minAmm,
         max: maxAmm,
-        count: ammCount
+        count: ammCount,
       },
       speciesData: Object.fromEntries(
           Object.entries(speciesSet).map(([name, samples]) => [name, samples.size])
       ),
       genusData: Object.fromEntries(
           Object.entries(genusSet).map(([name, samples]) => [name, samples.size])
-      )
+      ),
     });
   }, [selectedRightItem, samplesAtLocation, processedData, processCTDData]);
 
@@ -251,7 +283,9 @@ const RightSidebar: React.FC = () => {
         </IconButton>
 
         <Box sx={styles.contentBox}>
-          <Typography variant="h5" gutterBottom>{selectedRightItem.label}</Typography>
+          <Typography variant="h5" gutterBottom>
+            {selectedRightItem.label}
+          </Typography>
 
           <Typography variant="body1" gutterBottom>
             <strong>Location ID:</strong> {selectedRightItem.char_id}
@@ -284,8 +318,7 @@ const RightSidebar: React.FC = () => {
                   )}
                   {stats.averageSalinity !== null ? (
                       <Typography variant="body1" gutterBottom>
-                        <strong>Salinity:</strong>{' '}
-                        {stats.averageSalinity.toFixed(2)} PSU
+                        <strong>Salinity:</strong> {stats.averageSalinity.toFixed(2)} PSU
                       </Typography>
                   ) : (
                       <Typography variant="body1" gutterBottom>
@@ -379,8 +412,8 @@ const RightSidebar: React.FC = () => {
                     {samplesAtLocation.map((sampleGroup) => (
                         <li key={sampleGroup.id}>
                           <Typography variant="body1">
-                            <strong>{sampleGroup.human_readable_sample_id}</strong> (Sample ID:{' '}
-                            {sampleGroup.id})
+                            <strong>{sampleGroup.human_readable_sample_id}</strong> (Sample
+                            ID: {sampleGroup.id})
                           </Typography>
                           {sampleGroup.collection_date && (
                               <Typography variant="body2" color="text.secondary">

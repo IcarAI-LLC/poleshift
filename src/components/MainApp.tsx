@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { IconButton, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 
-import { useAuth, useData, useUI, useOffline } from '../lib/hooks';
+import { useAuth, useData, useUI, useNetworkStatus } from '../lib/hooks';
 
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
@@ -16,7 +16,6 @@ import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
 
 const MainApp: React.FC = () => {
-  // Hooks
   const { userProfile, error: authError } = useAuth();
   const { sampleGroups, deleteNode, error: dataError } = useData();
   const {
@@ -28,11 +27,11 @@ const MainApp: React.FC = () => {
     setContextMenuState,
     contextMenu,
   } = useUI();
-  const { isOnline, hasPendingChanges } = useOffline();
+  const { isOnline } = useNetworkStatus();
 
   // Local state
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const [isOfflineVisible, setIsOfflineVisible] = useState(true);
+  const [showOfflineWarning, setShowOfflineWarning] = useState(true);
   const openButtonRef = useRef<HTMLButtonElement>(null);
 
   // Get current sample group based on selection
@@ -53,12 +52,15 @@ const MainApp: React.FC = () => {
     }
   }, [displayedError, setErrorMessage]);
 
-  // Offline status management
+  // Reset offline warning visibility when online status changes
   useEffect(() => {
-    setIsOfflineVisible(!isOnline);
+    if (isOnline) {
+      setShowOfflineWarning(false);
+    } else {
+      setShowOfflineWarning(true);
+    }
   }, [isOnline]);
 
-  // Handlers
   const handleDataProcessed = useCallback((processedData: any) => {
     console.log('Data processed:', processedData);
   }, []);
@@ -105,6 +107,7 @@ const MainApp: React.FC = () => {
       document.body.style.overflow = 'auto';
     };
   }, [isFilterMenuOpen]);
+
   return (
       <div id="app">
         <div className="app-container">
@@ -133,18 +136,10 @@ const MainApp: React.FC = () => {
 
           <div className="main-content">
             <OfflineWarning
-                isVisible={!isOnline && isOfflineVisible}
-                message="You are offline. Some features may not be available."
-                onClose={() => setIsOfflineVisible(false)}
+                isVisible={!isOnline && showOfflineWarning}
+                message="You are offline"
+                onClose={() => setShowOfflineWarning(false)}
             />
-
-            {hasPendingChanges && (
-                <OfflineWarning
-                    isVisible={true}
-                    message="You have pending changes that will sync when you're back online."
-                    onClose={() => null}
-                />
-            )}
 
             {sampleGroup && <SampleGroupMetadata />}
 

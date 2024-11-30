@@ -1,7 +1,6 @@
-// lib/services/ProcessedDataService.ts
+// ProcessedDataService.ts
 
 import { BaseService } from './BaseService';
-import { NetworkService } from './offline';
 import { OperationQueue } from './offline';
 import { SyncService } from './SyncService';
 import type { SampleGroupMetadata, SampleMetadata } from '../types';
@@ -13,24 +12,51 @@ import { readFile } from '@tauri-apps/plugin-fs';
 import { UploadManager } from './UploadManager';
 import { invoke } from '@tauri-apps/api/core';
 import { UnlistenFn, listen } from '@tauri-apps/api/event';
+import { networkService } from './EnhancedNetworkService';
 
 interface ProcessCallback {
     (progress: number, status: string): void;
 }
 
+interface ProcessResult {
+    success: boolean;
+    data?: any;
+    error?: Error;
+}
+
 export class ProcessedDataService extends BaseService {
     protected storageKey: string = 'data';
     private uploadManager: UploadManager;
+    private readonly RETRY_ATTEMPTS = 3;
+    private readonly RETRY_DELAY = 1000;
 
     constructor(
         private syncService: SyncService,
-        private networkService: NetworkService,
-        //@ts-ignore
         private operationQueue: OperationQueue,
         readonly storage: IndexedDBStorage,
     ) {
         super(storage);
-        this.uploadManager = new UploadManager(this.networkService);
+        this.uploadManager = new UploadManager();
+    }
+
+    private async withRetry<T>(
+        operation: () => Promise<T>,
+        errorMessage: string
+    ): Promise<T> {
+        let lastError: Error | undefined;
+
+        for (let attempt = 0; attempt < this.RETRY_ATTEMPTS; attempt++) {
+            try {
+                return await operation();
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+                if (attempt < this.RETRY_ATTEMPTS - 1) {
+                    await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY * Math.pow(2, attempt)));
+                }
+            }
+        }
+
+        throw lastError || new Error(errorMessage);
     }
 
     async processData(
@@ -42,173 +68,244 @@ export class ProcessedDataService extends BaseService {
         onProcessProgress: ProcessCallback,
         onUploadProgress: ProcessCallback,
         orgId: string
-    ): Promise<any> {
+    ): Promise<ProcessResult> {
         const humanReadableSampleId = sampleGroup.human_readable_sample_id;
         const configId = configItem.id;
         const sampleId = sampleGroup.id;
-        //@ts-ignore
-        const key = `${sampleId}:${configId}`;
 
         try {
-            // 1. Create initial metadata record
-            const metadataRecord: SampleMetadata = {
-                id: uuidv4(),
-                human_readable_sample_id: humanReadableSampleId,
-                org_id: sampleGroup.org_id,
-                user_id: sampleGroup.user_id,
-                data_type: configItem.dataType,
-                status: 'processing',
-                upload_datetime_utc: new Date().toISOString(),
-                process_function_name: processFunctionName,
-                sample_group_id: sampleGroup.id,
-                raw_storage_paths: filePaths.map(file =>
-                    `${sampleGroup.org_id}/${sampleId}/${file.replace(/^.*[\\\/]/, '')}`
-                ),
-                processed_storage_path: `${sampleGroup.org_id}/${sampleId}/processed/${configId}.json`,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            };
-
-            // Save initial metadata to IndexedDB
+            // 1. Create and save initial metadata record
+            const metadataRecord = await this.createInitialMetadata(
+                sampleGroup,
+                configItem,
+                processFunctionName,
+                filePaths
+            );
             await this.storage.saveSampleMetadata(metadataRecord);
 
-            // 2. Queue raw files for upload with correct paths
-            for (const filePath of filePaths) {
-                const fileName = filePath.replace(/^.*[\\\/]/, '');
-                const storagePath = `${sampleGroup.org_id}/${sampleId}/${fileName}`;
+            // 2. Queue raw files for upload
+            await this.queueRawFiles(sampleGroup, sampleId, configId, filePaths);
 
-                const fileBuffer = await readFile(filePath);
-                const file = new File([fileBuffer], fileName);
-                await this.queueRawFile(sampleId, configId, file, { customPath: storagePath });
-            }
+            // 3. Process the data
+            const result = await this.processDataWithProgress(
+                configItem,
+                processFunctionName,
+                sampleId,
+                modalInputs,
+                filePaths,
+                onProcessProgress
+            );
 
-            // Start the upload process
-            await this.uploadManager.startUploadProcess(onUploadProgress);
+            // 4. Handle processed data
+            await this.handleProcessedData(
+                result,
+                sampleId,
+                configId,
+                metadataRecord,
+                processFunctionName,
+                onUploadProgress,
+                orgId,
+                humanReadableSampleId
+            );
 
-            // 3. Process the data using Tauri command
-            onProcessProgress(0, 'Processing data...');
-
-            let unlisten: UnlistenFn | undefined;
-            let result: any;
-            try {
-                unlisten = await listen('progress', (event) => {
-                    const { progress, status } = event.payload as { progress: number; status: string };
-                    onProcessProgress(progress, status);
-                });
-
-                result = await invoke<any>(configItem.processFunctionName, {
-                    functionName: processFunctionName,
-                    sampleId: sampleId,
-                    modalInputs,
-                    filePaths,
-                });
-            } finally {
-                if (unlisten) {
-                    await unlisten();
-                }
-            }
-
-            // 4. Prepare and queue processed data
-            const processedData = {
-                data: result,
-                metadata: {
-                    processFunction: processFunctionName,
-                    processedDateTime: new Date().toISOString(),
-                },
-                rawFilePaths: metadataRecord.raw_storage_paths,
-            };
-
-            const processedBlob = new Blob([JSON.stringify(processedData)], {
-                type: 'application/json',
-            });
-
-            await this.queueProcessedFile(sampleId, configId, processedBlob, {
-                customPath: metadataRecord.processed_storage_path,
-            });
-
-            // Trigger the upload process after queuing processed data
-            await this.uploadManager.startUploadProcess(onUploadProgress);
-
-            // 5. Update metadata record with completion status
-            const updatedMetadata: SampleMetadata = {
-                ...metadataRecord,
-                status: 'processed',
-                processed_datetime_utc: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            };
-
-            await this.storage.saveSampleMetadata(updatedMetadata);
-
-
-            await this.storage.saveProcessedData(sampleId, configId, processedData, orgId, humanReadableSampleId,  {
-                rawFilePaths: metadataRecord.raw_storage_paths || undefined,
-                processedPath: metadataRecord.processed_storage_path,
-                metadata: processedData.metadata,
-            });
-
-            onProcessProgress(100, 'Processing complete');
-            return processedData;
+            return { success: true, data: result };
         } catch (error) {
-            this.handleError(error, 'Failed to process data');
-            throw error;
+            console.error('Processing error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error : new Error('Failed to process data')
+            };
         }
     }
 
-    // Add these methods to fix the TypeScript errors
+    private async createInitialMetadata(
+        sampleGroup: SampleGroupMetadata,
+        configItem: DropboxConfigItem,
+        processFunctionName: string,
+        filePaths: string[]
+    ): Promise<SampleMetadata> {
+        return {
+            id: uuidv4(),
+            human_readable_sample_id: sampleGroup.human_readable_sample_id,
+            org_id: sampleGroup.org_id,
+            user_id: sampleGroup.user_id,
+            data_type: configItem.dataType,
+            status: 'processing',
+            upload_datetime_utc: new Date().toISOString(),
+            process_function_name: processFunctionName,
+            sample_group_id: sampleGroup.id,
+            raw_storage_paths: filePaths.map(file =>
+                `${sampleGroup.org_id}/${sampleGroup.id}/${file.replace(/^.*[\\\/]/, '')}`
+            ),
+            processed_storage_path: `${sampleGroup.org_id}/${sampleGroup.id}/processed/${configItem.id}.json`,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+    }
 
-    // Queue raw file for upload
+    private async queueRawFiles(
+        sampleGroup: SampleGroupMetadata,
+        sampleId: string,
+        configId: string,
+        filePaths: string[]
+    ): Promise<void> {
+        for (const filePath of filePaths) {
+            const fileName = filePath.replace(/^.*[\\\/]/, '');
+            const storagePath = `${sampleGroup.org_id}/${sampleId}/${fileName}`;
+
+            const fileBuffer = await readFile(filePath);
+            const file = new File([fileBuffer], fileName);
+            await this.queueRawFile(sampleId, configId, file, { customPath: storagePath });
+        }
+        // Do not attempt to upload immediately; uploads will be attempted when online
+    }
+
+    private async processDataWithProgress(
+        configItem: DropboxConfigItem,
+        processFunctionName: string,
+        sampleId: string,
+        modalInputs: Record<string, string>,
+        filePaths: string[],
+        onProcessProgress: ProcessCallback
+    ): Promise<any> {
+        onProcessProgress(0, 'Processing data...');
+
+        let unlisten: UnlistenFn | undefined;
+        try {
+            unlisten = await listen('progress', (event) => {
+                const { progress, status } = event.payload as { progress: number; status: string };
+                onProcessProgress(progress, status);
+            });
+
+            return await this.withRetry(
+                () => invoke<any>(configItem.processFunctionName, {
+                    functionName: processFunctionName,
+                    sampleId,
+                    modalInputs,
+                    filePaths,
+                }),
+                'Data processing failed'
+            );
+        } finally {
+            if (unlisten) {
+                await unlisten();
+            }
+        }
+    }
+
+    private async handleProcessedData(
+        result: any,
+        sampleId: string,
+        configId: string,
+        metadataRecord: SampleMetadata,
+        processFunctionName: string,
+        onUploadProgress: ProcessCallback,
+        orgId: string,
+        humanReadableSampleId: string
+    ): Promise<void> {
+        const processedData = {
+            data: result,
+            metadata: {
+                processFunction: processFunctionName,
+                processedDateTime: new Date().toISOString(),
+            },
+            rawFilePaths: metadataRecord.raw_storage_paths,
+        };
+
+        const processedBlob = new Blob([JSON.stringify(processedData)], {
+            type: 'application/json',
+        });
+
+        await this.queueProcessedFile(sampleId, configId, processedBlob, {
+            customPath: metadataRecord.processed_storage_path,
+        });
+
+        // Save processed data locally
+        await this.storage.saveProcessedData(
+            sampleId,
+            configId,
+            processedData,
+            orgId,
+            humanReadableSampleId,
+            {
+                rawFilePaths: metadataRecord.raw_storage_paths || undefined,
+                processedPath: metadataRecord.processed_storage_path,
+                metadata: processedData.metadata,
+            }
+        );
+
+        // Update metadata to 'processed'
+        const updatedMetadata: SampleMetadata = {
+            ...metadataRecord,
+            status: 'processed',
+            processed_datetime_utc: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+        await this.storage.saveSampleMetadata(updatedMetadata);
+
+        // Attempt to upload if online
+        if (await networkService.hasActiveConnection()) {
+            await this.uploadManager.startUploadProcess(onUploadProgress);
+        } else {
+            // Inform the user that uploads are pending due to offline status
+            onUploadProgress(0, 'Uploads pending due to offline status');
+        }
+    }
+
     async queueRawFile(
         sampleId: string,
         configId: string,
         file: File,
         options: { customPath?: string } = {}
     ): Promise<void> {
-        await this.storage.queueRawFile(sampleId, configId, file, options);
+        await this.withRetry(
+            () => this.storage.queueRawFile(sampleId, configId, file, options),
+            'Failed to queue raw file'
+        );
     }
 
-    // Queue processed file for upload
     async queueProcessedFile(
         sampleId: string,
         configId: string,
         data: Blob,
         options: { customPath?: string } = {}
     ): Promise<void> {
-        await this.storage.queueProcessedFile(sampleId, configId, data, options);
+        await this.withRetry(
+            () => this.storage.queueProcessedFile(sampleId, configId, data, options),
+            'Failed to queue processed file'
+        );
     }
 
-
     async getProcessedData(sampleId: string, configId: string): Promise<any> {
-        try {
-            return await this.storage.getProcessedData(sampleId, configId);
-        } catch (error) {
-            this.handleError(error, 'Failed to get processed data');
-        }
+        return this.withRetry(
+            () => this.storage.getProcessedData(sampleId, configId),
+            'Failed to get processed data'
+        );
     }
 
     async getAllProcessedData(sampleId: string): Promise<Record<string, ProcessedDataEntry>> {
-        try {
-            const data = await this.storage.getAllProcessedData(sampleId);
-            return data;
-        } catch (error) {
-            console.error('Detailed error:', error);
-            throw new Error('Failed to get all processed data');
-        }
+        return this.withRetry(
+            () => this.storage.getAllProcessedData(sampleId),
+            'Failed to get all processed data'
+        );
     }
 
-
     async syncProcessedData(sampleId: string): Promise<void> {
-        console.log("Processed data service called sync on", sampleId);
-        if (!this.networkService.isOnline()) return;
-        await this.syncService.syncToRemote()
+        if (!(await networkService.hasActiveConnection())) return;
+
         try {
+            await this.syncService.syncToRemote();
             const localData = await this.getAllProcessedData(sampleId);
-            console.log("Local data: ", localData);
-            // Sync each piece of processed data
-            for (const entry of Object.values(localData)) {
-                await this.syncService.syncProcessedData(entry);
-            }
+
+            await Promise.all(
+                Object.values(localData).map(entry =>
+                    this.withRetry(
+                        () => this.syncService.syncProcessedData(entry),
+                        `Failed to sync processed data for entry ${entry.key}`
+                    )
+                )
+            );
         } catch (error) {
-            console.log(error);
             this.handleError(error, 'Failed to sync processed data');
         }
     }

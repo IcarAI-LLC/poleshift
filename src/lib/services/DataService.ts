@@ -1,149 +1,172 @@
-// lib/services/DataService.ts
-import { BaseService } from "./BaseService.ts";
-import { NetworkService, OperationQueue } from "./offline";
-import {FileNode, SampleGroupMetadata, SampleLocation, SampleMetadata} from "../types";
-import { SyncService } from "./SyncService.ts";
-import { IndexedDBStorage } from "../storage/IndexedDB.ts"; // Removed @ts-ignore
+import { BaseService } from "./BaseService";
+import { OperationQueue } from "./offline";
+import { FileNode, SampleGroupMetadata, SampleLocation, SampleMetadata } from "../types";
+import { SyncService } from "./SyncService";
+import { IndexedDBStorage } from "../storage/IndexedDB";
+import { networkService } from "./EnhancedNetworkService";
+import { v4 as uuidv4 } from 'uuid';
 
 export class DataService extends BaseService {
     protected storageKey: string = 'data';
+    private readonly SYNC_RETRY_ATTEMPTS = 3;
+    private readonly SYNC_RETRY_DELAY = 1000;
 
     constructor(
         private syncService: SyncService,
-        private networkService: NetworkService,
         private operationQueue: OperationQueue,
-        readonly storage: IndexedDBStorage // Made storage a private member
+        readonly storage: IndexedDBStorage
     ) {
         super(storage);
     }
 
-    // Existing Methods
-
-    async createSampleGroup(data: Partial<SampleGroupMetadata>): Promise<void> {
-        try {
-            // Save locally first
-            await this.storage.saveSampleGroup(data as SampleGroupMetadata);
-
-            // Handle sync
-            if (this.networkService.isOnline()) {
-                await this.syncService.createRemote('sample_group_metadata', data);
-            } else {
-                await this.operationQueue.enqueue({
-                    type: 'create',
-                    table: 'sample_group_metadata',
-                    data
-                });
+    private async attemptOnlineOperation<T>(
+        operation: () => Promise<T>,
+        fallback: () => Promise<void>
+    ): Promise<void> { // Adjusted the return type to void
+        if (await networkService.hasActiveConnection()) {
+            try {
+                await operation();
+            } catch (error) {
+                console.error('Online operation failed, enqueuing operation:', error);
+                await fallback();
             }
+        } else {
+            await fallback();
+        }
+    }
+
+
+    async createSampleGroup(data: Partial<SampleGroupMetadata>): Promise<SampleGroupMetadata> {
+        try {
+            const newSampleGroup: SampleGroupMetadata = {
+                ...data as SampleGroupMetadata,
+                id: data.id || uuidv4(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            // Save locally first
+            await this.storage.saveSampleGroup(newSampleGroup);
+
+            // Attempt remote sync
+            await this.attemptOnlineOperation(
+                async () => await this.syncService.createRemote('sample_group_metadata', newSampleGroup),
+                async () => await this.operationQueue.enqueue({
+                    type: 'upsert',
+                    table: 'sample_group_metadata',
+                    data: newSampleGroup
+                })
+            );
+
+            return newSampleGroup;
         } catch (error) {
             this.handleError(error, 'Failed to create sample group');
+            throw error;
+        }
+    }
+
+    async createFileNode(data: Partial<FileNode>): Promise<FileNode> {
+        try {
+            const newNode: FileNode = {
+                ...data as FileNode,
+                id: data.id || uuidv4(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            // Save locally first
+            await this.storage.saveFileNode(newNode);
+
+            // Attempt remote sync
+            await this.attemptOnlineOperation(
+                async () => await this.syncService.createRemote('file_nodes', newNode),
+                async () => await this.operationQueue.enqueue({
+                    type: 'create',
+                    table: 'file_nodes',
+                    data: newNode
+                })
+            );
+
+            return newNode;
+        } catch (error) {
+            this.handleError(error, 'Failed to create file node');
+            throw error;
         }
     }
 
     async saveSampleMetadata(data: SampleMetadata): Promise<void> {
         try {
-            // Save locally
-            await this.storage.saveSampleMetadata(data);
+            const metadata = {
+                ...data,
+                updated_at: new Date().toISOString()
+            };
 
-            // Handle sync
-            if (this.networkService.isOnline()) {
-                await this.syncService.upsertRemote('sample_metadata', data);
-            } else {
-                await this.operationQueue.enqueue({
+            await this.storage.saveSampleMetadata(metadata);
+
+            await this.attemptOnlineOperation(
+                async () => await this.syncService.upsertRemote('sample_metadata', metadata),
+                async () => await this.operationQueue.enqueue({
                     type: 'upsert',
                     table: 'sample_metadata',
-                    data
-                });
-            }
+                    data: metadata
+                })
+            );
         } catch (error) {
             this.handleError(error, 'Failed to save sample metadata');
         }
     }
 
-    async getSampleGroups(orgId: string): Promise<SampleGroupMetadata[]> {
-        try {
-            return await this.storage.getSampleGroupsByOrg(orgId);
-        } catch (error) {
-            this.handleError(error, 'Failed to get sample groups');
-            return []; // Return an empty array in case of error
-        }
-    }
-
-    async updateSampleGroup(id: string, updates: Partial<SampleGroupMetadata>): Promise<void> {
+    async updateSampleGroup(id: string, updates: Partial<SampleGroupMetadata>): Promise<SampleGroupMetadata> {
         try {
             const existing = await this.storage.getSampleGroup(id);
             if (!existing) throw new Error('Sample group not found');
 
-            const updatedGroup = { ...existing, ...updates };
+            const updatedGroup = {
+                ...existing,
+                ...updates,
+                updated_at: new Date().toISOString()
+            };
 
-            // Update locally
             await this.storage.saveSampleGroup(updatedGroup);
 
-            // Handle sync
-            if (this.networkService.isOnline()) {
-                await this.syncService.updateRemote('sample_group_metadata', updatedGroup);
-            } else {
-                await this.operationQueue.enqueue({
+            await this.attemptOnlineOperation(
+                async () => await this.syncService.updateRemote('sample_group_metadata', updatedGroup),
+                async () => await this.operationQueue.enqueue({
                     type: 'update',
                     table: 'sample_group_metadata',
                     data: updatedGroup
-                });
-            }
+                })
+            );
+
+            return updatedGroup;
         } catch (error) {
             this.handleError(error, 'Failed to update sample group');
-        }
-    }
-
-    async deleteSampleGroup(id: string): Promise<void> {
-        try {
-            // Delete locally
-            await this.storage.deleteSampleGroup(id);
-
-            // Handle sync
-            if (this.networkService.isOnline()) {
-                await this.syncService.deleteRemote('sample_group_metadata', id);
-            } else {
-                await this.operationQueue.enqueue({
-                    type: 'delete',
-                    table: 'sample_group_metadata',
-                    data: { id }
-                });
-            }
-        } catch (error) {
-            this.handleError(error, 'Failed to delete sample group');
-        }
-    }
-
-    async getLocations(): Promise<SampleLocation[]> {
-        try {
-            return await this.storage.getAllLocations();
-        } catch (error) {
-            this.handleError(error, 'Failed to get locations');
-            return []; // Return an empty array in case of error
+            throw error;
         }
     }
 
     async updateFileTree(updatedTree: FileNode[]): Promise<void> {
         try {
-            // Update each node in the tree
-            for (const node of updatedTree) {
-                await this.storage.saveFileNode(node);
-            }
+            const timestamp = new Date().toISOString();
+            const updatedNodes = updatedTree.map(node => ({
+                ...node,
+                updated_at: timestamp
+            }));
 
-            // If online, create/update each node individually
-            if (this.networkService.isOnline()) {
-                for (const node of updatedTree) {
-                    await this.syncService.updateRemote('file_nodes', node);
-                }
-            } else {
-                // Queue for later sync - one operation per node
-                for (const node of updatedTree) {
-                    await this.operationQueue.enqueue({
+            // Save all nodes locally first
+            await Promise.all(updatedNodes.map(node => this.storage.saveFileNode(node)));
+
+            // Attempt online sync for each node
+            await Promise.all(updatedNodes.map(node =>
+                this.attemptOnlineOperation(
+                    async () => await this.syncService.updateRemote('file_nodes', node),
+                    async () => await this.operationQueue.enqueue({
                         type: 'update',
                         table: 'file_nodes',
                         data: node
-                    });
-                }
-            }
+                    })
+                )
+            ));
         } catch (error) {
             this.handleError(error, 'Failed to update file tree');
         }
@@ -151,77 +174,100 @@ export class DataService extends BaseService {
 
     async deleteNode(nodeId: string): Promise<void> {
         try {
-            // Delete from local storage
             const node = await this.storage.getFileNode(nodeId);
             if (!node) {
                 throw new Error('Node not found');
             }
 
+            // Perform local deletions
             await this.storage.deleteFileNode(nodeId);
-
-            // If the node is a sample group, delete the associated sample group
             if (node.type === 'sampleGroup') {
                 await this.storage.deleteSampleGroup(nodeId);
             }
 
-            // Handle sync for file_nodes
-            if (this.networkService.isOnline()) {
-                await this.syncService.deleteRemote('file_nodes', nodeId);
-                if (node.type === 'sampleGroup') {
-                    await this.syncService.deleteRemote('sample_group_metadata', nodeId);
-                }
-            } else {
-                await this.operationQueue.enqueue({
-                    type: 'delete',
-                    table: 'file_nodes',
-                    data: { id: nodeId }
-                });
-                if (node.type === 'sampleGroup') {
-                    await this.operationQueue.enqueue({
+            // Handle remote deletions
+            const deleteOperations = [
+                this.attemptOnlineOperation(
+                    async () => await this.syncService.deleteRemote('file_nodes', nodeId),
+                    async () => await this.operationQueue.enqueue({
                         type: 'delete',
-                        table: 'sample_group_metadata',
+                        table: 'file_nodes',
                         data: { id: nodeId }
-                    });
-                }
+                    })
+                )
+            ];
+
+            if (node.type === 'sampleGroup') {
+                deleteOperations.push(
+                    this.attemptOnlineOperation(
+                        async () => await this.syncService.deleteRemote('sample_group_metadata', nodeId),
+                        async () => await this.operationQueue.enqueue({
+                            type: 'delete',
+                            table: 'sample_group_metadata',
+                            data: { id: nodeId }
+                        })
+                    )
+                );
             }
+
+            await Promise.all(deleteOperations);
         } catch (error) {
             this.handleError(error, 'Failed to delete node');
         }
     }
 
-    // New Methods
+    // Read operations - these prioritize local data for speed
+    async getSampleGroups(orgId: string): Promise<SampleGroupMetadata[]> {
+        try {
+            const localData = await this.storage.getSampleGroupsByOrg(orgId);
 
-    /**
-     * Fetches all file nodes without filtering by organization ID.
-     * @returns Promise<FileNode[]>
-     */
+            // If online, try to sync in the background
+            if (await networkService.hasActiveConnection()) {
+                this.syncService.syncFromRemote('sample_group_metadata', orgId)
+                    .catch(error => console.error('Background sync failed:', error));
+            }
+
+            return localData;
+        } catch (error) {
+            this.handleError(error, 'Failed to get sample groups');
+            return [];
+        }
+    }
+
     async getAllFileNodes(): Promise<FileNode[]> {
         try {
-            return await this.storage.getAllFileNodes();
+            const localData = await this.storage.getAllFileNodes();
+
+            // Background sync if online
+            if (await networkService.hasActiveConnection()) {
+                this.syncService.syncFromRemote('file_nodes')
+                    .catch(error => console.error('Background sync failed:', error));
+            }
+
+            return localData;
         } catch (error) {
             this.handleError(error, 'Failed to get all file nodes');
-            return []; // Return an empty array in case of error
+            return [];
         }
     }
 
-    /**
-     * Fetches all sample groups without filtering by organization ID.
-     * @returns Promise<SampleGroupMetadata[]>
-     */
     async getAllSampleGroups(): Promise<SampleGroupMetadata[]> {
         try {
-            return await this.storage.getAllSampleGroups();
+            const localData = await this.storage.getAllSampleGroups();
+
+            // Background sync if online
+            if (await networkService.hasActiveConnection()) {
+                this.syncService.syncFromRemote('sample_group_metadata')
+                    .catch(error => console.error('Background sync failed:', error));
+            }
+
+            return localData;
         } catch (error) {
             this.handleError(error, 'Failed to get all sample groups');
-            return []; // Return an empty array in case of error
+            return [];
         }
     }
 
-    /**
-     * Fetches a single file node by ID.
-     * @param nodeId string
-     * @returns Promise<FileNode | undefined>
-     */
     async getFileNode(nodeId: string): Promise<FileNode | undefined> {
         try {
             return await this.storage.getFileNode(nodeId);
@@ -231,20 +277,20 @@ export class DataService extends BaseService {
         }
     }
 
-    /**
-     * Fetches all sample locations.
-     * @returns Promise<SampleLocation[]>
-     */
     async getAllSampleLocations(): Promise<SampleLocation[]> {
         try {
-            return await this.storage.getAllLocations();
+            const localData = await this.storage.getAllLocations();
+
+            // Background sync if online
+            if (await networkService.hasActiveConnection()) {
+                this.syncService.syncFromRemote('sample_locations')
+                    .catch(error => console.error('Background sync failed:', error));
+            }
+
+            return localData;
         } catch (error) {
             this.handleError(error, 'Failed to get all sample locations');
             return [];
         }
     }
-
-    /**
-     * Additional helper methods can be added here as needed.
-     */
 }

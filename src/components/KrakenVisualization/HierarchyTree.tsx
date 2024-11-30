@@ -27,63 +27,42 @@ interface HierarchyTreeProps {
 const buildTree = (nodes: TaxonomyNode[]): TreeNode[] => {
     if (!nodes?.length) return [];
 
-    // Create a map to store nodes by their depth
-    const nodesByDepth = new Map<number, TreeNode[]>();
+    const rootNodes: TreeNode[] = [];
+    const stack: TreeNode[] = [];
 
-    // Map to keep track of nodes by taxId
-    const nodeMap = new Map<number, TreeNode>();
-
-    // Initialize result array to store root nodes
-    const result: TreeNode[] = [];
-
-    // Process each node to create TreeNode instances and group them by depth
     nodes.forEach((node) => {
         const treeNode: TreeNode = {
             ...node,
             children: [],
         };
 
-        nodeMap.set(node.taxId, treeNode);
-
-        if (!nodesByDepth.has(node.depth)) {
-            nodesByDepth.set(node.depth, []);
+        // Adjust the stack based on the depth
+        while (stack.length > 0 && stack[stack.length - 1].depth >= treeNode.depth) {
+            stack.pop();
         }
-        nodesByDepth.get(node.depth)?.push(treeNode);
+
+        if (stack.length === 0) {
+            // No parent, this is a root node
+            rootNodes.push(treeNode);
+        } else {
+            // Add as a child to the last node in the stack
+            stack[stack.length - 1].children.push(treeNode);
+        }
+
+        // Push current node onto the stack
+        stack.push(treeNode);
     });
 
-    // Build the tree starting from depth 0
-    const maxDepth = Math.max(...nodes.map((node) => node.depth));
-
-    for (let depth = 0; depth <= maxDepth; depth++) {
-        const currentLevelNodes = nodesByDepth.get(depth) || [];
-        const parentLevelNodes = nodesByDepth.get(depth - 1) || [];
-
-        currentLevelNodes.forEach((node) => {
-            if (depth === 0) {
-                // Root nodes
-                result.push(node);
-            } else {
-                // Find the parent node
-                const parentNode = parentLevelNodes[parentLevelNodes.length - 1];
-                if (parentNode) {
-                    parentNode.children.push(node);
-                } else {
-                    // If no parent found, treat as root
-                    result.push(node);
-                }
-            }
-        });
-    }
-
-    return result;
+    return rootNodes;
 };
+
 
 const formatNumber = (num: number): string => {
     return new Intl.NumberFormat('en-US').format(num);
 };
 
 const formatPercentage = (num: number): string => {
-    return `${num.toFixed(2)}%`;
+    return num.toFixed(2).toString() + "%" ;
 };
 
 const NodeContent: React.FC<{ node: TreeNode }> = ({ node }) => (
