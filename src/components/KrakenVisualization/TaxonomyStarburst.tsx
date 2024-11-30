@@ -18,6 +18,7 @@ interface TaxonomyNode {
 }
 
 interface TreeNode {
+    id: string;
     name: string;
     children?: TreeNode[];
     value?: number;
@@ -29,9 +30,9 @@ interface TaxonomyStarburstProps {
 }
 
 const buildTree = (nodes: TaxonomyNode[], rootName: string): TreeNode => {
-    if (!nodes || nodes.length === 0) return { name: rootName, children: [] };
+    if (!nodes || nodes.length === 0) return { name: rootName, children: [], id: ""};
 
-    const rootNode: TreeNode = { name: rootName, children: [] };
+    const rootNode: TreeNode = { name: rootName, children: [], id: ""};
     const stack: { node: TreeNode; depth: number }[] = [];
 
     nodes.forEach((node) => {

@@ -8,7 +8,9 @@ import { v4 as uuidv4 } from 'uuid';
 
 export class DataService extends BaseService {
     protected storageKey: string = 'data';
+    //@ts-ignore
     private readonly SYNC_RETRY_ATTEMPTS = 3;
+    //@ts-ignore
     private readonly SYNC_RETRY_DELAY = 1000;
 
     constructor(

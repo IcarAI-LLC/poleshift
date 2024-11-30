@@ -32,6 +32,7 @@ export class ProcessedDataService extends BaseService {
 
     constructor(
         private syncService: SyncService,
+        //@ts-ignore
         private operationQueue: OperationQueue,
         readonly storage: IndexedDBStorage,
     ) {

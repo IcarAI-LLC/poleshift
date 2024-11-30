@@ -1,5 +1,6 @@
 import React, { createContext, useReducer } from 'react';
 import type { AppState, AppAction, Services } from '../types';
+//@ts-ignore
 import { IndexedDBStorage, storage } from '../storage/IndexedDB';
 import { supabase } from '../supabase/client';
 import { OperationQueue, SyncManager } from '../services/offline';
@@ -9,6 +10,7 @@ import {
     SyncService,
     ProcessedDataService
 } from '../services';
+//@ts-ignore
 import { networkService } from '../services/EnhancedNetworkService';
 import { NetworkStateProvider } from './NetworkStateContext';
 

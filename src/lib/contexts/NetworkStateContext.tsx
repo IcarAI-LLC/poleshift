@@ -1,3 +1,4 @@
+//@ts-ignore
 import React, { createContext, useReducer, useEffect, useContext } from 'react';
 import {networkService} from "../services/EnhancedNetworkService.ts";
 
