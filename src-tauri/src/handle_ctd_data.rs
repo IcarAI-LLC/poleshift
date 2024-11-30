@@ -50,8 +50,8 @@ pub struct FileMeta {
 #[tauri::command]
 pub async fn handle_ctd_data_upload(
     app_handle: AppHandle,
-    sample_id: String,
-    modal_inputs: serde_json::Value,
+    _sample_id: String,
+    _modal_inputs: serde_json::Value,
     file_paths: Vec<String>,
 ) -> Result<(CTDReport, FileMeta, FileMeta), String> {
     if file_paths.is_empty() {

@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 use std::fs;
-use tauri::{Emitter, Manager, Runtime, Window};
+use tauri::{Emitter, Runtime, Window};
 use uuid::Uuid;
 
 /// Structure representing the ammonia and ammonium values.
@@ -42,7 +42,7 @@ fn emit_progress<R: Runtime>(
 #[tauri::command]
 pub async fn handle_nutrient_ammonia(
     window: Window,
-    sample_id: String,
+    _sample_id: String,
     modal_inputs: serde_json::Value,
     // Assuming 'files' are not needed for this specific function.
 ) -> Result<(NutrientAmmoniaReport, FileMeta), String> {

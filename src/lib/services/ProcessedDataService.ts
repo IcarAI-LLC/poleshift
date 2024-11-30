@@ -401,9 +401,9 @@ export class ProcessedDataService extends BaseService {
      *
      * @param {string} sampleId - The unique identifier for the sample.
      * @param {string} configId - The unique identifier for the configuration.
-     * @return {Promise<any>} A promise that resolves to the processed data retrieved from storage.
+     * @return {Promise<ProcessedDataEntry | null>} A promise that resolves to the processed data retrieved from storage.
      */
-    async getProcessedData(sampleId: string, configId: string): Promise<any> {
+    async getProcessedData(sampleId: string, configId: string): Promise<ProcessedDataEntry | null> {
         return this.withRetry(
             () => this.storage.getProcessedData(sampleId, configId),
             'Failed to get processed data'
@@ -444,6 +444,14 @@ export class ProcessedDataService extends BaseService {
             );
         } catch (error) {
             this.handleError(error, 'Failed to sync processed data');
+        }
+    }
+
+    async deleteProcessedDataForSample(sampleId: string): Promise<void> {
+        const entries = await this.getAllProcessedData(sampleId);
+        for (const key in entries) {
+            const entry = entries[key];
+            await this.storage.deleteProcessedData(sampleId, entry.config_id);
         }
     }
 }

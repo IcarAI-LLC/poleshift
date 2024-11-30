@@ -1,10 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use std::process::Command;
-use std::{fs, io, path::PathBuf};
+use std::{fs, path::PathBuf};
 use tauri::{AppHandle, Emitter, Manager, Runtime, Window};
 use tauri::path::BaseDirectory;
 use uuid::Uuid;
-use std::io::Write;
 
 #[derive(Debug, Serialize)]
 pub struct KrakenReport {
@@ -19,12 +18,6 @@ pub enum KrakenError {
     NoFiles,
     #[error("Database file not found: {0}")]
     DatabaseNotFound(String),
-    #[error("Failed to execute krakenuniq: {0}")]
-    ExecutionError(String),
-    #[error("Failed to emit progress: {0}")]
-    ProgressError(String),
-    #[error("Report file not generated: {0}")]
-    ReportNotGenerated(String),
 }
 
 #[tauri::command]

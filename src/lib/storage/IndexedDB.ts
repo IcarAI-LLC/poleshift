@@ -349,6 +349,13 @@ class IndexedDBStorage {
         await tx.done;
     }
 
+    async getSampleMetadataBySampleGroupId(sampleGroupId: string): Promise<SampleMetadata[]> {
+        return this.getAllFromIndex('sample_metadata', 'sample_group_id', sampleGroupId);
+    }
+
+    async deleteSampleMetadata(id: string): Promise<void> {
+        await this.delete('sample_metadata', id);
+    }
 
     // File Nodes
     async saveFileNode(node: FileNode): Promise<void> {

@@ -92,28 +92,7 @@ const syncManager = new SyncManager(operationQueue, syncService);
  * Typical operations that `authService` might support include user login, logout, registration,
  * password reset, and session management.
  */
-const authService = new AuthService(supabase, storage);
-/**
- * An instance of the `DataService` class responsible for managing data operations.
- *
- * The `dataService` object is initialized with dependencies to handle data synchronization,
- * operation queuing, and storage management.
- *
- * Dependencies:
- * - `syncService`: Handles synchronization tasks with external data sources or services.
- * - `operationQueue`: Manages and queues operations to ensure they are executed in order.
- * - `storage`: Manages data storage, providing methods to store and retrieve data.
- *
- * This service is designed to facilitate seamless data handling by orchestrating between
- * synchronization processes, ensuring operations are executed correctly, and persisting
- * data efficiently with the provided storage mechanism. It's a critical part of the
- * data handling infrastructure, meant to simplify and unify data-related operations
- * in the application.
- *
- * Note: Proper initialization and configuration of dependencies are essential for the
- * correct functioning of the `dataService`.
- */
-const dataService = new DataService(syncService, operationQueue, storage);
+
 /**
  * processedDataService
  *
@@ -135,6 +114,11 @@ const processedDataService = new ProcessedDataService(
     operationQueue,
     storage
 );
+
+const authService = new AuthService(supabase, storage);
+
+const dataService = new DataService(syncService, operationQueue, storage, processedDataService);
+
 
 /**
  * Represents the initial state of the application.

@@ -6,7 +6,6 @@ use reqwest;
 use tokio::io::AsyncWriteExt;
 use flate2::read::GzDecoder;
 use tar::Archive;
-use std::io::Read;
 use futures_util::stream::StreamExt;
 
 const DB_DOWNLOAD_URL: &str = "https://poleshift.icarai.cloud/storage/v1/object/public/kraken-uniq-db/kudb.tar.gz?t=2024-11-30T06%3A44%3A44.315Z"; // Replace with actual URL

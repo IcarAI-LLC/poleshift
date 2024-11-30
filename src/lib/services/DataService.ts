@@ -5,6 +5,7 @@ import { SyncService } from "./SyncService";
 import { IndexedDBStorage } from "../storage/IndexedDB";
 import { networkService } from "./EnhancedNetworkService";
 import { v4 as uuidv4 } from 'uuid';
+import {ProcessedDataService} from "./ProcessedDataService.ts";
 
 /**
  * The DataService class provides various methods to interact with local and remote storage
@@ -25,7 +26,8 @@ export class DataService extends BaseService {
     constructor(
         private syncService: SyncService,
         private operationQueue: OperationQueue,
-        readonly storage: IndexedDBStorage
+        readonly storage: IndexedDBStorage,
+        private processedService: ProcessedDataService,
     ) {
         super(storage);
     }
@@ -232,14 +234,16 @@ export class DataService extends BaseService {
     }
 
     /**
-     * Deletes a node identified by its nodeId. This involves removing the node from local storage
-     * and attempting to delete it from a remote service. If the node is a sample group, additional
-     * deletions are made for sample group metadata. If remote operations fail, the operations
-     * are queued for later retries.
+     * Deletes a node identified by the specified nodeId from the local storage and remote database.
      *
-     * @param {string} nodeId - The unique identifier of the node to be deleted.
-     * @return {Promise<void>} A promise that resolves when the node has been successfully deleted
-     * from both local and remote services, or when the remote operation has been queued.
+     * This method deletes the node and all relevant metadata from the local storage. If the node is
+     * identified as a sample group, it will also delete associated sample metadata and processed data.
+     * The deletions are then attempted on the remote database through asynchronous operations, with
+     * failed operations being queued for later retry.
+     *
+     * @param {string} nodeId - The unique identifier of the node to delete.
+     * @return {Promise<void>} A promise that resolves with no value if the operation is successful.
+     * @throws {Error} If the node does not exist or if any deletion operation fails.
      */
     async deleteNode(nodeId: string): Promise<void> {
         try {
@@ -250,25 +254,59 @@ export class DataService extends BaseService {
 
             // Perform local deletions
             await this.storage.deleteFileNode(nodeId);
+
+            const deleteOperations = [];
+
             if (node.type === 'sampleGroup') {
+                // Delete sample group locally
                 await this.storage.deleteSampleGroup(nodeId);
-            }
 
-            // Handle remote deletions
-            const deleteOperations = [
-                await this.attemptOnlineOperation(
-                    async () => await this.syncService.deleteRemote('file_nodes', nodeId),
-                    async () => await this.operationQueue.enqueue({
-                        type: 'delete',
-                        table: 'file_nodes',
-                        data: { id: nodeId }
-                    })
-                )
-            ];
+                // Get all sample metadata entries associated with the sample group
+                const sampleMetadataEntries = await this.storage.getSampleMetadataBySampleGroupId(nodeId);
 
-            if (node.type === 'sampleGroup') {
+                for (const sampleMetadata of sampleMetadataEntries) {
+                    const sampleId = sampleMetadata.id;
+
+                    // Delete processedDataEntries locally
+                    await this.processedService.deleteProcessedDataForSample(sampleId);
+
+                    // Delete sample metadata locally
+                    await this.storage.deleteSampleMetadata(sampleId);
+
+                    // Delete processedDataEntries in Supabase
+                    const processedDataEntries = await this.processedService.getAllProcessedData(sampleId);
+
+                    for (const key in processedDataEntries) {
+                        const processedDataEntry = processedDataEntries[key];
+
+                        deleteOperations.push(
+                            this.attemptOnlineOperation(
+                                async () => await this.syncService.deleteRemote('processed_data', processedDataEntry.key),
+                                async () => await this.operationQueue.enqueue({
+                                    type: 'delete',
+                                    table: 'processed_data',
+                                    data: { key: processedDataEntry.key }
+                                })
+                            )
+                        );
+                    }
+
+                    // Also delete sample metadata in Supabase
+                    deleteOperations.push(
+                        this.attemptOnlineOperation(
+                            async () => await this.syncService.deleteRemote('sample_metadata', sampleId),
+                            async () => await this.operationQueue.enqueue({
+                                type: 'delete',
+                                table: 'sample_metadata',
+                                data: { id: sampleId }
+                            })
+                        )
+                    );
+                }
+
+                // Delete sample_group_metadata in Supabase
                 deleteOperations.push(
-                    await this.attemptOnlineOperation(
+                    this.attemptOnlineOperation(
                         async () => await this.syncService.deleteRemote('sample_group_metadata', nodeId),
                         async () => await this.operationQueue.enqueue({
                             type: 'delete',
@@ -279,11 +317,24 @@ export class DataService extends BaseService {
                 );
             }
 
+            // Handle remote deletion of the file node
+            deleteOperations.push(
+                this.attemptOnlineOperation(
+                    async () => await this.syncService.deleteRemote('file_nodes', nodeId),
+                    async () => await this.operationQueue.enqueue({
+                        type: 'delete',
+                        table: 'file_nodes',
+                        data: { id: nodeId }
+                    })
+                )
+            );
+
             await Promise.all(deleteOperations);
         } catch (error) {
             this.handleError(error, 'Failed to delete node');
         }
     }
+
 
     // Read operations - these prioritize local data for speed
     /**
