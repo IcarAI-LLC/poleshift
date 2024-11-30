@@ -8,10 +8,10 @@ use handle_ctd_data::handle_ctd_data_upload;
 use handle_nutrient_ammonia::handle_nutrient_ammonia;
 use handle_sequence_data::handle_sequence_data;
 use db_manager::DbManager;
-
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+use fix_path_env;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let _ = fix_path_env::fix();
     tauri::Builder::default()
         .setup(|app| {
             // Clone necessary handles to avoid moving the non-Send `app` into the async block
