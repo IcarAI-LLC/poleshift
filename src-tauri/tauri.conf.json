@@ -10,11 +10,19 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "poleshift-tauri",
         "width": 800,
         "height": 600
+      },
+      {
+      "width": 800,
+      "height": 600,
+      "decorations": false,
+      "url": "splashscreen.html",
+      "label": "splashscreen"
       }
     ],
     "security": {
@@ -30,9 +38,6 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "resources": {
-      "resources": ""
-    }
+    ]
   }
 }
