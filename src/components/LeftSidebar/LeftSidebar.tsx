@@ -37,7 +37,7 @@ interface LeftSidebarProps {
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
   const theme = useTheme();
   const { sampleGroups, updateFileTree, fileTree } = useData();
-  const { isSyncing, locations, createSampleGroup, syncData } = useData();
+  const { isSyncing, locations, createSampleGroup } = useData();
   const { organization, user } = useAuth();
   const {
     isSidebarCollapsed,

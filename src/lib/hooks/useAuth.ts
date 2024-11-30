@@ -4,12 +4,35 @@ import { useContext, useCallback} from 'react';
 import { AppContext } from '../contexts/AppContext';
 import { AuthAction, User } from "../types";
 
+/**
+ * The AuthError interface represents an error related to authentication processes.
+ * It contains information about the error that occurred, allowing a client or
+ * service to understand and potentially handle the failure.
+ *
+ * Properties:
+ * @property {string} message - A descriptive error message explaining the nature
+ * of the authentication error.
+ * @property {number} [status] - An optional HTTP status code that might be associated
+ * with the error, providing additional context for the type of failure.
+ * @property {string} [code] - An optional error code that identifies the specific
+ * authentication error, which might be used for programmatically distinguishing
+ * between various failure types.
+ */
 interface AuthError {
     message: string;
     status?: number;
     code?: string;
 }
 
+/**
+ * Custom hook that provides authentication and user state management functionalities.
+ * It integrates with the application's context and auth services to perform operations such as
+ * initializing authentication, logging in, signing up, resetting passwords, processing license keys,
+ * and logging out. This hook updates the global state accordingly and handles any potential errors in the process.
+ *
+ * @return {Object} An object containing the user, user profile, organization, loading, and error state,
+ * along with the methods initializeAuth, login, signUp, resetPassword, processLicenseKey, and logout for handling auth-related processes.
+ */
 export function useAuth() {
     const { state, dispatch, services } = useContext(AppContext);
     const { auth: authService } = services;

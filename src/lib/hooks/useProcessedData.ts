@@ -6,15 +6,57 @@ import { useNetworkStatus } from './useNetworkStatus';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleGroupMetadata } from '../types';
 
+/**
+ * Represents the state of progress for a process or operation.
+ *
+ * @interface ProgressState
+ *
+ * @property {number} progress - The current progress expressed as a percentage (0 to 100).
+ * @property {string} status - A descriptive status of the current state or stage of progress.
+ */
 interface ProgressState {
     progress: number;
     status: string;
 }
 
+/**
+ * Defines a callback function signature used for processing data in conjunction
+ * with a Dropbox configuration item.
+ *
+ * @callback ProcessCallback
+ * @param {any} insertData - The data to be inserted or processed. The actual
+ *                           structure and type depend on the implementation
+ *                           context.
+ * @param {DropboxConfigItem} configItem - An object representing configuration
+ *                                          settings for Dropbox. This includes
+ *                                          necessary parameters and options for
+ *                                          processing the data.
+ * @param {any} processedData - An object or data structure that holds the
+ *                              processed results from previous operations. This
+ *                              data is to be used or further transformed by the
+ *                              implementation of the callback.
+ *
+ * This callback is intended to be implemented by the users of an interface or
+ * library that provides integration or data processing capabilities with
+ * Dropbox services or configurations. Implementations should define
+ * specific behavior as needed for their use cases.
+ */
 interface ProcessCallback {
     (insertData: any, configItem: DropboxConfigItem, processedData: any): void;
 }
 
+/**
+ * Provides functions and state management for processing and fetching data related to a sample group,
+ * including the ability to track the progress of processing, uploading, and downloading tasks.
+ *
+ * @return {Object} An object containing the following properties and methods:
+ *   - `processedData`: The current state of processed data, accessible as a key-value map.
+ *   - `isProcessing`: A boolean indicating whether processing operations are currently in progress.
+ *   - `processData`: A function to handle the processing of data with given parameters.
+ *   - `fetchProcessedData`: A function to retrieve processed data, both locally and from a remote source.
+ *   - `getProgressState`: A function to retrieve the current progress and status of a specific processing task.
+ *   - `getUploadDownloadProgressState`: A function to retrieve the progress and status of upload/download operations for a specific task.
+ */
 export function useProcessedData() {
     const { state, dispatch, services } = useContext(AppContext);
     const { isOnline } = useNetworkStatus();

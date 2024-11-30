@@ -44,23 +44,33 @@ const DropBox = memo(({
                           openDataModal,
                       }: DropBoxProps) => {
     const [dragActive, setDragActive] = useState(false);
+    const [_localHasData, setLocalHasData] = useState(hasData);
     const { processData, getProgressState, getUploadDownloadProgressState } = useProcessedData();
     const dropRef = useRef<HTMLDivElement>(null);
-
-    const sampleId = sampleGroup.id; // Changed from human_readable_sample_id to sample_id
-    const configId = configItem.id;
     const { organization } = useAuth();
-    // Get progress states using hooks
+
+    const sampleId = sampleGroup.id;
+    const configId = configItem.id;
+
     const progressState = getProgressState(sampleId, configId);
     const uploadDownloadProgressState = getUploadDownloadProgressState(sampleId, configId);
 
+    // Update local state when prop changes
+    useEffect(() => {
+        setLocalHasData(hasData);
+    }, [hasData]);
 
     const isUploadingDownloading = useMemo(
         () => uploadDownloadProgressState.progress > 0 && uploadDownloadProgressState.progress < 100,
         [uploadDownloadProgressState.progress]
     );
 
-    // File Selection via Tauri Dialog
+    const handleDataProcessedLocally = useCallback((insertData: any, configItem: DropboxConfigItem, processedData: any) => {
+        setLocalHasData(true);
+        onDataProcessed(insertData, configItem, processedData);
+    }, [onDataProcessed]);
+
+    // File Selection Handler
     const handleFileSelect = useCallback(async () => {
         if (isLocked) {
             onError('DropBox is locked.');
@@ -82,10 +92,7 @@ const DropBox = memo(({
                 })) : undefined,
             }) as string | string[] | null;
 
-            if (!selectedPaths) {
-                // User canceled the dialog
-                return;
-            }
+            if (!selectedPaths) return;
 
             const filePaths = Array.isArray(selectedPaths) ? selectedPaths : [selectedPaths];
 
@@ -93,25 +100,27 @@ const DropBox = memo(({
                 onError('No files were selected.');
                 return;
             }
-            if (!organization){
+
+            if (!organization) {
                 onError('No organization found for user.');
                 return;
             }
+
             await processData(
                 configItem.processFunctionName,
                 sampleGroup,
-                {}, // empty modalInputs for file uploads
+                {},
                 filePaths,
                 configItem,
-                onDataProcessed,
+                handleDataProcessedLocally,
                 onError,
-                organization?.org_short_id
+                organization.id
             );
         } catch (error: any) {
             console.error('File selection error:', error);
             onError(error.message || 'Failed to select files');
         }
-    }, [isLocked, configItem, isProcessing, openModal, onError, processData, sampleGroup, onDataProcessed]);
+    }, [isLocked, configItem, isProcessing, openModal, onError, processData, sampleGroup, organization, handleDataProcessedLocally]);
 
     // Custom Drag-and-Drop Handlers
     const handleDragEnter = useCallback((e: DragEvent) => {

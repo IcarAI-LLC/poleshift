@@ -14,16 +14,49 @@ import { invoke } from '@tauri-apps/api/core';
 import { UnlistenFn, listen } from '@tauri-apps/api/event';
 import { networkService } from './EnhancedNetworkService';
 
+/**
+ * Represents a callback interface that is invoked to report the progress and status of a process.
+ *
+ * @callback ProcessCallback
+ * @param {number} progress - A numeric value between 0 and 1 indicating the current progress of the process, where 0 represents no progress and 1 represents completion.
+ * @param {string} status - A string providing a description of the current status or phase of the process.
+ */
 interface ProcessCallback {
     (progress: number, status: string): void;
 }
 
+/**
+ * Represents the result of a process execution.
+ *
+ * This interface is used to encapsulate the outcome of a process,
+ * providing information about whether the process was successful,
+ * any resultant data from the process, and any error encountered during the process.
+ *
+ * @interface ProcessResult
+ *
+ * @property {boolean} success
+ * A boolean indicating whether the process completed successfully.
+ * A value of true means the process succeeded, while false indicates failure.
+ *
+ * @property {any} [data]
+ * An optional property that contains the data resulting from a successful process.
+ * This property may not be present if the process did not yield any data or if it failed.
+ *
+ * @property {Error} [error]
+ * An optional property containing an error object if the process failed.
+ * This property will not be present if the process was successful.
+ */
 interface ProcessResult {
     success: boolean;
     data?: any;
     error?: Error;
 }
 
+/**
+ * Represents a service that processes data and manages file uploads
+ * including handling metadata and operation retries.
+ * Extends the BaseService to utilize base functionality for storage and sync.
+ */
 export class ProcessedDataService extends BaseService {
     protected storageKey: string = 'data';
     private uploadManager: UploadManager;
@@ -40,6 +73,15 @@ export class ProcessedDataService extends BaseService {
         this.uploadManager = new UploadManager();
     }
 
+    /**
+     * Executes a given operation with retry logic. If the operation fails, it will be retried
+     * a specified number of times with exponential backoff delay between attempts.
+     *
+     * @param operation A function that returns a promise, representing the operation to be executed.
+     * @param errorMessage A string containing the error message to be used if all retry attempts fail.
+     * @return A promise resolving to the result of the operation if successful.
+     * @throws An error if all retry attempts fail, using either the last error encountered or the provided errorMessage.
+     */
     private async withRetry<T>(
         operation: () => Promise<T>,
         errorMessage: string
@@ -60,6 +102,19 @@ export class ProcessedDataService extends BaseService {
         throw lastError || new Error(errorMessage);
     }
 
+    /**
+     * Processes data by executing a specified function and handling related metadata, file uploads, and progress updates.
+     *
+     * @param {string} processFunctionName - The name of the function to be used for processing the data.
+     * @param {SampleGroupMetadata} sampleGroup - Metadata for the sample group to be processed.
+     * @param {Record<string, string>} modalInputs - A set of inputs required for the processing function.
+     * @param {string[]} filePaths - Array of file paths that will be processed.
+     * @param {DropboxConfigItem} configItem - Configuration details related to Dropbox for this process.
+     * @param {ProcessCallback} onProcessProgress - Callback function to be called to update the progress of the processing.
+     * @param {ProcessCallback} onUploadProgress - Callback function to be called to update the progress of the file upload.
+     * @param {string} orgId - Identifier for the organization performing the process.
+     * @return {Promise<ProcessResult>} A promise that resolves to the result of the process, containing success status and processed data.
+     */
     async processData(
         processFunctionName: string,
         sampleGroup: SampleGroupMetadata,
@@ -119,6 +174,15 @@ export class ProcessedDataService extends BaseService {
         }
     }
 
+    /**
+     * Creates and initializes metadata for a sample with the provided parameters.
+     *
+     * @param {SampleGroupMetadata} sampleGroup - The metadata of the sample group to which the sample belongs.
+     * @param {DropboxConfigItem} configItem - The configuration item containing details like data type.
+     * @param {string} processFunctionName - The name of the process function to be associated with the sample.
+     * @param {string[]} filePaths - An array of file paths to be included in the metadata.
+     * @return {Promise<SampleMetadata>} A promise that resolves to the initial sample metadata object.
+     */
     private async createInitialMetadata(
         sampleGroup: SampleGroupMetadata,
         configItem: DropboxConfigItem,
@@ -144,6 +208,16 @@ export class ProcessedDataService extends BaseService {
         };
     }
 
+    /**
+     * Queues raw files for later upload by associating them with a specific sample and configuration.
+     * The files are not uploaded immediately; uploads will be attempted when the system is online.
+     *
+     * @param {SampleGroupMetadata} sampleGroup - Metadata containing information about the sample group, including organization ID.
+     * @param {string} sampleId - The unique identifier for the sample to which the files belong.
+     * @param {string} configId - The configuration identifier used in queuing the files.
+     * @param {string[]} filePaths - The array of file paths pointing to the local files to be queued for uploading.
+     * @return {Promise<void>} A promise that resolves when the files have been successfully queued.
+     */
     private async queueRawFiles(
         sampleGroup: SampleGroupMetadata,
         sampleId: string,
@@ -161,6 +235,17 @@ export class ProcessedDataService extends BaseService {
         // Do not attempt to upload immediately; uploads will be attempted when online
     }
 
+    /**
+     * Processes data with progress tracking, invoking a specified function and reporting progress through a callback.
+     *
+     * @param {DropboxConfigItem} configItem - The configuration item that contains necessary settings for the process function.
+     * @param {string} processFunctionName - The name of the process function to be invoked.
+     * @param {string} sampleId - The identifier of the sample data to be processed.
+     * @param {Record<string, string>} modalInputs - A map of input values required for the process, provided as key-value pairs.
+     * @param {string[]} filePaths - An array of file paths that are relevant for the processing action.
+     * @param {ProcessCallback} onProcessProgress - A callback function invoked with the progress and status of the processing.
+     * @return {Promise<any>} A promise that resolves when the data processing is complete, containing the result of the operation.
+     */
     private async processDataWithProgress(
         configItem: DropboxConfigItem,
         processFunctionName: string,
@@ -194,6 +279,20 @@ export class ProcessedDataService extends BaseService {
         }
     }
 
+    /**
+     * Handles the post-processing of data, saving the processed data, updating metadata,
+     * and attempting to initiate the upload process if the network connection is active.
+     *
+     * @param {any} result - The data that has been processed.
+     * @param {string} sampleId - Identifier for the sample being processed.
+     * @param {string} configId - Configuration identifier relevant to the processing.
+     * @param {SampleMetadata} metadataRecord - Metadata associated with the sample.
+     * @param {string} processFunctionName - Name of the function used for processing the data.
+     * @param {ProcessCallback} onUploadProgress - Callback function to track the progress of uploads.
+     * @param {string} orgId - Identifier for the organization associated with the sample.
+     * @param {string} humanReadableSampleId - Human-readable identifier for the sample.
+     * @return {Promise<void>} A promise that resolves when the processing is complete and data is queued for upload or saved locally.
+     */
     private async handleProcessedData(
         result: any,
         sampleId: string,
@@ -253,6 +352,16 @@ export class ProcessedDataService extends BaseService {
         }
     }
 
+    /**
+     * Queues a raw file for processing by storing it in the storage system with the associated sample and configuration IDs.
+     *
+     * @param {string} sampleId - The identifier for the sample to which the file belongs.
+     * @param {string} configId - The identifier for the configuration related to the file.
+     * @param {File} file - The raw file to be queued for processing.
+     * @param {Object} [options] - Optional parameters.
+     * @param {string} [options.customPath] - A custom path where the file should be stored.
+     * @return {Promise<void>} A promise that completes when the file has been successfully queued, or rejects if an error occurs.
+     */
     async queueRawFile(
         sampleId: string,
         configId: string,
@@ -265,6 +374,16 @@ export class ProcessedDataService extends BaseService {
         );
     }
 
+    /**
+     * Queues a processed file for storage and further processing.
+     *
+     * @param {string} sampleId - The identifier of the sample associated with the file.
+     * @param {string} configId - The configuration identifier related to the file processing.
+     * @param {Blob} data - The data blob of the processed file to be queued.
+     * @param {Object} options - Optional parameters for additional customization.
+     * @param {string} [options.customPath] - An optional custom path for storing the file.
+     * @return {Promise<void>} A promise that resolves when the file has been successfully queued.
+     */
     async queueProcessedFile(
         sampleId: string,
         configId: string,
@@ -277,6 +396,13 @@ export class ProcessedDataService extends BaseService {
         );
     }
 
+    /**
+     * Retrieves processed data from storage based on the provided sample and configuration identifiers.
+     *
+     * @param {string} sampleId - The unique identifier for the sample.
+     * @param {string} configId - The unique identifier for the configuration.
+     * @return {Promise<any>} A promise that resolves to the processed data retrieved from storage.
+     */
     async getProcessedData(sampleId: string, configId: string): Promise<any> {
         return this.withRetry(
             () => this.storage.getProcessedData(sampleId, configId),
@@ -284,6 +410,16 @@ export class ProcessedDataService extends BaseService {
         );
     }
 
+    /**
+     * Retrieves all processed data entries associated with the specified sample ID.
+     *
+     * This method attempts to fetch the processed data from the storage and retries the operation
+     * if the initial attempt fails, logging an appropriate error message in case of failure.
+     *
+     * @param {string} sampleId - The unique identifier of the sample for which processed data is requested.
+     * @return {Promise<Record<string, ProcessedDataEntry>>} A promise that resolves to an object
+     * mapping keys to ProcessedDataEntry objects, representing the processed data entries.
+     */
     async getAllProcessedData(sampleId: string): Promise<Record<string, ProcessedDataEntry>> {
         return this.withRetry(
             () => this.storage.getAllProcessedData(sampleId),

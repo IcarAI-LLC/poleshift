@@ -3,6 +3,18 @@ import { AppContext } from '../contexts/AppContext';
 import { useNetworkStatus } from './useNetworkStatus';
 import type { SampleLocation } from '../types';
 
+/**
+ * Custom hook to manage and interact with location data.
+ * Provides functions for retrieving, syncing, and updating location information.
+ *
+ * @return {object} An object containing properties and functions to access and manipulate location data:
+ * - allLocations: An array of all available location objects.
+ * - enabledLocations: An array of location objects that are currently enabled.
+ * - getLocationById: Function to retrieve a single location by its unique identifier.
+ * - getLocationsByIds: Function to retrieve multiple locations by their unique identifiers.
+ * - syncLocations: Function to manually trigger synchronization of location data from a remote source.
+ * - updateLocation: Function to update a specific location with new data.
+ */
 export function useLocations() {
     const { state, dispatch, services } = useContext(AppContext);
     const { data: dataService, sync: syncService } = services;

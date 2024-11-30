@@ -46,9 +46,10 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     const { selectedLeftItem } = useUI();
     const { sampleGroups } = useData();
     const { processData, fetchProcessedData, processedData, isProcessing } = useProcessedData();
-
     const { getLocationById } = useLocations();
+    const { organization } = useAuth();
 
+    const [localProcessedData, setLocalProcessedData] = useState<Record<string, any>>({});
     const [modalState, setModalState] = useState<ModalState>({
         isOpen: false,
         title: '',
@@ -59,7 +60,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     const getProgressKey = useCallback((sampleId: string, configId: string): string =>
         `${sampleId}:${configId}`, []
     );
-    const { organization } = useAuth();
+
     // Get sample group data
     const { sampleGroup, sampleLocation } = useMemo(() => {
         const sampleGroupId = selectedLeftItem?.type === 'sampleGroup' ? selectedLeftItem.id : null;
@@ -72,6 +73,11 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         };
     }, [selectedLeftItem, sampleGroups, getLocationById]);
 
+    // Sync local state with global processed data
+    useEffect(() => {
+        setLocalProcessedData(processedData);
+    }, [processedData]);
+
     // Fetch processed data when sample group changes
     useEffect(() => {
         if (sampleGroup) {
@@ -79,8 +85,17 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         }
     }, [sampleGroup, fetchProcessedData]);
 
+    const handleLocalDataProcessed = useCallback((insertData: any, configItem: DropboxConfigItem, processedData: any) => {
+        const key = getProgressKey(sampleGroup?.id || '', configItem.id);
+        setLocalProcessedData(prev => ({
+            ...prev,
+            [key]: processedData
+        }));
+        onDataProcessed(insertData, configItem, processedData);
+    }, [getProgressKey, sampleGroup?.id, onDataProcessed]);
+
     const openModal = useCallback(
-        (title: string, configItem: DropboxConfigItem, uploadedFiles: string[] = []) => { // Changed to string[]
+        (title: string, configItem: DropboxConfigItem, uploadedFiles: string[] = []) => {
             if (!configItem.modalFields?.length) return;
 
             setModalState({
@@ -95,7 +110,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
                     lat: sampleLocation?.lat?.toString() || '',
                     long: sampleLocation?.long?.toString() || '',
                 },
-                uploadedFiles, // Array of file paths
+                uploadedFiles,
             });
         },
         [sampleLocation]
@@ -125,8 +140,6 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     );
 
     const processModalData = async (dataItem: any, configItem: DropboxConfigItem) => {
-        console.log('Processing modal data:', dataItem);
-
         switch (configItem.id) {
             case 'ctd_data': {
                 const { processedData, variableUnits} = processCTDDataForModal(dataItem[0])
@@ -172,42 +185,38 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         const { name, value } = e.target;
 
         if (typeof name === 'string') {
-            const stringValue = typeof value === 'string' ? value : String(value);
-
-            setModalState((prevState) => ({
+            setModalState(prevState => ({
                 ...prevState,
                 modalInputs: {
                     ...prevState.modalInputs,
-                    [name]: stringValue,
+                    [name]: typeof value === 'string' ? value : String(value),
                 },
             }));
-        } else {
-            console.warn('Input element is missing a name attribute.');
         }
     }, []);
 
     const handleModalSubmit = useCallback(async () => {
         const { configItem, modalInputs, uploadedFiles } = modalState;
 
-        if (!configItem || !sampleGroup || !organization?.id) return;
+        if (!configItem || !sampleGroup || !organization?.org_short_id) return;
 
         try {
             await processData(
                 configItem.processFunctionName,
                 sampleGroup,
                 modalInputs!,
-                uploadedFiles || [], // Array of file paths
+                uploadedFiles || [],
                 configItem,
-                onDataProcessed,
+                handleLocalDataProcessed,
                 onError,
-                organization.id
+                organization.org_short_id
             );
             closeModal();
         } catch (error) {
             console.error('Error processing data:', error);
             onError('Failed to process uploaded data');
         }
-    }, [modalState, sampleGroup, processData, onDataProcessed, onError, closeModal]);
+    }, [modalState, sampleGroup, processData, handleLocalDataProcessed, onError, closeModal, organization?.org_short_id]);
 
     const boxStyles = useMemo((): SxProps<Theme> => ({
         width: {
@@ -237,7 +246,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         return dropboxConfig
             .filter(configItem => configItem?.isEnabled)
             .map((configItem) => {
-                const sampleId = sampleGroup.id; // Changed from human_readable_sample_id to sample_id
+                const sampleId = sampleGroup.id;
                 const configId = configItem.id;
                 const key = getProgressKey(sampleId, configId);
 
@@ -246,13 +255,13 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
                         <DropBox
                             configItem={configItem}
                             isProcessing={isProcessing[key] || false}
-                            hasData={!!processedData[key]}
+                            hasData={!!localProcessedData[key]}
                             openModal={openModal}
                             isLocked={false}
                             sampleGroup={sampleGroup}
-                            onDataProcessed={onDataProcessed}
+                            onDataProcessed={handleLocalDataProcessed}
                             onError={onError}
-                            uploadedDataItem={processedData[key]}
+                            uploadedDataItem={localProcessedData[key]}
                             openDataModal={openDataModal}
                         />
                     </Box>
@@ -262,18 +271,16 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         sampleGroup,
         boxStyles,
         isProcessing,
-        processedData,
+        localProcessedData,
         openModal,
-        onDataProcessed,
+        handleLocalDataProcessed,
         onError,
         openDataModal,
         getProgressKey,
     ]);
 
     const renderModalContent = useCallback(() => {
-        if (!modalState.data || !modalState.configItem) {
-            return null;
-        }
+        if (!modalState.data || !modalState.configItem) return null;
 
         switch (modalState.configItem.id) {
             case 'ctd_data':
@@ -285,7 +292,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
             default:
                 return <DataTable data={modalState.data} />;
         }
-    }, [modalState]);
+    }, [modalState, closeModal]);
 
     return (
         <Box className="dropBoxes">

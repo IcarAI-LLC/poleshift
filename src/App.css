@@ -377,7 +377,7 @@ body {
   position: fixed;
   top: 20px;
   right: 20px;
-  background-color: var(--color-error-bg);
+  /* background-color: var(--color-error-bg); */
   color: var(--color-error);
   padding: var(--spacing-md);
   border-radius: 4px;
@@ -393,7 +393,7 @@ body {
 .error-message__icon {
   margin-right: var(--spacing-sm);
   font-size: var(--font-size-large);
-  color: var(--color-error-icon);
+  /* color: var(--color-error-icon); */
 }
 
 /* ===================================== */

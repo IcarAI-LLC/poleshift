@@ -6,6 +6,15 @@ import { IndexedDBStorage } from "../storage/IndexedDB";
 import { networkService } from "./EnhancedNetworkService";
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * The DataService class provides various methods to interact with local and remote storage
+ * for handling sample group metadata and file nodes. It extends the BaseService class,
+ * utilizing services such as SyncService, OperationQueue, and IndexedDBStorage.
+ *
+ * This class is responsible for performing operations such as creating, updating, and deleting
+ * sample groups and file nodes, with the capability to sync with a remote service when possible.
+ * It ensures operations can be enqueued for later execution if offline, attempting retries upon failures.
+ */
 export class DataService extends BaseService {
     protected storageKey: string = 'data';
     //@ts-ignore
@@ -21,6 +30,14 @@ export class DataService extends BaseService {
         super(storage);
     }
 
+    /**
+     * Tries to perform an online operation if there is an active network connection.
+     * If the online operation fails or there is no connection, executes a fallback operation.
+     *
+     * @param {() => Promise<T>} operation - A function representing the online operation to attempt. It should return a promise.
+     * @param {() => Promise<void>} fallback - A function representing the fallback operation to execute if the online operation fails or there is no connection. It should return a promise.
+     * @return {Promise<void>} A promise that resolves when the attempt or fallback operation completes.
+     */
     private async attemptOnlineOperation<T>(
         operation: () => Promise<T>,
         fallback: () => Promise<void>
@@ -38,6 +55,12 @@ export class DataService extends BaseService {
     }
 
 
+    /**
+     * Creates a new sample group with the provided metadata and attempts to sync it remotely.
+     *
+     * @param {Partial<SampleGroupMetadata>} data - Partial data for the sample group metadata. This can include properties to override default values.
+     * @return {Promise<SampleGroupMetadata>} A promise that resolves to the newly created sample group metadata.
+     */
     async createSampleGroup(data: Partial<SampleGroupMetadata>): Promise<SampleGroupMetadata> {
         try {
             const newSampleGroup: SampleGroupMetadata = {
@@ -67,6 +90,12 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Creates a new file node with the provided data, saves it locally, and attempts to sync it remotely.
+     *
+     * @param {Partial<FileNode>} data - Partial data to initialize the file node. If 'id' is not provided, a new UUID is generated.
+     * @return {Promise<FileNode>} A promise that resolves to the created FileNode containing both initial data and generated timestamps.
+     */
     async createFileNode(data: Partial<FileNode>): Promise<FileNode> {
         try {
             const newNode: FileNode = {
@@ -96,6 +125,13 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Saves the sample metadata by updating the local storage and attempting to sync with a remote service.
+     *
+     * @param {SampleMetadata} data - The sample metadata to be saved. This object will be enriched with the current timestamp before being stored.
+     * @return {Promise<void>} A promise that resolves when the operation is complete, indicating that the metadata has been saved successfully.
+     *                          If an error occurs during the process, it will be handled by logging the failure message.
+     */
     async saveSampleMetadata(data: SampleMetadata): Promise<void> {
         try {
             const metadata = {
@@ -118,6 +154,14 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Updates an existing sample group with the given partial updates.
+     *
+     * @param {string} id - The unique identifier of the sample group to update.
+     * @param {Partial<SampleGroupMetadata>} updates - An object containing the fields to update in the sample group.
+     * @return {Promise<SampleGroupMetadata>} A promise that resolves to the updated sample group metadata.
+     * @throws Will throw an error if the sample group cannot be found or if an error occurs during the update process.
+     */
     async updateSampleGroup(id: string, updates: Partial<SampleGroupMetadata>): Promise<SampleGroupMetadata> {
         try {
             const existing = await this.storage.getSampleGroup(id);
@@ -147,6 +191,18 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Updates the file tree with the provided nodes. This involves saving the nodes
+     * locally and attempting to sync the updates online. Each node is timestamped
+     * with the current date and time before being processed.
+     *
+     * @param {FileNode[]} updatedTree - An array of file nodes representing the updated
+     * structure of the file tree. Each node will be augmented with a timestamp
+     * indicating when it was updated.
+     * @return {Promise<void>} A promise that resolves when the file tree has been
+     * successfully updated both locally and, if possible, online. The promise is
+     * rejected if an error occurs during the update process.
+     */
     async updateFileTree(updatedTree: FileNode[]): Promise<void> {
         console.log("Updating file tree");
         try {
@@ -175,6 +231,16 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Deletes a node identified by its nodeId. This involves removing the node from local storage
+     * and attempting to delete it from a remote service. If the node is a sample group, additional
+     * deletions are made for sample group metadata. If remote operations fail, the operations
+     * are queued for later retries.
+     *
+     * @param {string} nodeId - The unique identifier of the node to be deleted.
+     * @return {Promise<void>} A promise that resolves when the node has been successfully deleted
+     * from both local and remote services, or when the remote operation has been queued.
+     */
     async deleteNode(nodeId: string): Promise<void> {
         try {
             const node = await this.storage.getFileNode(nodeId);
@@ -202,7 +268,7 @@ export class DataService extends BaseService {
 
             if (node.type === 'sampleGroup') {
                 deleteOperations.push(
-                    this.attemptOnlineOperation(
+                    await this.attemptOnlineOperation(
                         async () => await this.syncService.deleteRemote('sample_group_metadata', nodeId),
                         async () => await this.operationQueue.enqueue({
                             type: 'delete',
@@ -220,6 +286,13 @@ export class DataService extends BaseService {
     }
 
     // Read operations - these prioritize local data for speed
+    /**
+     * Retrieves the sample group metadata associated with a specified organization.
+     * Attempts to synchronize data from remote if an active network connection is available.
+     *
+     * @param {string} orgId - The unique identifier of the organization.
+     * @return {Promise<SampleGroupMetadata[]>} A promise that resolves to an array of sample group metadata.
+     */
     async getSampleGroups(orgId: string): Promise<SampleGroupMetadata[]> {
         try {
             const localData = await this.storage.getSampleGroupsByOrg(orgId);
@@ -237,6 +310,12 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Retrieves all file nodes from local storage, and initiates a background sync if there is an active network connection.
+     * In case of an error during retrieval, an empty array is returned after handling the error.
+     *
+     * @return {Promise<FileNode[]>} A promise that resolves to an array of FileNode objects.
+     */
     async getAllFileNodes(): Promise<FileNode[]> {
         try {
             const localData = await this.storage.getAllFileNodes();
@@ -254,6 +333,13 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Retrieves all sample groups metadata from local storage and attempts a background synchronization if
+     * an active network connection is available. In case of any errors during the retrieval, it logs the
+     * error and returns an empty array.
+     *
+     * @return {Promise<SampleGroupMetadata[]>} A promise that resolves to an array of sample group metadata.
+     */
     async getAllSampleGroups(): Promise<SampleGroupMetadata[]> {
         try {
             const localData = await this.storage.getAllSampleGroups();
@@ -271,6 +357,12 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Retrieves the file node associated with the provided node ID.
+     *
+     * @param {string} nodeId - The unique identifier of the file node to be retrieved.
+     * @return {Promise<FileNode|undefined>} A promise that resolves to the FileNode object if found, or undefined if an error occurs or the node is not found.
+     */
     async getFileNode(nodeId: string): Promise<FileNode | undefined> {
         try {
             return await this.storage.getFileNode(nodeId);
@@ -280,6 +372,13 @@ export class DataService extends BaseService {
         }
     }
 
+    /**
+     * Retrieves all sample locations from the local storage and initiates a background sync
+     * to update them from the remote source if there is an active network connection.
+     *
+     * @return {Promise<SampleLocation[]>} A promise that resolves to an array of sample locations.
+     * If an error occurs, an empty array is returned.
+     */
     async getAllSampleLocations(): Promise<SampleLocation[]> {
         try {
             const localData = await this.storage.getAllLocations();

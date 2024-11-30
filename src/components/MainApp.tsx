@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { IconButton, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 
-import {useAuth, useData, useUI, useNetworkStatus, useProcessedData} from '../lib/hooks';
+import { useAuth, useData, useUI, useNetworkStatus, useProcessedData } from '../lib/hooks';
 
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
@@ -14,7 +14,26 @@ import AccountActions from './Account/AccountActions';
 import SampleGroupMetadata from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
+import type { DropboxConfigItem } from '../config/dropboxConfig';
 
+/**
+ * MainApp is the main functional component of the application. It serves as the primary
+ * interface between the user and various application features, managing state, handling
+ * events, and displaying the appropriate UI components.
+ *
+ * Key responsibilities include:
+ * - Managing user interface state and updates.
+ * - Handling authorization and data fetching errors.
+ * - Displaying conditionally rendered components and error messages.
+ * - Executing specific actions based on user interactions.
+ * - Controlling the visibility and state of modals, filters, and context menus.
+ *
+ * Utilizes hooks such as `useAuth`, `useData`, `useUI`, `useNetworkStatus`, and
+ * `useProcessedData` to interface with authentication, data management, UI controls,
+ * network status detection, and data processing functionalities. Integrates components
+ * like `LeftSidebar`, `OfflineWarning`, `ErrorMessage`, `DropBoxes`, and `ContextMenu`
+ * to construct the user interface.
+ */
 const MainApp: React.FC = () => {
   const { userProfile, error: authError } = useAuth();
   const { sampleGroups, deleteNode, error: dataError } = useData();
@@ -62,9 +81,22 @@ const MainApp: React.FC = () => {
     }
   }, [isOnline]);
 
-  const handleDataProcessed = useCallback((processedData: any) => {
-    console.log('Data processed:', processedData);
-  }, []);
+  const handleDataProcessed = useCallback((
+      insertData: any,
+      configItem: DropboxConfigItem,
+      processedData: any
+  ) => {
+    console.log('Data processed:', {
+      insertData,
+      configId: configItem.id,
+      processedData
+    });
+
+    // Refetch processed data to ensure consistency
+    if (sampleGroup) {
+      fetchProcessedData(sampleGroup);
+    }
+  }, [sampleGroup, fetchProcessedData]);
 
   const handleDeleteSample = useCallback(async () => {
     if (!contextMenu.itemId) {

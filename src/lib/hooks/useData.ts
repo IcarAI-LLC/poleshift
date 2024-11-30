@@ -4,6 +4,23 @@ import { useNetworkStatus } from './useNetworkStatus';
 import type { SampleGroupMetadata, FileNode } from '../types';
 import { arrayToRecord } from '../utils/arrayToRecord';
 
+/**
+ * A custom hook that provides data management functionalities for file nodes and sample groups.
+ *
+ * @return {object} An object containing the following:
+ * - fileTree: The current state of the file tree.
+ * - sampleGroups: The current state of sample groups.
+ * - locations: The current state of locations.
+ * - isSyncing: A boolean indicating whether data synchronization is in progress.
+ * - error: An error message if any data operation fails.
+ * - createSampleGroup: A function to create a new sample group.
+ * - updateFileTree: A function to update the file tree.
+ * - deleteNode: A function to delete a node from the file tree.
+ * - syncData: A function to synchronize data with the remote server.
+ * - updateSampleGroup: A function to update an existing sample group.
+ * - getAllFileNodes: A method to retrieve all file nodes.
+ * - getAllSampleGroups: A method to retrieve all sample groups.
+ */
 export function useData() {
     const { state, dispatch, services } = useContext(AppContext);
     const { data: dataService, sync: syncService } = services;

@@ -30,6 +30,29 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import {useTheme} from '@mui/material/styles';
 
+/**
+ * Represents a form field with various customizable attributes.
+ *
+ * @interface Field
+ *
+ * @property {string} name
+ * The unique identifier for the field. This is typically used to reference the field internally and must not be null or undefined.
+ *
+ * @property {string} [label]
+ * An optional human-readable label for the field. This is usually displayed alongside the field to inform the user about its purpose.
+ *
+ * @property {'text' | 'textarea' | 'select' | 'number' | 'date' | 'time' | 'timezone'} type
+ * Specifies the type of the field, determining the kind of input expected from the user or the way the field is rendered.
+ *
+ * @property {{ value: string; label: string }[]} [options]
+ * An optional array of option objects, applicable when the field type is 'select'. Each option object must contain a 'value' and a 'label' that will be presented in the selection list.
+ *
+ * @property {string} [tooltip]
+ * An optional descriptive text providing additional information about the field. It may be shown to the user, often as a hover effect, to assist with filling out the field correctly.
+ *
+ * @property {boolean} [required]
+ * Indicates whether the field is mandatory. If true, the form containing the field should not be submitted without a valid input for this field.
+ */
 interface Field {
   name: string;
   label?: string;
@@ -46,6 +69,26 @@ interface Field {
   required?: boolean;
 }
 
+/**
+ * Represents the properties for a Modal component.
+ *
+ * This interface defines the necessary and optional properties needed for
+ * configuring and handling a modal's behavior, including its visibility, title,
+ * event handlers for changes and submission, as well as customization options for
+ * appearance and interaction.
+ *
+ * @property isOpen - Indicates whether the modal is currently open.
+ * @property title - The title displayed at the top of the modal.
+ * @property onClose - A callback function invoked when the modal is requested to be closed.
+ * @property className - Optional additional CSS class names for styling the modal.
+ * @property modalFields - Optional array of fields contained within the modal.
+ * @property modalInputs - Optional record of input field values within the modal.
+ * @property handleModalChange - Optional handler for changes in modal input fields.
+ * @property handleModalSubmit - Optional handler for form submission within the modal.
+ * @property requiredFields - Optional array of field names that are required within the modal.
+ * @property children - Optional React nodes to be rendered inside the modal.
+ * @property isProcessing - Optional indicator whether an operation is in progress.
+ */
 interface ModalProps {
   isOpen: boolean;
   title: string;
@@ -67,6 +110,16 @@ interface ModalProps {
   isProcessing?: boolean;
 }
 
+/**
+ * An array of timezone objects, each containing a label and a value.
+ *
+ * Each object contains:
+ * - label: A string representing the timezone offset from UTC in the format "UTC±HH:MM".
+ * - value: A string representing the corresponding IANA timezone in the "Etc/GMT±HH" format.
+ *
+ * This array provides timezones ranging from UTC−12:00 to UTC+12:00, enabling users to identify
+ * time offsets easily with standardized labels and IANA timezone designations.
+ */
 const timezones = [
   {label: 'UTC−12:00', value: 'Etc/GMT+12'},
   {label: 'UTC−11:00', value: 'Etc/GMT+11'},
@@ -95,6 +148,25 @@ const timezones = [
   {label: 'UTC+12:00', value: 'Etc/GMT-12'},
 ];
 
+/**
+ * A React Functional Component representing a customizable modal dialog.
+ *
+ * This component displays a modal dialog with a title, content, and an optional form.
+ * The form can include various input fields such as text, textarea, number, select, date, time, and timezone.
+ * Each field can be customized and includes validation, event handling, and additional properties like labels and tooltips.
+ *
+ * @param {object} props - Component props.
+ * @param {boolean} props.isOpen - Indicates whether the modal is open or not.
+ * @param {string} props.title - The title of the modal.
+ * @param {Function} props.onClose - Function to be called when the modal is closed.
+ * @param {string} [props.className] - Additional class name(s) to be applied to the modal.
+ * @param {Array} [props.modalFields] - An array of field configuration objects for dynamically generating form inputs in the modal.
+ * @param {object} [props.modalInputs] - An object containing the current values of the modal's form inputs.
+ * @param {Function} [props.handleModalChange] - Callback function to handle form input changes.
+ * @param {Function} [props.handleModalSubmit] - Callback function to handle form submission.
+ * @param {React.ReactNode} [props.children] - Additional components or elements to be rendered inside the modal content area.
+ * @param {boolean} [props.isProcessing=false] - Indicates whether the modal is in a processing state (e.g., submitting data).
+ */
 const Modal: React.FC<ModalProps> = ({
                                        isOpen,
                                        title,
