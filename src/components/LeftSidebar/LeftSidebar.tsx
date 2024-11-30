@@ -36,8 +36,8 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
   const theme = useTheme();
-  const { createSampleGroup, sampleGroups, updateFileTree, fileTree } = useData();
-  const { isSyncing, locations } = useData();
+  const { sampleGroups, updateFileTree, fileTree } = useData();
+  const { isSyncing, locations, createSampleGroup, syncData } = useData();
   const { organization, user } = useAuth();
   const {
     isSidebarCollapsed,
@@ -53,7 +53,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     uploadedFiles: [],
     isProcessing: false,
   });
-
   const styles = useMemo(() => ({
     sidebarButton: {
       width: '100%',
@@ -244,7 +243,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           // Update file tree with new sample group node
           const updatedTree = [...fileTree, newNode];
           await updateFileTree(updatedTree);
-
           // Create the sample group
           await createSampleGroup({
             id,

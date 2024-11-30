@@ -33,7 +33,7 @@ interface DropBoxProps {
 
 const DropBox = memo(({
                           configItem,
-                          isProcessing: _isProcessing,
+                          isProcessing,
                           hasData,
                           isLocked,
                           openModal,
@@ -51,21 +51,9 @@ const DropBox = memo(({
     const configId = configItem.id;
     const { organization } = useAuth();
     // Get progress states using hooks
-    const progressState = useMemo(
-        () => getProgressState(sampleId, configId),
-        [getProgressState, sampleId, configId]
-    );
+    const progressState = getProgressState(sampleId, configId);
+    const uploadDownloadProgressState = getUploadDownloadProgressState(sampleId, configId);
 
-    const uploadDownloadProgressState = useMemo(
-        () => getUploadDownloadProgressState(sampleId, configId),
-        [getUploadDownloadProgressState, sampleId, configId]
-    );
-
-    // Determine processing states
-    const isProcessing = useMemo(
-        () => (progressState.progress > 0 && progressState.progress < 100) || _isProcessing,
-        [progressState.progress, _isProcessing]
-    );
 
     const isUploadingDownloading = useMemo(
         () => uploadDownloadProgressState.progress > 0 && uploadDownloadProgressState.progress < 100,

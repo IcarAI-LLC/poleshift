@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { IconButton, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 
-import { useAuth, useData, useUI, useNetworkStatus } from '../lib/hooks';
+import {useAuth, useData, useUI, useNetworkStatus, useProcessedData} from '../lib/hooks';
 
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
@@ -28,6 +28,7 @@ const MainApp: React.FC = () => {
     contextMenu,
   } = useUI();
   const { isOnline } = useNetworkStatus();
+  const { fetchProcessedData } = useProcessedData();
 
   // Local state
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);

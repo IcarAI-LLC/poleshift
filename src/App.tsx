@@ -8,16 +8,13 @@ import AppRoutes from './routes/AppRoutes';
 import { theme } from './theme.ts';
 
 import './App.css';
-import {ProcessedDataProvider} from "./lib/contexts/ProcessedDataContext.tsx";
 
 function App() {
   return (
       <AppProvider>
         <LocalizationProvider dateAdapter={AdapterLuxon}>
           <ThemeProvider theme={theme}>
-              <ProcessedDataProvider>
                 <AppRoutes />
-              </ProcessedDataProvider>
           </ThemeProvider>
         </LocalizationProvider>
       </AppProvider>

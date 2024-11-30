@@ -205,9 +205,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
                     ...state.processedData,
                     data: {
                         ...state.processedData.data,
-                        [action.payload.key]: action.payload.data
-                    }
-                }
+                        [action.payload.key]: action.payload.data,
+                    },
+                },
             };
         case 'SET_PROCESSING_STATUS':
             return {
@@ -220,7 +220,34 @@ function appReducer(state: AppState, action: AppAction): AppState {
                     }
                 }
             };
-
+        case 'SET_PROCESSED_DATA_PROGRESS':
+            return {
+                ...state,
+                processedData: {
+                    ...state.processedData,
+                    progressStates: {
+                        ...state.processedData.progressStates,
+                        [action.payload.key]: {
+                            progress: action.payload.progress,
+                            status: action.payload.status,
+                        },
+                    },
+                },
+            };
+        case 'SET_UPLOAD_DOWNLOAD_PROGRESS':
+            return {
+                ...state,
+                processedData: {
+                    ...state.processedData,
+                    uploadDownloadProgressStates: {
+                        ...state.processedData.uploadDownloadProgressStates,
+                        [action.payload.key]: {
+                            progress: action.payload.progress,
+                            status: action.payload.status,
+                        },
+                    },
+                },
+            };
         // UI Actions
         case 'SET_SELECTED_LEFT_ITEM':
             return {

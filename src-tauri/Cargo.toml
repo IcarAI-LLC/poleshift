@@ -30,6 +30,11 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 anyhow = "1.0.93"
 thiserror = "2.0.3"
+reqwest = "0.12.9"
+tokio = { version = "1.41.1", features = ["full"] }
+flate2 = "1.0.35"
+tar = "0.4.43"
+futures-util = "0.3.31"
 
 
 

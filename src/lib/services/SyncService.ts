@@ -130,7 +130,6 @@ export class SyncService extends BaseService {
     async syncFromRemote(table: string, orgId?: string, since?: number): Promise<void> {
         const result = await this.executeWithRetry(async () => {
             let query = this.supabase.from(table).select('*');
-
             if (orgId) {
                 query = query.eq('org_id', orgId);
             }
@@ -146,7 +145,6 @@ export class SyncService extends BaseService {
             }
             return data;
         });
-
         if (!result.success) {
             this.handleError(result.error, `Failed to sync ${table} from remote`);
         }

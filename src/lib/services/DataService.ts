@@ -148,6 +148,7 @@ export class DataService extends BaseService {
     }
 
     async updateFileTree(updatedTree: FileNode[]): Promise<void> {
+        console.log("Updating file tree");
         try {
             const timestamp = new Date().toISOString();
             const updatedNodes = updatedTree.map(node => ({
@@ -161,9 +162,9 @@ export class DataService extends BaseService {
             // Attempt online sync for each node
             await Promise.all(updatedNodes.map(node =>
                 this.attemptOnlineOperation(
-                    async () => await this.syncService.updateRemote('file_nodes', node),
+                    async () => await this.syncService.upsertRemote('file_nodes', node),
                     async () => await this.operationQueue.enqueue({
-                        type: 'update',
+                        type: 'upsert',
                         table: 'file_nodes',
                         data: node
                     })
@@ -189,7 +190,7 @@ export class DataService extends BaseService {
 
             // Handle remote deletions
             const deleteOperations = [
-                this.attemptOnlineOperation(
+                await this.attemptOnlineOperation(
                     async () => await this.syncService.deleteRemote('file_nodes', nodeId),
                     async () => await this.operationQueue.enqueue({
                         type: 'delete',

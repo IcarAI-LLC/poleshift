@@ -1,29 +1,23 @@
 mod handle_ctd_data;
 mod handle_nutrient_ammonia;
 mod handle_sequence_data;
+mod db_manager;
+
 use handle_ctd_data::handle_ctd_data_upload;
 use handle_nutrient_ammonia::handle_nutrient_ammonia;
 use handle_sequence_data::handle_sequence_data;
-
-use tauri::{Manager, path::BaseDirectory};
+use db_manager::DbManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            #[cfg(debug_assertions)]
-            {
-                // Check if kudb exists in resources
-                if let Ok(kudb_path) = app.path().resolve("kudb", BaseDirectory::Resource) {
-                    if kudb_path.exists() {
-                        println!("Found kudb database at: {:?}", kudb_path);
-                    } else {
-                        eprintln!("Warning: kudb database not found at: {:?}", kudb_path);
-                    }
-                } else {
-                    eprintln!("Warning: Failed to resolve kudb path");
+            tauri::async_runtime::block_on(async {
+                match DbManager::ensure_database(app).await {
+                    Ok(db_path) => println!("Database ready at: {:?}", db_path),
+                    Err(e) => eprintln!("Database setup failed: {}", e),
                 }
-            }
+            });
             Ok(())
         })
         .plugin(tauri_plugin_fs::init())
