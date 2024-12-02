@@ -40,10 +40,23 @@ pub async fn handle_sequence_data<R: Runtime>(
         .resolve("kudb", BaseDirectory::Resource)
         .map_err(|e| format!("Failed to resolve kudb path: {}", e))?;
 
+    // Get the kudb path from resources
+    let kraken_path = app_handle
+        .path()
+        .resolve("krakenuniq-ubuntu-dist/installed_scripts/krakenuniq", BaseDirectory::Resource)
+        .map_err(|e| format!("Failed to resolve kraken path: {}", e))?;
+
     // Emit initial progress
     emit_progress(&window, 0, "Initializing...")?;
 
     if !kudb_path.exists() {
+        return Err(KrakenError::DatabaseNotFound(
+            kudb_path.to_string_lossy().to_string(),
+        )
+            .to_string());
+    }
+
+    if !kraken_path.exists() {
         return Err(KrakenError::DatabaseNotFound(
             kudb_path.to_string_lossy().to_string(),
         )
@@ -84,7 +97,7 @@ pub async fn handle_sequence_data<R: Runtime>(
 
     println!("Temporary input file paths: {:?}", temp_file_paths);
 
-    let output = Command::new("krakenuniq")
+    let output = Command::new(kraken_path)
         .arg("--db")
         .arg(&kudb_path)
         .arg("--report-file")

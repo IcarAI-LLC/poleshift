@@ -3,29 +3,29 @@
 export interface ModalField {
   name: string;
   label?: string;
-  type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'time' | 'timezone'; // Added 'date' type
-  options?: any; // Only applicable for 'select' type
+  type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'time' | 'timezone';
+  options?: any;
   tooltip?: string;
   required?: boolean;
 }
 
 export interface DropboxConfigItem {
-  id: string; // Unique identifier, now using dataType
+  id: string;
   label: string;
-  dataType: string; // The type of data
+  dataType: string;
   expectedFileTypes: Record<string, string[]> | null;
   isEnabled: boolean;
   isModalInput: boolean;
   processFunctionName: string;
   requiredSubscriptionLevel?: number;
   modalFields: ModalField[];
-  acceptsMultipleFiles?: boolean; // Optional, default is false
+  acceptsMultipleFiles?: boolean;
   tooltip?: string;
 }
 
 const dropboxConfig: DropboxConfigItem[] = [
   {
-    id: 'nutrient_ammonia', // Using dataType as id
+    id: 'nutrient_ammonia',
     label: 'Nutrient Ammonia',
     dataType: 'nutrient_ammonia',
     expectedFileTypes: null,
@@ -38,8 +38,7 @@ const dropboxConfig: DropboxConfigItem[] = [
         name: 'ammoniaValue',
         type: 'number',
         label: 'Ammonia Value',
-        tooltip:
-          'Please input the Ammonia value, this will be converted to Ammonium.',
+        tooltip: 'Please input the Ammonia value, this will be converted to Ammonium.',
       },
     ],
   },
@@ -53,22 +52,23 @@ const dropboxConfig: DropboxConfigItem[] = [
     isModalInput: false,
     processFunctionName: 'handle_ctd_data_upload',
     requiredSubscriptionLevel: 1,
-    modalFields: [], // No modal inputs needed for CTD data
+    modalFields: [],
   },
 
   {
-    id: 'sequencing_data', // New entry for sequencing data
+    id: 'sequencing_data',
     label: 'Sequencing Data',
     dataType: 'sequencing_data',
     expectedFileTypes: {
-      'application/gzip': ['.fastq.gz', '.fq.gz', '.fasta.gz', '.fa.gz'],
       'text/plain': ['.fastq', '.fq', '.fasta', '.fa'],
+      'application/gzip': ['.fastq.gz', '.fq.gz', '.fasta.gz', '.fa.gz'],
+      // Removed 'application/plain' as it's invalid
     },
     isEnabled: true,
     isModalInput: false,
     processFunctionName: 'handle_sequence_data',
-    requiredSubscriptionLevel: 1, // Adjust subscription level as needed
-    modalFields: [], // No modal inputs needed for sequencing data
+    requiredSubscriptionLevel: 1,
+    modalFields: [],
     acceptsMultipleFiles: true,
   },
 ];

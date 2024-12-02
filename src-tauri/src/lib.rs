@@ -2,12 +2,14 @@ mod handle_ctd_data;
 mod handle_nutrient_ammonia;
 mod handle_sequence_data;
 mod db_manager;
+mod kraken_uniq_manager;
 
 use tauri::Manager;
 use handle_ctd_data::handle_ctd_data_upload;
 use handle_nutrient_ammonia::handle_nutrient_ammonia;
 use handle_sequence_data::handle_sequence_data;
 use db_manager::DbManager;
+use kraken_uniq_manager::KrakenManager;
 use fix_path_env;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -26,7 +28,12 @@ pub fn run() {
                     Err(e) => eprintln!("Database setup failed: {}", e),
                 }
                 println!("Done initializing.");
-
+                println!("Initializing Kraken...");
+                match KrakenManager::ensure_krakenuniq(&app_handle).await {
+                    Ok(db_path) => println!("Database ready at: {:?}", db_path),
+                    Err(e) => eprintln!("Database setup failed: {}", e),
+                }
+                println!("Done initializing Kraken.");
                 // After initialization, close the splashscreen and show the main window
                 let app_handle_clone = app_handle.clone();
                 tauri::async_runtime::spawn_blocking(move || {

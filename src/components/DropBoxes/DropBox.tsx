@@ -1,6 +1,6 @@
 // lib/components/DropBox.tsx
 
-import { memo, useState, useMemo, useCallback } from 'react';
+import { memo, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import {
     Add as AddIcon,
@@ -15,7 +15,6 @@ import ProgressTracker from './ProgressTracker';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useEffect, useRef } from 'react';
 import { useAuth } from "../../lib/hooks";
 
 interface DropBoxProps {
@@ -157,9 +156,6 @@ const DropBox = memo(({
         }
 
         try {
-            // Convert FileList to Array of File objects
-            // const fileArray = Array.from(files);
-
             // Since File objects do not have paths, use Tauri's fs API to get paths if possible
             // Alternatively, read file contents and handle accordingly
             // Here, we'll assume that you can obtain file paths via Tauri's APIs or by other means
@@ -178,6 +174,7 @@ const DropBox = memo(({
 
             // Uncomment below if handling file contents
             /*
+            const fileArray = Array.from(files);
             const fileContents = await Promise.all(fileArray.map(file => file.text()));
             const filePaths = fileArray.map(file => file.name); // Placeholder paths
 
@@ -187,8 +184,9 @@ const DropBox = memo(({
                 {},
                 filePaths,
                 configItem,
-                onDataProcessed,
-                onError
+                handleDataProcessedLocally,
+                onError,
+                organization.id
             );
             */
         } catch (error: any) {
@@ -392,7 +390,7 @@ const DropBox = memo(({
                             alignItems: 'center',
                             justifyContent: 'center',
                             opacity: 0.8,
-                            pointerEvents: 'none', // Allow clicks to pass through
+                            pointerEvents: 'none',
                         }}
                     >
                         <Typography

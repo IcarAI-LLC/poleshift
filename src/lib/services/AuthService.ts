@@ -185,6 +185,7 @@ export class AuthService extends BaseService {
                 email,
                 password
             });
+            console.log(data);
 
             if (error) throw error;
             if (!data.user || !data.session) throw new Error('No user or session returned from sign in');
