@@ -60,9 +60,7 @@ const dropboxConfig: DropboxConfigItem[] = [
     label: 'Sequencing Data',
     dataType: 'sequencing_data',
     expectedFileTypes: {
-      'text/plain': ['.fastq', '.fq', '.fasta', '.fa'],
-      'application/gzip': ['.fastq.gz', '.fq.gz', '.fasta.gz', '.fa.gz'],
-      // Removed 'application/plain' as it's invalid
+      'text/plain': ['.fastq', '.fq', '.fasta', '.fa', '.gz']
     },
     isEnabled: true,
     isModalInput: false,
