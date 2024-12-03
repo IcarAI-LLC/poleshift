@@ -66,7 +66,7 @@ pub async fn handle_sequence_data<R: Runtime>(
     // Generate a unique report file name using the user's desktop directory
     let desktop_dir = app_handle
         .path()
-        .app_cache_dir()
+        .desktop_dir()
         .map_err(|e| format!("Failed to get app data dir: {}", e))?;
     let report_filename = format!("kraken_report_{}.txt", Uuid::new_v4());
     let report_file_path = desktop_dir.join(report_filename);
@@ -134,9 +134,6 @@ pub async fn handle_sequence_data<R: Runtime>(
         .map_err(|e| format!("Failed to read report file: {}", e))?;
 
     emit_progress(&window, 100, "Complete")?;
-
-    // Optionally, clean up temporary files
-    fs::remove_dir_all(&input_temp_dir).ok();
 
     Ok(KrakenReport {
         report_path: report_file_path.to_string_lossy().into_owned(),

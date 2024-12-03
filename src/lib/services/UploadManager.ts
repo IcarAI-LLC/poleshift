@@ -112,7 +112,7 @@ export class UploadManager {
     private async uploadFileToSupabase(item: ProcessingQueueItem): Promise<void> {
         const { fileBlob, filePath, type } = item;
         const bucket = type === 'raw' ? 'raw-data' : 'processed-data';
-
+        console.error(fileBlob);
         const { error } = await supabase.storage
             .from(bucket)
             .upload(filePath, fileBlob, { upsert: true });
