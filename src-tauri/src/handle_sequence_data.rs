@@ -37,13 +37,13 @@ pub async fn handle_sequence_data<R: Runtime>(
     // Get the kudb path from resources
     let kudb_path = app_handle
         .path()
-        .resolve("kudb", BaseDirectory::Resource)
+        .resolve("kudb", BaseDirectory::Desktop)
         .map_err(|e| format!("Failed to resolve kudb path: {}", e))?;
 
     // Get the kudb path from resources
     let kraken_path = app_handle
         .path()
-        .resolve("krakenuniq-ubuntu-dist/installed_scripts/krakenuniq", BaseDirectory::Resource)
+        .resolve("krakenuniq-ubuntu-dist/installed_scripts/krakenuniq", BaseDirectory::Desktop)
         .map_err(|e| format!("Failed to resolve kraken path: {}", e))?;
 
     // Emit initial progress

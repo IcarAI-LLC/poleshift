@@ -16,7 +16,7 @@ pub struct DbManager;
 impl DbManager {
     pub async fn ensure_database<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
         // Get the expected database path
-        let resource_dir = app_handle.path().resource_dir()
+        let resource_dir = app_handle.path().desktop_dir()
             .map_err(|e| format!("Failed to get resource directory: {}", e))?;
 
         let db_path = resource_dir.join("kudb");
@@ -46,7 +46,7 @@ impl DbManager {
 
     async fn download_and_extract_database<R: Runtime>(db_path: PathBuf, app_handle: &tauri::AppHandle<R>) -> Result<(), String> {
         // Create a temporary file for the download
-        let resource_dir = app_handle.path().resource_dir()
+        let resource_dir = app_handle.path().desktop_dir()
             .map_err(|e| format!("Failed to get resource directory: {}", e))?;
         let temp_file = resource_dir.join("kudb_temp.tar.gz");
         let temp_file_for_extract = temp_file.clone();

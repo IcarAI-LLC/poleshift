@@ -15,7 +15,7 @@ pub struct KrakenManager;
 
 impl KrakenManager {
     pub async fn ensure_krakenuniq<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
-        let resource_dir = app_handle.path().resource_dir()
+        let resource_dir = app_handle.path().desktop_dir()
             .map_err(|e| format!("Failed to get resource directory: {}", e))?;
 
         let db_path = resource_dir.join("kraken_uniq");
@@ -44,7 +44,7 @@ impl KrakenManager {
 
     async fn download_and_extract_krakenuniq<R: Runtime>(db_path: PathBuf, app_handle: &tauri::AppHandle<R>) -> Result<(), String> {
         // Create a temporary file for the download
-        let resource_dir = app_handle.path().resource_dir()
+        let resource_dir = app_handle.path().desktop_dir()
             .map_err(|e| format!("Failed to get resource directory: {}", e))?;
         let temp_file = resource_dir.join("kraken_uniq_temp.tar.gz");
         let temp_file_for_extract = temp_file.clone();
