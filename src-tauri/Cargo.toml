@@ -3,7 +3,7 @@ name = "poleshift-tauri"
 version = "0.1.8"
 description = "Research Application"
 authors = ["Nikolas Yanek-Chrones"]
-edition = "2024"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
