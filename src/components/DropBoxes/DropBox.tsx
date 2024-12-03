@@ -82,7 +82,6 @@ const DropBox = memo(({
         }
 
         try {
-            console.log(configItem.expectedFileTypes)
             const selectedPaths = await open({
                 multiple: configItem.acceptsMultipleFiles ?? false,
                 directory: false,
