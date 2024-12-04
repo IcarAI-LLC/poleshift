@@ -1,4 +1,3 @@
-// lib/components/PreAuth/Login.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -9,22 +8,21 @@ import {
   Alert,
 } from '@mui/material';
 import { useAuth } from '../../lib/hooks';
+import type { PreAuthView } from '../../lib/types';
 
 interface LoginProps {
-  onNavigate: (view: 'signup' | 'reset-password') => void;
+  onNavigate: (view: PreAuthView['view']) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onNavigate }) => {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { login, processLicenseKey } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const { login, processLicenseKey, loading, error: authError } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError(null);
-    setIsLoading(true);
+    setLocalError(null);
 
     try {
       // Attempt login
@@ -34,17 +32,17 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
       if (storedLicenseKey) {
         try {
           await processLicenseKey(storedLicenseKey);
-        } catch (licenseError: any) {
-          setError(licenseError.message);
-          return;
+        } catch (error) {
+          setLocalError(error instanceof Error ? error.message : 'Error processing license key');
         }
       }
-    } catch (loginError: any) {
-      setError(loginError.message);
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : 'Login failed');
     }
   };
+
+  // Use either local error state or auth error from store
+  const displayError = localError || authError;
 
   return (
       <Box
@@ -72,9 +70,9 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
             Login
           </Typography>
 
-          {error && (
+          {displayError && (
               <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
+                {displayError}
               </Alert>
           )}
 
@@ -87,7 +85,11 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={isLoading}
+              disabled={loading}
+              autoComplete="email"
+              inputProps={{
+                'aria-label': 'Email',
+              }}
           />
 
           <TextField
@@ -99,7 +101,11 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={isLoading}
+              disabled={loading}
+              autoComplete="current-password"
+              inputProps={{
+                'aria-label': 'Password',
+              }}
           />
 
           <Button
@@ -108,17 +114,19 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               color="primary"
               fullWidth
               sx={{ mt: 2, mb: 1 }}
-              disabled={isLoading}
-              startIcon={isLoading ? <CircularProgress size={20} /> : null}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={20} /> : null}
+              aria-label={loading ? 'Logging in' : 'Login'}
           >
-            {isLoading ? 'Logging In...' : 'Login'}
+            {loading ? 'Logging In...' : 'Login'}
           </Button>
 
           <Box textAlign="center" mt={2}>
             <Button
                 variant="text"
                 onClick={() => onNavigate('reset-password')}
-                disabled={isLoading}
+                disabled={loading}
+                aria-label="Reset Password"
             >
               Forgot your password?
             </Button>
@@ -130,7 +138,8 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               <Button
                   variant="text"
                   onClick={() => onNavigate('signup')}
-                  disabled={isLoading}
+                  disabled={loading}
+                  aria-label="Sign Up"
               >
                 Sign Up
               </Button>

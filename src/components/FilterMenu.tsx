@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     Box,
     Button,
@@ -15,12 +15,10 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
+import type { SxProps, Theme } from '@mui/material/styles';
 
-import { useUI } from '../lib/hooks';
-import { useLocations } from '../lib/hooks';
-import type { Theme } from '@mui/material/styles';
-import type { SxProps } from '@mui/system';
-import {SampleLocation} from "../lib/types";
+import { useUI, useData } from '../lib/hooks';
+import type { SampleLocation } from '../lib/types';
 
 interface FilterMenuProps {
     onApply: () => void;
@@ -28,44 +26,51 @@ interface FilterMenuProps {
     onClose: () => void;
 }
 
-const FilterMenu: React.FC<FilterMenuProps> = ({
-                                                   onApply,
-                                                   onReset,
-                                                   onClose,
-                                               }) => {
+interface StyleProps {
+    container: SxProps<Theme>;
+    header: SxProps<Theme>;
+    closeButton: SxProps<Theme>;
+    inputField: SxProps<Theme>;
+    buttonContainer: SxProps<Theme>;
+    fieldContainer: SxProps<Theme>;
+}
+
+export const FilterMenu: React.FC<FilterMenuProps> = ({
+                                                          onApply,
+                                                          onReset,
+                                                          onClose,
+                                                      }) => {
     const theme = useTheme();
     const firstInputRef = useRef<HTMLInputElement>(null);
     const { filters, setFilters } = useUI();
-    const { allLocations: locations } = useLocations();
-    // Memoize style objects
-    const styles = {
+    const { enabledLocations } = useData();
+
+    // Memoized styles
+    const styles = useMemo<StyleProps>(() => ({
         container: {
-            backgroundColor: theme.palette.background.paper,
-            padding: theme.spacing(3),
-            borderRadius: '8px',
+            backgroundColor: 'background.paper',
+            p: 3,
+            borderRadius: 2,
             width: '300px',
-            color: theme.palette.text.primary,
+            color: 'text.primary',
             position: 'fixed',
             top: '20%',
             right: '20px',
             zIndex: theme.zIndex.modal,
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-        } as SxProps<Theme>,
-
+        },
         header: {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: theme.spacing(3),
-        } as SxProps<Theme>,
-
+            mb: 3,
+        },
         closeButton: {
-            color: theme.palette.text.primary,
+            color: 'text.primary',
             '&:hover': {
-                backgroundColor: theme.palette.action.hover,
+                backgroundColor: 'action.hover',
             },
-        } as SxProps<Theme>,
-
+        },
         inputField: {
             '& .MuiOutlinedInput-root': {
                 backgroundColor: 'rgba(18, 18, 18, 0.7)',
@@ -73,56 +78,61 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
                     borderColor: 'rgba(255, 255, 255, 0.23)',
                 },
                 '&:hover fieldset': {
-                    borderColor: theme.palette.primary.main,
+                    borderColor: 'primary.main',
                 },
                 '&.Mui-focused fieldset': {
-                    borderColor: theme.palette.primary.main,
+                    borderColor: 'primary.main',
                 },
             },
             '& .MuiInputLabel-root': {
-                color: theme.palette.text.primary,
+                color: 'text.primary',
             },
             '& .MuiInputBase-input': {
-                color: theme.palette.text.primary,
+                color: 'text.primary',
             },
             '& .MuiSvgIcon-root': {
-                color: theme.palette.text.primary,
+                color: 'text.primary',
             },
-        } as SxProps<Theme>,
-
+        },
+        fieldContainer: {
+            mb: 2,
+        },
         buttonContainer: {
             display: 'flex',
             justifyContent: 'flex-end',
-            gap: theme.spacing(1),
-            marginTop: theme.spacing(3),
-        } as SxProps<Theme>,
-    };
+            gap: 1,
+            mt: 3,
+        },
+    }), [theme.zIndex.modal]);
 
-    // Updated handlers to directly set the state object
-    const handleStartDateChange = useCallback((date: DateTime | null) => {
-        const newStartDate = date ? date.toISODate() : null;
-        setFilters({
-            ...filters,
-            startDate: newStartDate,
-        });
-    }, [filters, setFilters]);
+    // Handler for date changes
+    const handleDateChange = useCallback((
+        type: 'startDate' | 'endDate',
+        date: DateTime | null
+    ) => {
+        setFilters(prev => ({
+            ...prev,
+            [type]: date?.toISODate() || null,
+        }));
+    }, [setFilters]);
 
-    const handleEndDateChange = useCallback((date: DateTime | null) => {
-        const newEndDate = date ? date.toISODate() : null;
-        setFilters({
-            ...filters,
-            endDate: newEndDate,
-        });
-    }, [filters, setFilters]);
-
+    // Handler for location changes
     const handleLocationChange = useCallback((event: SelectChangeEvent<string[]>) => {
         const value = event.target.value;
-        setFilters({
-            ...filters,
-            selectedLocations: typeof value === 'string' ? value.split(',') : value,
-        });
-    }, [filters, setFilters]);
+        setFilters(prev => ({
+            ...prev,
+            selectedLocations: Array.isArray(value) ? value : value.split(','),
+        }));
+    }, [setFilters]);
 
+    // Location label renderer
+    const renderLocationValue = useCallback((selected: string[]) => {
+        return selected
+            .map(locId => enabledLocations.find(loc => loc.id === locId)?.label || locId)
+            .join(', ');
+    }, [enabledLocations]);
+
+    // Keyboard event handler
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
@@ -133,6 +143,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
 
+    // Initial focus
     useEffect(() => {
         firstInputRef.current?.focus();
     }, []);
@@ -140,12 +151,11 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
     return (
         <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Box
-                className="filter-menu visible"
                 onClick={(e) => e.stopPropagation()}
                 sx={styles.container}
             >
                 <Box sx={styles.header}>
-                    <Typography variant="h6" color="textPrimary">
+                    <Typography variant="h6">
                         Filters
                     </Typography>
                     <IconButton
@@ -158,16 +168,15 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
                     </IconButton>
                 </Box>
 
-                <Box sx={{ marginBottom: theme.spacing(2) }}>
+                <Box sx={styles.fieldContainer}>
                     <DatePicker
                         label="Start Date"
                         value={filters.startDate ? DateTime.fromISO(filters.startDate) : null}
-                        onChange={handleStartDateChange}
+                        onChange={(date) => handleDateChange('startDate', date)}
                         slotProps={{
                             textField: {
-                                variant: 'outlined',
-                                size: 'small',
                                 inputRef: firstInputRef,
+                                size: 'small',
                                 fullWidth: true,
                                 sx: styles.inputField,
                             },
@@ -175,14 +184,13 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
                     />
                 </Box>
 
-                <Box sx={{ marginBottom: theme.spacing(2) }}>
+                <Box sx={styles.fieldContainer}>
                     <DatePicker
                         label="End Date"
                         value={filters.endDate ? DateTime.fromISO(filters.endDate) : null}
-                        onChange={handleEndDateChange}
+                        onChange={(date) => handleDateChange('endDate', date)}
                         slotProps={{
                             textField: {
-                                variant: 'outlined',
                                 size: 'small',
                                 fullWidth: true,
                                 sx: styles.inputField,
@@ -192,9 +200,9 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
                 </Box>
 
                 <FormControl
-                    variant="outlined"
                     fullWidth
-                    sx={{ marginBottom: theme.spacing(2) }}
+                    variant="outlined"
+                    sx={styles.fieldContainer}
                 >
                     <InputLabel id="location-select-label">Locations</InputLabel>
                     <Select
@@ -203,14 +211,10 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
                         value={filters.selectedLocations}
                         onChange={handleLocationChange}
                         label="Locations"
-                        renderValue={(selected) =>
-                            (selected as string[])
-                                .map((locId) => locations.find((loc: SampleLocation) => loc.id === locId)?.label || locId)
-                                .join(', ')
-                        }
+                        renderValue={renderLocationValue}
                         sx={styles.inputField}
                     >
-                        {locations.map((location: SampleLocation) => (
+                        {enabledLocations.map((location: SampleLocation) => (
                             <MenuItem key={location.id} value={location.id}>
                                 {location.label}
                             </MenuItem>
@@ -223,11 +227,11 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
                         variant="outlined"
                         onClick={onReset}
                         sx={{
-                            color: theme.palette.text.primary,
-                            borderColor: theme.palette.divider,
+                            color: 'text.primary',
+                            borderColor: 'divider',
                             '&:hover': {
-                                backgroundColor: theme.palette.action.hover,
-                                borderColor: theme.palette.text.primary,
+                                backgroundColor: 'action.hover',
+                                borderColor: 'text.primary',
                             },
                         }}
                     >
@@ -237,12 +241,6 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
                         variant="contained"
                         color="primary"
                         onClick={onApply}
-                        sx={{
-                            backgroundColor: theme.palette.primary.main,
-                            '&:hover': {
-                                backgroundColor: theme.palette.primary.dark,
-                            },
-                        }}
                     >
                         Apply
                     </Button>
@@ -252,4 +250,4 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
     );
 };
 
-export default FilterMenu;
+export default React.memo(FilterMenu);

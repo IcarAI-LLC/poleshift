@@ -1,24 +1,19 @@
-// src/renderer/routes/AppRoutes.tsx
-
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import LoadingScreen from '../components/PreAuth/LoadingScreen';
 import Login from '../components/PreAuth/Login';
 import SignUp from '../components/PreAuth/SignUp';
 import MainApp from '../components/MainApp';
 import ResetPassword from '../components/PreAuth/ResetPassword';
-import { AppContext } from "../lib/contexts/AppContext";
 import { useAuth } from '../lib/hooks';
 
-const AppRoutes: React.FC = () => {
-  const { state } = useContext(AppContext);
-  const { user, loading: authLoading, error: authError } = state.auth;
-  const [currentView, setCurrentView] = useState<
-      'login' | 'signup' | 'reset-password'
-  >('login');
-  const [isInitializing, setIsInitializing] = useState(true);
+interface PreAuthView {
+  view: 'login' | 'signup' | 'reset-password';
+}
 
-  // Auth hook to handle authentication logic
-  const { initializeAuth } = useAuth();
+const AppRoutes: React.FC = () => {
+  const { user, loading: authLoading, error: authError, initializeAuth } = useAuth();
+  const [currentView, setCurrentView] = useState<PreAuthView['view']>('login');
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
     let isMounted = true;

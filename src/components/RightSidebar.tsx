@@ -1,5 +1,3 @@
-// src/components/RightSidebar.tsx
-
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
@@ -13,13 +11,11 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { DateTime } from 'luxon';
 
-import { useData, useUI } from '../lib/hooks';
-import { useProcessedData } from '../lib/hooks';
+import { useUI, useData, useProcessedData } from '../lib/hooks';
 import type { SampleGroupMetadata } from '../lib/types';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 
-// Import the processKrakenDataForModal function
 import { processKrakenDataForModal } from '../lib/utils/dataProcessingUtils';
 
 interface DataStats {
@@ -43,7 +39,7 @@ const initialDataStats: DataStats = {
   genusData: {},
 };
 
-const RightSidebar: React.FC = () => {
+export const RightSidebar: React.FC = () => {
   const {
     selectedRightItem,
     setSelectedRightItem,
@@ -51,65 +47,70 @@ const RightSidebar: React.FC = () => {
     toggleRightSidebar,
     filters,
   } = useUI();
+
   const { sampleGroups } = useData();
   const { processedData, fetchProcessedData } = useProcessedData();
-
   const [stats, setStats] = useState<DataStats>(initialDataStats);
 
-  const styles = useMemo(
-      (): Record<string, SxProps<Theme>> => ({
-        closeButton: {
-          position: 'absolute',
-          top: '15px',
-          left: '15px',
-          color: 'common.white',
-          backgroundColor: 'transparent',
-          boxShadow: 'none',
-          '&:hover': {
-            color: 'primary.main',
-          },
-        },
-        contentBox: {
-          padding: 2,
-          overflowY: 'auto',
-          height: '100%',
-        },
-        card: {
-          mb: 2,
-        },
-        divider: {
-          my: 2,
-        },
-      }),
-      []
-  );
+  // Memoized styles using theme
+  const styles = useMemo((): Record<string, SxProps<Theme>> => ({
+    closeButton: {
+      position: 'absolute',
+      top: 2,
+      left: 2,
+      color: 'common.white',
+      '&:hover': {
+        color: 'primary.main',
+      },
+    },
+    contentBox: {
+      p: 3,
+      overflowY: 'auto',
+      height: '100%',
+    },
+    card: {
+      mb: 2,
+      bgcolor: 'background.paper',
+      borderRadius: 1,
+    },
+    divider: {
+      my: 2,
+    },
+    cardContent: {
+      '&:last-child': {
+        pb: 2,
+      },
+    },
+  }), []);
 
-  const closeSidebar = useCallback(() => {
+  // Handle sidebar close
+  const handleClose = useCallback(() => {
     setSelectedRightItem(null);
     toggleRightSidebar(true);
   }, [setSelectedRightItem, toggleRightSidebar]);
 
-  // Filter samples based on selected location and filters
+  // Filter samples based on location and date filters
   const samplesAtLocation = useMemo(() => {
     if (!selectedRightItem) return [];
 
     return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
+      // Check location match
       if (group.loc_id !== selectedRightItem.id) return false;
 
-      if (
-          filters.selectedLocations.length > 0 &&
-          !filters.selectedLocations.includes(group.loc_id)
-      ) {
+      // Apply location filters
+      if (filters.selectedLocations.length > 0 &&
+          !filters.selectedLocations.includes(group.loc_id)) {
         return false;
       }
 
-      if (filters.startDate || filters.endDate) {
-        if (!group.collection_date) return false;
-
+      // Apply date filters
+      if (group.collection_date) {
         const sampleDate = DateTime.fromISO(group.collection_date);
+
         if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
           return false;
         }
+
         if (filters.endDate && sampleDate > DateTime.fromISO(filters.endDate)) {
           return false;
         }
@@ -119,30 +120,26 @@ const RightSidebar: React.FC = () => {
     });
   }, [selectedRightItem, sampleGroups, filters]);
 
-  // Fetch processed data for each sample
+  // Fetch processed data for samples
   useEffect(() => {
-    samplesAtLocation.forEach((sampleGroup) => {
+    samplesAtLocation.forEach(sampleGroup => {
       fetchProcessedData(sampleGroup);
     });
   }, [samplesAtLocation, fetchProcessedData]);
 
-  // Process CTD data for a specific sample
-  const processCTDData = useCallback((_sampleId: string, data: any) => {
-    data = data[0];
+  // Process CTD data
+  const processCTDData = useCallback((data: any) => {
+    if (!Array.isArray(data) || !data[0]?.channels) return null;
+
     const channelMap: Record<string, string> = {};
-    data.channels.forEach((channel: any) => {
-      channelMap[channel.long_name] = `channel${String(channel.channel_id).padStart(
-          2,
-          '0'
-      )}`;
+    data[0].channels.forEach((channel: any) => {
+      channelMap[channel.long_name] = `channel${String(channel.channel_id).padStart(2, '0')}`;
     });
 
-    let tempSum = 0,
-        tempCount = 0;
-    let salSum = 0,
-        salCount = 0;
+    let tempSum = 0, tempCount = 0;
+    let salSum = 0, salCount = 0;
 
-    data.data.forEach((point: any) => {
+    data[0].data.forEach((point: any) => {
       const depth = point[channelMap['Depth']];
       if (depth != null && depth <= 2) {
         if (channelMap['Temperature']) {
@@ -175,42 +172,37 @@ const RightSidebar: React.FC = () => {
       return;
     }
 
-    let tempSum = 0,
-        tempCount = 0;
-    let salSum = 0,
-        salCount = 0;
-    let totalAmm = 0,
-        ammCount = 0;
-    let minAmm: number | null = null,
-        maxAmm: number | null = null;
-    const speciesSet: Record<string, Set<string>> = {};
-    const genusSet: Record<string, Set<string>> = {};
+    const processStats = () => {
+      let tempSum = 0, tempCount = 0;
+      let salSum = 0, salCount = 0;
+      let totalAmm = 0, ammCount = 0;
+      let minAmm: number | null = null;
+      let maxAmm: number | null = null;
+      const speciesSet: Record<string, Set<string>> = {};
+      const genusSet: Record<string, Set<string>> = {};
 
-    samplesAtLocation.forEach((group) => {
-      const sampleId = group.id; // sample ID
+      samplesAtLocation.forEach(group => {
+        const sampleId = group.id;
 
-      // Get CTD data
-      const ctdKey = `${sampleId}:ctd_data`;
-      const ctdData = processedData[ctdKey];
-      if (ctdData) {
-        const processed = processCTDData(sampleId, ctdData);
-        if (processed) {
-          if (processed.temperature !== null) {
-            tempSum += processed.temperature;
-            tempCount++;
-          }
-          if (processed.salinity !== null) {
-            salSum += processed.salinity;
-            salCount++;
+        // Process CTD data
+        const ctdKey = `${sampleId}:ctd_data`;
+        if (processedData[ctdKey]) {
+          const processed = processCTDData(processedData[ctdKey]);
+          if (processed) {
+            if (processed.temperature !== null) {
+              tempSum += processed.temperature;
+              tempCount++;
+            }
+            if (processed.salinity !== null) {
+              salSum += processed.salinity;
+              salCount++;
+            }
           }
         }
-      }
 
-      // Get nutrient data
-      const nutrientKey = `${sampleId}:nutrient_ammonia`;
-      const nutrientArray = processedData[nutrientKey];
-      if (nutrientArray) {
-        const nutrientData = nutrientArray[0];
+        // Process nutrient data
+        const nutrientKey = `${sampleId}:nutrient_ammonia`;
+        const nutrientData = processedData[nutrientKey]?.[0];
         if (nutrientData?.ammonium_value != null) {
           const ammValue = nutrientData.ammonium_value;
           totalAmm += ammValue;
@@ -218,56 +210,49 @@ const RightSidebar: React.FC = () => {
           minAmm = minAmm === null ? ammValue : Math.min(minAmm, ammValue);
           maxAmm = maxAmm === null ? ammValue : Math.max(maxAmm, ammValue);
         }
-      }
 
-      // Get sequencing data
-      const seqKey = `${sampleId}:sequencing_data`;
-      const seqData = processedData[seqKey];
-      if (seqData) {
-        try {
-          // Process the Kraken sequencing data
-          const krakenData = processKrakenDataForModal(seqData.report_content);
-          if (krakenData && Array.isArray(krakenData.data)) {
-            krakenData.data.forEach((rankData) => {
+        // Process sequencing data
+        const seqKey = `${sampleId}:sequencing_data`;
+        if (processedData[seqKey]) {
+          try {
+            const krakenData = processKrakenDataForModal(processedData[seqKey].report_content);
+            krakenData.data?.forEach(rankData => {
               const rank = rankData.rankBase.toUpperCase();
               if (rank === 'SPECIES' || rank === 'GENUS') {
-                rankData.plotData.forEach((item) => {
-                  const taxName = item.taxon;
-                  if (taxName) {
-                    if (rank === 'SPECIES') {
-                      if (!speciesSet[taxName]) speciesSet[taxName] = new Set();
-                      speciesSet[taxName].add(sampleId);
-                    } else if (rank === 'GENUS') {
-                      if (!genusSet[taxName]) genusSet[taxName] = new Set();
-                      genusSet[taxName].add(sampleId);
-                    }
+                rankData.plotData?.forEach(item => {
+                  if (item.taxon) {
+                    const set = rank === 'SPECIES' ? speciesSet : genusSet;
+                    if (!set[item.taxon]) set[item.taxon] = new Set();
+                    set[item.taxon].add(sampleId);
                   }
                 });
               }
             });
+          } catch (error) {
+            console.error('Error processing sequencing data:', error);
           }
-        } catch (error) {
-          console.error('Error processing sequencing data:', error);
         }
-      }
-    });
+      });
 
-    setStats({
-      averageTemperature: tempCount > 0 ? tempSum / tempCount : null,
-      averageSalinity: salCount > 0 ? salSum / salCount : null,
-      ammoniumStats: {
-        average: ammCount > 0 ? totalAmm / ammCount : null,
-        min: minAmm,
-        max: maxAmm,
-        count: ammCount,
-      },
-      speciesData: Object.fromEntries(
-          Object.entries(speciesSet).map(([name, samples]) => [name, samples.size])
-      ),
-      genusData: Object.fromEntries(
-          Object.entries(genusSet).map(([name, samples]) => [name, samples.size])
-      ),
-    });
+      setStats({
+        averageTemperature: tempCount > 0 ? tempSum / tempCount : null,
+        averageSalinity: salCount > 0 ? salSum / salCount : null,
+        ammoniumStats: {
+          average: ammCount > 0 ? totalAmm / ammCount : null,
+          min: minAmm,
+          max: maxAmm,
+          count: ammCount,
+        },
+        speciesData: Object.fromEntries(
+            Object.entries(speciesSet).map(([name, samples]) => [name, samples.size])
+        ),
+        genusData: Object.fromEntries(
+            Object.entries(genusSet).map(([name, samples]) => [name, samples.size])
+        ),
+      });
+    };
+
+    processStats();
   }, [selectedRightItem, samplesAtLocation, processedData, processCTDData]);
 
   if (!selectedRightItem) return null;
@@ -275,7 +260,7 @@ const RightSidebar: React.FC = () => {
   return (
       <div className={`right-sidebar ${isRightSidebarCollapsed ? 'collapsed' : ''}`}>
         <IconButton
-            onClick={closeSidebar}
+            onClick={handleClose}
             aria-label="Close Sidebar"
             sx={styles.closeButton}
         >
@@ -302,14 +287,13 @@ const RightSidebar: React.FC = () => {
           {/* Temperature and Salinity Card */}
           {(stats.averageTemperature !== null || stats.averageSalinity !== null) && (
               <Card sx={styles.card}>
-                <CardContent>
+                <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
                     Average Measurements (First 2 Meters)
                   </Typography>
                   {stats.averageTemperature !== null ? (
                       <Typography variant="body1" gutterBottom>
-                        <strong>Temperature:</strong>{' '}
-                        {stats.averageTemperature.toFixed(2)} °C
+                        <strong>Temperature:</strong> {stats.averageTemperature.toFixed(2)} °C
                       </Typography>
                   ) : (
                       <Typography variant="body1" gutterBottom>
@@ -332,25 +316,28 @@ const RightSidebar: React.FC = () => {
           {/* Ammonium Stats Card */}
           {stats.ammoniumStats.count > 0 && (
               <Card sx={styles.card}>
-                <CardContent>
+                <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
                     Ammonium Measurements
                   </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Average Ammonium:</strong>{' '}
-                    {stats.ammoniumStats.average?.toFixed(2)} µmol/L
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Minimum Ammonium:</strong>{' '}
-                    {stats.ammoniumStats.min?.toFixed(2)} µmol/L
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Maximum Ammonium:</strong>{' '}
-                    {stats.ammoniumStats.max?.toFixed(2)} µmol/L
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Number of Samples:</strong> {stats.ammoniumStats.count}
-                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body1" gutterBottom>
+                        <strong>Average:</strong> {stats.ammoniumStats.average?.toFixed(2)} µmol/L
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        <strong>Minimum:</strong> {stats.ammoniumStats.min?.toFixed(2)} µmol/L
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body1" gutterBottom>
+                        <strong>Maximum:</strong> {stats.ammoniumStats.max?.toFixed(2)} µmol/L
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        <strong>Samples:</strong> {stats.ammoniumStats.count}
+                      </Typography>
+                    </Grid>
+                  </Grid>
                 </CardContent>
               </Card>
           )}
@@ -358,7 +345,7 @@ const RightSidebar: React.FC = () => {
           {/* Species Data Card */}
           {Object.keys(stats.speciesData).length > 0 && (
               <Card sx={styles.card}>
-                <CardContent>
+                <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
                     Species Identified
                   </Typography>
@@ -381,7 +368,7 @@ const RightSidebar: React.FC = () => {
           {/* Genus Data Card */}
           {Object.keys(stats.genusData).length > 0 && (
               <Card sx={styles.card}>
-                <CardContent>
+                <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
                     Genera Identified
                   </Typography>
@@ -404,28 +391,24 @@ const RightSidebar: React.FC = () => {
           {/* Samples List Card */}
           {samplesAtLocation.length > 0 && (
               <Card sx={styles.card}>
-                <CardContent>
+                <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
                     Samples at this Location
                   </Typography>
-                  <ul style={{ paddingLeft: '1.2em' }}>
+                  <Grid container spacing={2}>
                     {samplesAtLocation.map((sampleGroup) => (
-                        <li key={sampleGroup.id}>
+                        <Grid item xs={12} key={sampleGroup.id}>
                           <Typography variant="body1">
-                            <strong>{sampleGroup.human_readable_sample_id}</strong> (Sample
-                            ID: {sampleGroup.id})
+                            <strong>{sampleGroup.human_readable_sample_id}</strong>
                           </Typography>
                           {sampleGroup.collection_date && (
                               <Typography variant="body2" color="text.secondary">
-                                Sample Date:{' '}
-                                {DateTime.fromISO(sampleGroup.collection_date).toLocaleString(
-                                    DateTime.DATE_MED
-                                )}
+                                {DateTime.fromISO(sampleGroup.collection_date).toLocaleString(DateTime.DATE_MED)}
                               </Typography>
                           )}
-                        </li>
+                        </Grid>
                     ))}
-                  </ul>
+                  </Grid>
                 </CardContent>
               </Card>
           )}

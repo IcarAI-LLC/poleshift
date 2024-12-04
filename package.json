@@ -22,6 +22,7 @@
     "@mui/x-date-pickers": "^7.22.3",
     "@mui/x-tree-view": "^7.22.1",
     "@nivo/sunburst": "^0.88.0",
+    "@powersync/web": "^1.12.1",
     "@supabase/supabase-js": "^2.46.1",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-dialog": "^2.0.1",

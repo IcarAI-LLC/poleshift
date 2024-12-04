@@ -1,57 +1,44 @@
-// useNetworkStatus.ts
+import { useEffect } from 'react';
+import { useNetworkStore } from '../stores';
 
-import { useEffect, useCallback, useState } from 'react';
-import { networkService } from '../services/EnhancedNetworkService';
-
-/**
- * Custom hook to track the network status of the client. It provides functionality to check if the client is online
- * and a method to wait for a network connection to become active.
- *
- * @return {Object} An object containing:
- * - `isOnline`: A boolean representing whether the client is currently online.
- * - `waitForConnection`: A function that returns a promise resolving to a boolean indicating if a connection was
- *   established within the given timeout period.
- */
 export function useNetworkStatus() {
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const {
+        isOnline,
+        connectionStrength,
+        lastChecked,
+        setOnlineStatus,
+        setConnectionStrength,
+        updateLastChecked,
+        waitForConnection
+    } = useNetworkStore();
 
     useEffect(() => {
-        const updateOnlineStatus = () => {
-            setIsOnline(navigator.onLine);
+        // Setup network listeners
+        const handleOnline = () => {
+            setOnlineStatus(true);
+            updateLastChecked();
         };
 
-        networkService.addOnlineListener(updateOnlineStatus);
-        networkService.addOfflineListener(updateOnlineStatus);
+        const handleOffline = () => {
+            setOnlineStatus(false);
+            setConnectionStrength('none');
+            updateLastChecked();
+        };
 
-        // Initialize network service
-        networkService.initialize();
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
 
-        // Cleanup listeners on unmount
+        // Cleanup listeners
         return () => {
-            networkService.removeOnlineListener(updateOnlineStatus);
-            networkService.removeOfflineListener(updateOnlineStatus);
-            networkService.destroy();
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
         };
-    }, []);
-
-    const waitForConnection = useCallback(
-        async (timeout: number = 30000, interval: number = 1000): Promise<boolean> => {
-            const startTime = Date.now();
-
-            while (Date.now() - startTime < timeout) {
-                if (await networkService.hasActiveConnection()) {
-                    return true;
-                }
-                await new Promise(resolve => setTimeout(resolve, interval));
-            }
-
-            return false;
-        },
-        []
-    );
+    }, [setOnlineStatus, setConnectionStrength, updateLastChecked]);
 
     return {
         isOnline,
-        waitForConnection,
+        connectionStrength,
+        lastChecked,
+        waitForConnection
     };
 }

@@ -1,79 +1,155 @@
-// src/renderer/components/ContextMenu.tsx
-
-import React, { useEffect } from 'react';
-import { useUI } from '../lib/hooks';
-import { useAuth } from '../lib/hooks';
-import './ContextMenu.css';
+import React, { useEffect, useCallback, useMemo } from 'react';
+import { useUI, useAuth } from '../lib/hooks';
+import type { SxProps, Theme } from '@mui/material/styles';
+import { Box, List, ListItem } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 interface ContextMenuProps {
   deleteItem: (id: string) => Promise<void>;
 }
 
-const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
+interface StyleProps {
+  menu: SxProps<Theme>;
+  list: SxProps<Theme>;
+  listItem: SxProps<Theme>;
+  icon: SxProps<Theme>;
+}
+
+export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
   const {
     contextMenu,
     setContextMenuState,
     selectedLeftItem,
     setSelectedLeftItem,
-    closeContextMenu
+    closeContextMenu,
+    setErrorMessage,
   } = useUI();
 
   const { userProfile } = useAuth();
   const { isVisible, x, y, itemId } = contextMenu;
 
+  // Memoized styles
+  const styles = useMemo<StyleProps>(() => ({
+    menu: {
+      position: 'absolute',
+      top: y,
+      left: x,
+      backgroundColor: 'background.paper',
+      border: '1px solid',
+      borderColor: 'divider',
+      borderRadius: 1,
+      boxShadow: 3,
+      minWidth: 150,
+      zIndex: 1000,
+      opacity: isVisible ? 1 : 0,
+      transform: isVisible ? 'scale(1)' : 'scale(0.95)',
+      transition: 'opacity 0.2s, transform 0.2s',
+    },
+    list: {
+      p: 0.5,
+    },
+    listItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1,
+      py: 1,
+      px: 2,
+      cursor: 'pointer',
+      color: 'text.primary',
+      transition: 'background-color 0.2s',
+      '&:hover': {
+        backgroundColor: 'action.hover',
+      },
+    },
+    icon: {
+      color: 'error.main',
+      fontSize: '1.25rem',
+    },
+  }), [x, y, isVisible]);
+
+  // Click outside handler
   useEffect(() => {
-    const handleClickOutside = () => {
-      closeContextMenu();
+    if (!isVisible) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      // Ensure we're not clicking inside the menu
+      const menu = document.getElementById('context-menu');
+      if (menu && !menu.contains(event.target as Node)) {
+        closeContextMenu();
+      }
     };
 
-    if (isVisible) {
-      document.addEventListener('click', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [isVisible, closeContextMenu]);
 
-  const handleDelete = async () => {
-    if (itemId) {
-      try {
-        await deleteItem(itemId);
+  // Handle delete action
+  const handleDelete = useCallback(async () => {
+    if (!itemId) return;
 
-        // If the deleted item is the currently selected left item, clear it
-        if (selectedLeftItem && selectedLeftItem.id === itemId) {
-          setSelectedLeftItem(null);
-        }
-      } catch (error: any) {
-        console.error('Error deleting item from ContextMenu:', error);
-        // You might want to use your UI error handling here instead of alert
-        setContextMenuState({
-          ...contextMenu,
-          isVisible: false
-        });
-        throw error; // Let the parent component handle the error display
+    try {
+      await deleteItem(itemId);
+
+      // Clear selected item if it was deleted
+      if (selectedLeftItem?.id === itemId) {
+        setSelectedLeftItem(null);
       }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to delete item');
+      setContextMenuState(prev => ({
+        ...prev,
+        isVisible: false
+      }));
+    } finally {
       closeContextMenu();
     }
-  };
+  }, [
+    itemId,
+    deleteItem,
+    selectedLeftItem,
+    setSelectedLeftItem,
+    setErrorMessage,
+    setContextMenuState,
+    closeContextMenu,
+  ]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      closeContextMenu();
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      handleDelete();
+    }
+  }, [closeContextMenu, handleDelete]);
 
   if (!isVisible) return null;
 
   return (
-      <div
-          className={`context-menu ${isVisible ? 'context-menu--visible' : ''}`}
-          style={{ top: `${y}px`, left: `${x}px`, position: 'absolute' }}
+      <Box
+          id="context-menu"
+          role="menu"
+          aria-label="Context Menu"
+          onKeyDown={handleKeyDown}
+          tabIndex={0}
+          sx={styles.menu}
       >
-        <ul className="context-menu__list">
+        <List sx={styles.list}>
           {userProfile?.user_tier === 'admin' && (
-              <li className="context-menu__item" onClick={handleDelete}>
+              <ListItem
+                  role="menuitem"
+                  onClick={handleDelete}
+                  sx={styles.listItem}
+              >
+                <DeleteIcon sx={styles.icon} />
                 Delete
-              </li>
+              </ListItem>
           )}
-          {/* Add more context menu items as needed */}
-        </ul>
-      </div>
+        </List>
+      </Box>
   );
 };
 
-export default ContextMenu;
+ContextMenu.displayName = 'ContextMenu';
+
+export default React.memo(ContextMenu);

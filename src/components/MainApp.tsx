@@ -2,7 +2,18 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { IconButton, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 
-import { useAuth, useData, useUI, useNetworkStatus, useProcessedData } from '../lib/hooks';
+import {
+  useAuth,
+  useData,
+  useUI,
+  useNetworkStatus,
+  useProcessedData,
+  services,
+  SyncService // Add this import
+} from '../lib';
+import type { FileNode, SampleGroupMetadata } from '../lib/types';
+import type { DropboxConfigItem } from '../config/dropboxConfig';
+import { initializeSync } from '../lib/index.ts';  // Update this import path
 
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
@@ -11,29 +22,21 @@ import ErrorMessage from './ErrorMessage';
 import GlobeComponent from './GlobeComponent';
 import ContextMenu from './ContextMenu';
 import AccountActions from './Account/AccountActions';
-import SampleGroupMetadata from './SampleGroupMetadata';
+import SampleGroupMetadataComponent from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
-import type { DropboxConfigItem } from '../config/dropboxConfig';
 
-/**
- * MainApp is the main functional component of the application. It serves as the primary
- * interface between the user and various application features, managing state, handling
- * events, and displaying the appropriate UI components.
- *
- * Key responsibilities include:
- * - Managing user interface state and updates.
- * - Handling authorization and data fetching errors.
- * - Displaying conditionally rendered components and error messages.
- * - Executing specific actions based on user interactions.
- * - Controlling the visibility and state of modals, filters, and context menus.
- *
- * Utilizes hooks such as `useAuth`, `useData`, `useUI`, `useNetworkStatus`, and
- * `useProcessedData` to interface with authentication, data management, UI controls,
- * network status detection, and data processing functionalities. Integrates components
- * like `LeftSidebar`, `OfflineWarning`, `ErrorMessage`, `DropBoxes`, and `ContextMenu`
- * to construct the user interface.
- */
+interface DataProcessedParams {
+  insertData: {
+    sampleId: string;
+    configId: string;
+    timestamp: number;
+    status: string;
+  };
+  configItem: DropboxConfigItem;
+  processedData: any;
+}
+
 const MainApp: React.FC = () => {
   const { userProfile, error: authError } = useAuth();
   const { sampleGroups, deleteNode, error: dataError } = useData();
@@ -44,10 +47,20 @@ const MainApp: React.FC = () => {
     setErrorMessage,
     setFilters,
     setContextMenuState,
-    contextMenu,
+    contextMenu
   } = useUI();
   const { isOnline } = useNetworkStatus();
   const { fetchProcessedData } = useProcessedData();
+
+// In the useEffect:
+  useEffect(() => {
+    const syncService = initializeSync(services.api, services.storage);
+    const cleanup = syncService.initialize();
+
+    return () => {
+      cleanup();
+    };
+  }, []);
 
   // Local state
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -55,8 +68,8 @@ const MainApp: React.FC = () => {
   const openButtonRef = useRef<HTMLButtonElement>(null);
 
   // Get current sample group based on selection
-  const sampleGroup = useMemo(() => {
-    if (selectedLeftItem?.type !== 'sampleGroup') return null;
+  const sampleGroup = useMemo<SampleGroupMetadata | null>(() => {
+    if (!selectedLeftItem || selectedLeftItem.type !== 'sampleGroup') return null;
     return sampleGroups[selectedLeftItem.id];
   }, [selectedLeftItem, sampleGroups]);
 
@@ -74,40 +87,35 @@ const MainApp: React.FC = () => {
 
   // Reset offline warning visibility when online status changes
   useEffect(() => {
-    if (isOnline) {
-      setShowOfflineWarning(false);
-    } else {
-      setShowOfflineWarning(true);
-    }
+    setShowOfflineWarning(!isOnline);
   }, [isOnline]);
 
-  const handleDataProcessed = useCallback((
-      insertData: any,
-      configItem: DropboxConfigItem,
-      processedData: any
-  ) => {
-    console.log('Data processed:', {
-      insertData,
-      configId: configItem.id,
-      processedData
-    });
+  const handleDataProcessed = useCallback(
+      ({ insertData, configItem, processedData }: DataProcessedParams) => {
+        console.log('Data processed:', {
+          insertData,
+          configId: configItem.id,
+          processedData
+        });
 
-    // Refetch processed data to ensure consistency
-    if (sampleGroup) {
-      fetchProcessedData(sampleGroup);
-    }
-  }, [sampleGroup, fetchProcessedData]);
+        if (sampleGroup) {
+          fetchProcessedData(sampleGroup);
+        }
+      },
+      [sampleGroup, fetchProcessedData]
+  );
 
   const handleDeleteSample = useCallback(async () => {
     if (!contextMenu.itemId) {
       setErrorMessage('Could not determine which item to delete.');
       return;
     }
+
     try {
       await deleteNode(contextMenu.itemId);
       setContextMenuState({ ...contextMenu, isVisible: false });
-    } catch (error: any) {
-      setErrorMessage(error.message || 'An error occurred while deleting the item.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'An error occurred while deleting the item.');
     }
   }, [contextMenu, deleteNode, setContextMenuState, setErrorMessage]);
 
@@ -140,6 +148,18 @@ const MainApp: React.FC = () => {
       document.body.style.overflow = 'auto';
     };
   }, [isFilterMenuOpen]);
+
+  const renderContent = useCallback(() => {
+    if (selectedLeftItem?.type === 'sampleGroup') {
+      return (
+          <DropBoxes
+              onDataProcessed={handleDataProcessed}
+              onError={setErrorMessage}
+          />
+      );
+    }
+    return <GlobeComponent />;
+  }, [selectedLeftItem?.type, handleDataProcessed, setErrorMessage]);
 
   return (
       <div id="app">
@@ -174,7 +194,7 @@ const MainApp: React.FC = () => {
                 onClose={() => setShowOfflineWarning(false)}
             />
 
-            {sampleGroup && <SampleGroupMetadata />}
+            {sampleGroup && <SampleGroupMetadataComponent />}
 
             {displayedError && (
                 <ErrorMessage
@@ -185,14 +205,7 @@ const MainApp: React.FC = () => {
             )}
 
             <div className="content-body">
-              {selectedLeftItem?.type === 'sampleGroup' ? (
-                  <DropBoxes
-                      onDataProcessed={handleDataProcessed}
-                      onError={setErrorMessage}
-                  />
-              ) : (
-                  <GlobeComponent />
-              )}
+              {renderContent()}
             </div>
           </div>
 
@@ -201,9 +214,7 @@ const MainApp: React.FC = () => {
 
         {showAccountActions && <AccountActions />}
 
-        <ContextMenu
-            deleteItem={handleDeleteSample}
-        />
+        <ContextMenu deleteItem={handleDeleteSample} />
       </div>
   );
 };

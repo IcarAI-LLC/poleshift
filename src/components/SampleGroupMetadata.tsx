@@ -1,6 +1,4 @@
-// src/components/SampleGroupMetadata.tsx
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { format, parse } from 'date-fns';
@@ -12,70 +10,135 @@ import {
   AccordionSummary,
   AccordionDetails,
   TextField,
+  Card,
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import type { SampleGroupMetadata } from '../lib/types';
-import LocationFields from './LocationFields';
+import type { SxProps, Theme } from '@mui/material/styles';
+
 import { useData, useUI } from '../lib/hooks';
+import type { SampleGroupMetadata as TSampleGroupMetadata } from '../lib/types';
+import LocationFields from './LocationFields';
 
-interface SampleGroupMetadataProps {}
+// Styles interface for better type safety
+interface StyleProps {
+  metadataItemStyles: SxProps<Theme>;
+  labelStyles: SxProps<Theme>;
+  valueStyles: SxProps<Theme>;
+  darkFieldStyles: SxProps<Theme>;
+  accordionStyles: SxProps<Theme>;
+  containerStyles: SxProps<Theme>;
+  summaryStyles: SxProps<Theme>;
+}
 
-const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = () => {
+export const SampleGroupMetadata: React.FC = () => {
+  const theme = useTheme();
   const { locations, updateSampleGroup, sampleGroups } = useData();
   const { selectedLeftItem } = useUI();
-  let sampleGroup: SampleGroupMetadata;
 
-  if (!selectedLeftItem) {
-    sampleGroup = sampleGroups[""] || {};
-  } else {
-    sampleGroup = sampleGroups[selectedLeftItem?.id] || {};
-  }
-
-  const theme = useTheme();
-
-  // Initialize state variables
-  const [collectionTimeUTC, setCollectionTimeUTC] = useState<string>(
-      sampleGroup.collection_datetime_utc
-          ? new Date(sampleGroup.collection_datetime_utc)
-              .toISOString()
-              .split('T')[1]
-              .substring(0, 8)
-          : ''
-  );
-  const [notes, setNotes] = useState<string>(sampleGroup.notes || '');
+  // Local state
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [localState, setLocalState] = useState({
+    collectionTimeUTC: '',
+    notes: '',
+  });
 
-  const location = sampleGroup
-      ? locations.find((loc) => loc.id === sampleGroup.loc_id)
+  // Get current sample group
+  const sampleGroup = selectedLeftItem
+      ? sampleGroups[selectedLeftItem.id]
+      : null as unknown as TSampleGroupMetadata;
+
+  const location = sampleGroup?.loc_id
+      ? locations.find(loc => loc.id === sampleGroup.loc_id)
       : null;
 
-  // Effect to reset state when sampleGroup changes
+  // Memoized styles
+  const styles: StyleProps = {
+    containerStyles: {
+      backgroundColor: 'background.paper',
+      borderRadius: 2,
+      boxShadow: 'var(--shadow-sm)',
+      m: 2,
+    },
+    accordionStyles: {
+      '&:before': {
+        display: 'none',
+      },
+      boxShadow: 'none',
+    },
+    summaryStyles: {
+      borderBottom: `1px solid ${theme.palette.divider}`,
+      '&.Mui-expanded': {
+        minHeight: '48px',
+      },
+    },
+    metadataItemStyles: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      p: 1.5,
+      borderBottom: `1px solid ${theme.palette.divider}`,
+      '&:last-child': {
+        borderBottom: 'none',
+      },
+    },
+    labelStyles: {
+      width: '180px',
+      flexShrink: 0,
+      color: 'text.secondary',
+      fontSize: 'var(--font-size-medium)',
+    },
+    valueStyles: {
+      flex: 1,
+      color: 'text.primary',
+      fontSize: 'var(--font-size-medium)',
+    },
+    darkFieldStyles: {
+      '& .MuiOutlinedInput-root': {
+        backgroundColor: 'rgba(18, 18, 18, 0.7)',
+        '& fieldset': {
+          borderColor: 'divider',
+        },
+        '&:hover fieldset': {
+          borderColor: 'primary.main',
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: 'primary.main',
+        },
+      },
+      '& .MuiInputLabel-root': {
+        color: 'text.primary',
+      },
+      '& .MuiInputBase-input': {
+        color: 'text.primary',
+        fontSize: 'var(--font-size-medium)',
+      },
+      '& .MuiSvgIcon-root': {
+        color: 'text.primary',
+      },
+    },
+  };
+
+  // Update local state when sample group changes
   useEffect(() => {
-    setCollectionTimeUTC(
-        sampleGroup.collection_datetime_utc
+    if (sampleGroup) {
+      setLocalState({
+        collectionTimeUTC: sampleGroup.collection_datetime_utc
             ? new Date(sampleGroup.collection_datetime_utc)
                 .toISOString()
                 .split('T')[1]
                 .substring(0, 8)
-            : ''
-    );
-    setNotes(sampleGroup.notes || '');
-    // Add other state setters here if necessary (e.g., latitude, longitude)
-  }, [
-    sampleGroup.collection_datetime_utc,
-    sampleGroup.notes,
-    // Include other dependencies if you add more state variables
-  ]);
-
-  const handleCollectionTimeUpdate = async (timeString: string) => {
-    if (!sampleGroup.id) {
-      console.error('Sample group ID is undefined');
-      return;
+            : '',
+        notes: sampleGroup.notes || '',
+      });
     }
+  }, [sampleGroup]);
+
+  // Handlers
+  const handleCollectionTimeUpdate = useCallback(async (timeString: string) => {
+    if (!sampleGroup?.id) return;
 
     try {
-      let collection_datetime_utc: string | undefined = undefined;
+      let collection_datetime_utc: string | undefined;
 
       if (timeString) {
         const utcDateTimeString = `${sampleGroup.collection_date}T${timeString}Z`;
@@ -83,161 +146,95 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = () => {
         collection_datetime_utc = utcDateTime.toISOString();
       }
 
-      // Update local state immediately
-      setCollectionTimeUTC(timeString);
+      setLocalState(prev => ({
+        ...prev,
+        collectionTimeUTC: timeString
+      }));
 
-      // Update sample group through useData
-      await updateSampleGroup(sampleGroup.id, {
-        collection_datetime_utc,
-      });
+      await updateSampleGroup(sampleGroup.id, { collection_datetime_utc });
     } catch (error) {
       console.error('Error updating collection time:', error);
       // Reset to previous value on error
-      setCollectionTimeUTC(
-          sampleGroup.collection_datetime_utc
-              ? new Date(sampleGroup.collection_datetime_utc)
-                  .toISOString()
-                  .split('T')[1]
-                  .substring(0, 8)
-              : ''
-      );
+      setLocalState(prev => ({
+        ...prev,
+        collectionTimeUTC: sampleGroup.collection_datetime_utc
+            ? new Date(sampleGroup.collection_datetime_utc)
+                .toISOString()
+                .split('T')[1]
+                .substring(0, 8)
+            : ''
+      }));
     }
-  };
+  }, [sampleGroup, updateSampleGroup]);
 
-  const handleNotesUpdate = async (newNotes: string) => {
-    if (!sampleGroup.id) {
-      console.error('Sample group ID is undefined');
-      return;
-    }
+  const handleNotesUpdate = useCallback(async (newNotes: string) => {
+    if (!sampleGroup?.id) return;
 
     try {
-      // Update local state immediately
-      setNotes(newNotes);
+      setLocalState(prev => ({
+        ...prev,
+        notes: newNotes
+      }));
 
-      // Update sample group through useData
-      await updateSampleGroup(sampleGroup.id, {
-        notes: newNotes,
-      });
+      await updateSampleGroup(sampleGroup.id, { notes: newNotes });
     } catch (error) {
       console.error('Error updating notes:', error);
-      // Reset to previous value on error
-      setNotes(sampleGroup.notes || '');
+      setLocalState(prev => ({
+        ...prev,
+        notes: sampleGroup.notes || ''
+      }));
     }
-  };
+  }, [sampleGroup, updateSampleGroup]);
 
-  const metadataItemStyles = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    padding: theme.spacing(1.5),
-    borderBottom: `1px solid ${theme.palette.divider}`,
-    '&:last-child': {
-      borderBottom: 'none',
-    },
-  };
-
-  const labelStyles = {
-    width: '180px',
-    flexShrink: 0,
-    color: theme.palette.text.secondary,
-    fontSize: 'var(--font-size-medium)',
-  };
-
-  const valueStyles = {
-    flex: 1,
-    color: theme.palette.text.primary,
-    fontSize: 'var(--font-size-medium)',
-  };
-
-  const darkFieldStyles = {
-    '& .MuiOutlinedInput-root': {
-      backgroundColor: 'rgba(18, 18, 18, 0.7)',
-      '& fieldset': {
-        borderColor: theme.palette.divider,
-      },
-      '&:hover fieldset': {
-        borderColor: theme.palette.primary.main,
-      },
-      '&.Mui-focused fieldset': {
-        borderColor: theme.palette.primary.main,
-      },
-    },
-    '& .MuiInputLabel-root': {
-      color: theme.palette.text.primary,
-    },
-    '& .MuiInputBase-input': {
-      color: theme.palette.text.primary,
-      fontSize: 'var(--font-size-medium)',
-    },
-    '& .MuiSvgIcon-root': {
-      color: theme.palette.text.primary,
-    },
-  };
-
-  const summaryContent = (
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-          {sampleGroup.human_readable_sample_id || 'Unnamed Sample'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {sampleGroup.collection_date || 'Unknown Date'} •{' '}
-          {location ? location.label : 'Unknown Location'}
-        </Typography>
-      </Box>
-  );
+  if (!sampleGroup) return null;
 
   return (
-      <Box
-          sx={{
-            backgroundColor: theme.palette.background.paper,
-            borderRadius: '8px',
-            boxShadow: 'var(--shadow-sm)',
-            margin: theme.spacing(2),
-          }}
-      >
+      <Card sx={styles.containerStyles}>
         <Accordion
             expanded={isExpanded}
             onChange={() => setIsExpanded(!isExpanded)}
-            sx={{
-              '&:before': {
-                display: 'none',
-              },
-              boxShadow: 'none',
-            }}
+            sx={styles.accordionStyles}
         >
           <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
-              sx={{
-                borderBottom: `1px solid ${theme.palette.divider}`,
-                '&.Mui-expanded': {
-                  minHeight: '48px',
-                },
-              }}
+              sx={styles.summaryStyles}
           >
-            {summaryContent}
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                {sampleGroup.human_readable_sample_id || 'Unnamed Sample'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {sampleGroup.collection_date || 'Unknown Date'} •{' '}
+                {location?.label || 'Unknown Location'}
+              </Typography>
+            </Box>
           </AccordionSummary>
-          <AccordionDetails sx={{ padding: 0 }}>
-            <Box sx={metadataItemStyles}>
-              <Typography sx={labelStyles}>Sample ID:</Typography>
-              <Typography sx={valueStyles}>
+
+          <AccordionDetails sx={{ p: 0 }}>
+            {/* Basic Info Fields */}
+            <Box sx={styles.metadataItemStyles}>
+              <Typography sx={styles.labelStyles}>Sample ID:</Typography>
+              <Typography sx={styles.valueStyles}>
                 {sampleGroup.human_readable_sample_id || 'N/A'}
               </Typography>
             </Box>
 
-            <Box sx={metadataItemStyles}>
-              <Typography sx={labelStyles}>Date:</Typography>
-              <Typography sx={valueStyles}>
+            <Box sx={styles.metadataItemStyles}>
+              <Typography sx={styles.labelStyles}>Date:</Typography>
+              <Typography sx={styles.valueStyles}>
                 {sampleGroup.collection_date || 'N/A'}
               </Typography>
             </Box>
 
-            <Box sx={metadataItemStyles}>
-              <Typography sx={labelStyles}>Time (UTC):</Typography>
-              <Box sx={valueStyles}>
+            {/* Time Picker */}
+            <Box sx={styles.metadataItemStyles}>
+              <Typography sx={styles.labelStyles}>Time (UTC):</Typography>
+              <Box sx={styles.valueStyles}>
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                   <TimePicker
                       value={
-                        collectionTimeUTC
-                            ? parse(collectionTimeUTC, 'HH:mm:ss', new Date())
+                        localState.collectionTimeUTC
+                            ? parse(localState.collectionTimeUTC, 'HH:mm:ss', new Date())
                             : null
                       }
                       onChange={(newValue) => {
@@ -255,7 +252,7 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = () => {
                           placeholder: 'HH:MM:SS',
                           fullWidth: true,
                           size: 'small',
-                          sx: darkFieldStyles,
+                          sx: styles.darkFieldStyles,
                         },
                       }}
                   />
@@ -263,42 +260,48 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = () => {
               </Box>
             </Box>
 
-            <Box sx={metadataItemStyles}>
-              <Typography sx={labelStyles}>Location:</Typography>
-              <Typography sx={valueStyles}>
-                {location ? location.label : 'Unknown Location'}
+            {/* Location Info */}
+            <Box sx={styles.metadataItemStyles}>
+              <Typography sx={styles.labelStyles}>Location:</Typography>
+              <Typography sx={styles.valueStyles}>
+                {location?.label || 'Unknown Location'}
               </Typography>
             </Box>
 
-            <Box sx={metadataItemStyles}>
-              <Typography sx={labelStyles}>Notes:</Typography>
+            {/* Notes Field */}
+            <Box sx={styles.metadataItemStyles}>
+              <Typography sx={styles.labelStyles}>Notes:</Typography>
               <TextField
                   multiline
                   rows={3}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  onBlur={() => handleNotesUpdate(notes)}
+                  value={localState.notes}
+                  onChange={(e) => setLocalState(prev => ({
+                    ...prev,
+                    notes: e.target.value
+                  }))}
+                  onBlur={() => handleNotesUpdate(localState.notes)}
                   placeholder="Add notes about this sample..."
                   fullWidth
                   variant="outlined"
                   size="small"
                   sx={{
-                    ...darkFieldStyles,
+                    ...styles.darkFieldStyles,
                     flex: 1,
                   }}
               />
             </Box>
 
+            {/* Location Fields Component */}
             <LocationFields
                 sampleGroup={sampleGroup}
                 theme={theme}
-                metadataItemStyles={metadataItemStyles}
-                labelStyles={labelStyles}
-                darkFieldStyles={darkFieldStyles}
+                metadataItemStyles={styles.metadataItemStyles}
+                labelStyles={styles.labelStyles}
+                darkFieldStyles={styles.darkFieldStyles}
             />
           </AccordionDetails>
         </Accordion>
-      </Box>
+      </Card>
   );
 };
 

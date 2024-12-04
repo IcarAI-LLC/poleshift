@@ -1,214 +1,71 @@
-import { useContext, useCallback, useEffect } from 'react';
-import { AppContext } from '../contexts/AppContext';
-import { useNetworkStatus } from './useNetworkStatus';
-import type { SampleGroupMetadata, FileNode } from '../types';
-import { arrayToRecord } from '../utils/arrayToRecord';
+import { useCallback, useMemo } from 'react';
+import { useDataStore } from '../stores';
+import type { FileNode, SampleLocation } from '../types';
 
-/**
- * A custom hook that provides data management functionalities for file nodes and sample groups.
- *
- * @return {object} An object containing the following:
- * - fileTree: The current state of the file tree.
- * - sampleGroups: The current state of sample groups.
- * - locations: The current state of locations.
- * - isSyncing: A boolean indicating whether data synchronization is in progress.
- * - error: An error message if any data operation fails.
- * - createSampleGroup: A function to create a new sample group.
- * - updateFileTree: A function to update the file tree.
- * - deleteNode: A function to delete a node from the file tree.
- * - syncData: A function to synchronize data with the remote server.
- * - updateSampleGroup: A function to update an existing sample group.
- * - getAllFileNodes: A method to retrieve all file nodes.
- * - getAllSampleGroups: A method to retrieve all sample groups.
- */
 export function useData() {
-    const { state, dispatch, services } = useContext(AppContext);
-    const { data: dataService, sync: syncService } = services;
-    const { isOnline } = useNetworkStatus();
-
-    // Initialization Effect
-    useEffect(() => {
-        let mounted = true;
-
-        async function initializeData() {
-            try {
-                // Load local data first (offline-first approach)
-                const [localFileTree, localSampleGroups] = await Promise.all([
-                    dataService.getAllFileNodes(),
-                    dataService.getAllSampleGroups()
-                ]);
-
-                if (!mounted) return;
-
-                // Update state with local data
-                if (localFileTree) {
-                    dispatch({ type: 'SET_FILE_TREE', payload: localFileTree });
-                }
-
-                if (localSampleGroups) {
-                    const sampleGroupsRecord = arrayToRecord(localSampleGroups);
-                    dispatch({ type: 'SET_SAMPLE_GROUPS', payload: sampleGroupsRecord });
-                }
-
-                // If online, sync with remote server
-                if (isOnline && mounted && state.auth.organization?.id) {
-                    dispatch({ type: 'SET_SYNCING', payload: true });
-
-                    try {
-                        await Promise.all([
-                            syncService.syncFromRemote('file_nodes', state.auth.organization.id),
-                            syncService.syncFromRemote('sample_group_metadata', state.auth.organization.id)
-                        ]);
-
-                        if (!mounted) return;
-
-                        // Reload data after sync
-                        const [syncedFileTree, syncedSampleGroups] = await Promise.all([
-                            dataService.getAllFileNodes(),
-                            dataService.getAllSampleGroups()
-                        ]);
-
-                        if (!mounted) return;
-
-                        if (syncedFileTree) {
-                            dispatch({ type: 'SET_FILE_TREE', payload: syncedFileTree });
-                        }
-
-                        if (syncedSampleGroups) {
-                            const syncedSampleGroupsRecord = arrayToRecord(syncedSampleGroups);
-                            dispatch({ type: 'SET_SAMPLE_GROUPS', payload: syncedSampleGroupsRecord });
-                        }
-
-                        dispatch({ type: 'SET_LAST_SYNCED', payload: Date.now() });
-                    } finally {
-                        if (mounted) {
-                            dispatch({ type: 'SET_SYNCING', payload: false });
-                        }
-                    }
-                }
-            } catch (error) {
-                if (mounted) {
-                    dispatch({ type: 'SET_DATA_ERROR', payload: 'Failed to load data' });
-                }
-            }
-        }
-
-        initializeData();
-
-        return () => {
-            mounted = false;
-        };
-    }, [dispatch, dataService, isOnline, syncService, state.auth.organization?.id]);
-
-    const createSampleGroup = useCallback(async (data: Partial<SampleGroupMetadata>) => {
-        try {
-            await dataService.createSampleGroup(data);
-            dispatch({ type: 'ADD_SAMPLE_GROUP', payload: data as SampleGroupMetadata });
-        } catch (error) {
-            dispatch({ type: 'SET_DATA_ERROR', payload: 'Failed to create sample group' });
-            throw error;
-        }
-    }, [dataService, dispatch]);
-
-    const updateFileTree = useCallback(async (updatedTree: FileNode[]) => {
-        try {
-            await dataService.updateFileTree(updatedTree);
-            dispatch({ type: 'SET_FILE_TREE', payload: updatedTree });
-        } catch (error) {
-            dispatch({ type: 'SET_DATA_ERROR', payload: 'Failed to update file tree' });
-            throw error;
-        }
-    }, [dataService, dispatch]);
-
-    const deleteNode = useCallback(async (nodeId: string) => {
-        try {
-            await dataService.deleteNode(nodeId);
-
-            const removeNodeFromTree = (nodes: FileNode[]): FileNode[] => {
-                return nodes.filter(node => {
-                    if (node.id === nodeId) return false;
-                    if (node.children) {
-                        node.children = removeNodeFromTree(node.children);
-                    }
-                    return true;
-                });
-            };
-
-            const updatedTree = removeNodeFromTree([...state.data.fileTree]);
-            dispatch({ type: 'SET_FILE_TREE', payload: updatedTree });
-        } catch (error) {
-            dispatch({ type: 'SET_DATA_ERROR', payload: 'Failed to delete node' });
-            throw error;
-        }
-    }, [dataService, state.data.fileTree, dispatch]);
-
-    const syncData = useCallback(async () => {
-        if (!state.auth.organization?.id || !isOnline) return;
-
-        try {
-            dispatch({ type: 'SET_SYNCING', payload: true });
-
-            await syncService.syncToRemote();
-            await Promise.all([
-                syncService.syncFromRemote('file_nodes'),
-                syncService.syncFromRemote('sample_group_metadata')
-            ]);
-
-            const [syncedFileTree, syncedSampleGroups] = await Promise.all([
-                dataService.getAllFileNodes(),
-                dataService.getAllSampleGroups()
-            ]);
-
-            if (syncedFileTree) {
-                dispatch({ type: 'SET_FILE_TREE', payload: syncedFileTree });
-            }
-
-            if (syncedSampleGroups) {
-                const syncedSampleGroupsRecord = arrayToRecord(syncedSampleGroups);
-                dispatch({ type: 'SET_SAMPLE_GROUPS', payload: syncedSampleGroupsRecord });
-            }
-
-            dispatch({ type: 'SET_LAST_SYNCED', payload: Date.now() });
-        } catch (error) {
-            dispatch({ type: 'SET_DATA_ERROR', payload: 'Sync failed' });
-        } finally {
-            dispatch({ type: 'SET_SYNCING', payload: false });
-        }
-    }, [isOnline, syncService, dataService, dispatch, state.auth.organization?.id]);
-
-    const updateSampleGroup = useCallback(async (
-        id: string,
-        updates: Partial<SampleGroupMetadata>
-    ) => {
-        try {
-            await dataService.updateSampleGroup(id, updates);
-            const allSampleGroups = await dataService.getAllSampleGroups();
-            const updatedGroup = allSampleGroups.find(group => group.id === id);
-
-            if (updatedGroup) {
-                dispatch({ type: 'UPDATE_SAMPLE_GROUP', payload: updatedGroup });
-            } else {
-                dispatch({ type: 'SET_DATA_ERROR', payload: 'Updated sample group not found' });
-            }
-        } catch (error) {
-            console.error('Failed to update sample group:', error);
-            dispatch({ type: 'SET_DATA_ERROR', payload: 'Failed to update sample group' });
-            throw error;
-        }
-    }, [dataService, dispatch]);
-
-    return {
-        fileTree: state.data.fileTree,
-        sampleGroups: state.data.sampleGroups,
-        locations: state.data.locations,
-        isSyncing: state.data.isSyncing,
-        error: state.data.error,
+    const {
+        fileTree,
+        sampleGroups,
+        locations,
+        isSyncing,
+        error,
         createSampleGroup,
+        updateSampleGroup,
+        deleteSampleGroup,
+        createFileNode,
         updateFileTree,
         deleteNode,
-        syncData,
+        getAllFileNodes,
+        getAllSampleGroups,
+        getAllLocations,
+        syncData
+    } = useDataStore();
+
+    // Additional utility function to remove a node from tree
+    const removeNodeFromTree = useCallback((nodes: FileNode[], nodeId: string): FileNode[] => {
+        return nodes.filter(node => {
+            if (node.id === nodeId) return false;
+            if (node.children) {
+                node.children = removeNodeFromTree(node.children, nodeId);
+            }
+            return true;
+        });
+    }, []);
+
+    // Location-specific utility functions
+    const getLocationById = useCallback((locationId: string | null): SampleLocation | null => {
+        if (!locationId) return null;
+        return locations.find(location => location.id === locationId) || null;
+    }, [locations]);
+
+    const getLocationsByIds = useCallback((locationIds: string[]): SampleLocation[] => {
+        return locations.filter(location => locationIds.includes(location.id));
+    }, [locations]);
+
+    // Memoize enabled locations
+    const enabledLocations = useMemo(() => {
+        return locations.filter(location => location.is_enabled);
+    }, [locations]);
+
+    return {
+        fileTree,
+        sampleGroups,
+        locations,
+        enabledLocations,
+        isSyncing,
+        error,
+        createSampleGroup,
         updateSampleGroup,
-        getAllFileNodes: dataService.getAllFileNodes.bind(dataService),
-        getAllSampleGroups: dataService.getAllSampleGroups.bind(dataService),
+        deleteSampleGroup,
+        createFileNode,
+        updateFileTree,
+        deleteNode,
+        getAllFileNodes,
+        getAllSampleGroups,
+        getAllLocations,
+        syncData,
+        removeNodeFromTree,
+        getLocationById,
+        getLocationsByIds
     };
 }
