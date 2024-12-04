@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { db } from '../powersync/db';
 import type { FileNode, SampleLocation, SampleGroupMetadata, SampleMetadata } from '../types';
 import { arrayToRecord } from '../utils/arrayToRecord';
+import { supabaseConnector } from '../powersync/SupabaseConnector';
+import { useAuthStore } from '../stores/authStore';
 
 interface DataState {
     // Data
@@ -157,15 +159,82 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
     },
 
+    // In dataStore.ts, enhance the deleteNode function:
     deleteNode: async (id: string) => {
         try {
-            // First, recursively delete all child nodes
+            // Get the node to check its type
+            const node = await db.get(
+                `SELECT * FROM file_nodes WHERE id = ?`,
+                [id]
+            );
+
+            if (!node) {
+                throw new Error('Node not found');
+            }
+
+            // If it's a sample group, we need to do additional cleanup
+            if (node.type === 'sampleGroup') {
+                // Get storage client and organization info
+                const storage = supabaseConnector.client.storage;
+                const organization = useAuthStore.getState().organization;
+
+                if (!organization) {
+                    throw new Error('No organization found');
+                }
+
+                // 1. Delete from sample_group_metadata
+                await db.execute(
+                    `DELETE FROM sample_group_metadata WHERE id = ?`,
+                    [node.sample_group_id]
+                );
+
+                // 2. Delete from processed_data
+                await db.execute(
+                    `DELETE FROM processed_data WHERE sample_id = ?`,
+                    [node.sample_group_id]
+                );
+
+                // 3. Delete files from storage buckets
+                try {
+                    // Delete from raw-data bucket
+                    const { data: rawFiles, error: rawError } = await storage
+                        .from('raw-data')
+                        .list(`${organization.org_short_id}/${node.sample_group_id}`);
+
+                    if (rawError) throw rawError;
+
+                    if (rawFiles?.length) {
+                        await storage
+                            .from('raw-data')
+                            .remove(rawFiles.map(file =>
+                                `${organization.org_short_id}/${node.sample_group_id}/${file.name}`
+                            ));
+                    }
+
+                    // Delete from processed-data bucket
+                    const { data: processedFiles, error: processedError } = await storage
+                        .from('processed-data')
+                        .list(`${organization.org_short_id}/${node.sample_group_id}`);
+
+                    if (processedError) throw processedError;
+
+                    if (processedFiles?.length) {
+                        await storage
+                            .from('processed-data')
+                            .remove(processedFiles.map(file =>
+                                `${organization.org_short_id}/${node.sample_group_id}/${file.name}`
+                            ));
+                    }
+                } catch (storageError) {
+                    console.error('Storage deletion error:', storageError);
+                    // Continue with local deletion even if storage deletion fails
+                }
+            }
+
+            // Delete from file_nodes (this remains the same)
             const deleteChildren = async (nodeId: string) => {
                 const children = await db.getAll(
-                    `
-                        SELECT id FROM file_nodes
-                        WHERE parent_id = ?
-                    `,
+                    `SELECT id FROM file_nodes WHERE parent_id = ?`,
                     [nodeId]
                 );
 
@@ -177,9 +246,8 @@ export const useDataStore = create<DataState>((set, get) => ({
             };
 
             await deleteChildren(id);
-            await get().fetchFileNodes();
         } catch (error) {
-            set({ error: error instanceof Error ? error.message : 'Failed to delete node' });
+            console.error('Delete error:', error);
             throw error;
         }
     },

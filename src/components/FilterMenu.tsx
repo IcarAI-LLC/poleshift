@@ -1,12 +1,11 @@
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import {
     Box,
     Button,
     FormControl,
-    InputLabel,
-    MenuItem,
-    Select,
-    SelectChangeEvent,
+    Autocomplete,
+    TextField,
+    Chip,
     Typography,
     IconButton,
     useTheme,
@@ -24,6 +23,12 @@ interface FilterMenuProps {
     onApply: () => void;
     onReset: () => void;
     onClose: () => void;
+}
+
+interface FilterState {
+    startDate: string | null;
+    endDate: string | null;
+    selectedLocations: string[];
 }
 
 interface StyleProps {
@@ -45,13 +50,19 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
     const { filters, setFilters } = useUI();
     const { enabledLocations } = useData();
 
-    // Memoized styles
+    // Local state for filter values
+    const [localFilters, setLocalFilters] = useState<FilterState>({
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        selectedLocations: filters.selectedLocations,
+    });
+
     const styles = useMemo<StyleProps>(() => ({
         container: {
             backgroundColor: 'background.paper',
             p: 3,
             borderRadius: 2,
-            width: '300px',
+            width: '350px',
             color: 'text.primary',
             position: 'fixed',
             top: '20%',
@@ -93,6 +104,22 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
             '& .MuiSvgIcon-root': {
                 color: 'text.primary',
             },
+            '& .MuiAutocomplete-paper': {
+                backgroundColor: 'background.paper',
+                color: 'text.primary',
+            },
+            '& .MuiAutocomplete-listbox': {
+                backgroundColor: 'background.paper',
+                '& .MuiAutocomplete-option': {
+                    color: 'text.primary',
+                },
+                '& .MuiAutocomplete-option[aria-selected="true"]': {
+                    backgroundColor: 'primary.dark',
+                },
+                '& .MuiAutocomplete-option:hover': {
+                    backgroundColor: 'action.hover',
+                },
+            },
         },
         fieldContainer: {
             mb: 2,
@@ -110,38 +137,43 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
         type: 'startDate' | 'endDate',
         date: DateTime | null
     ) => {
-        setFilters(prev => ({
+        setLocalFilters(prev => ({
             ...prev,
             [type]: date?.toISODate() || null,
         }));
-    }, [setFilters]);
+    }, []);
 
-    // Handler for location changes
-    const handleLocationChange = useCallback((event: SelectChangeEvent<string[]>) => {
-        const value = event.target.value;
-        setFilters(prev => ({
+    // Location selection handler
+    const handleLocationChange = useCallback((_: any, newValue: SampleLocation[]) => {
+        setLocalFilters(prev => ({
             ...prev,
-            selectedLocations: Array.isArray(value) ? value : value.split(','),
+            selectedLocations: newValue.map(loc => loc.id)
         }));
-    }, [setFilters]);
+    }, []);
 
-    // Location label renderer
-    const renderLocationValue = useCallback((selected: string[]) => {
-        return selected
-            .map(locId => enabledLocations.find(loc => loc.id === locId)?.label || locId)
-            .join(', ');
-    }, [enabledLocations]);
+    // Handle apply filters
+    const handleApply = useCallback(() => {
+        setFilters(localFilters);
+        onApply();
+    }, [localFilters, setFilters, onApply]);
 
-    // Keyboard event handler
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                onClose();
-            }
+    // Handle reset filters
+    const handleReset = useCallback(() => {
+        const resetFilters = {
+            startDate: null,
+            endDate: null,
+            selectedLocations: [],
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
+        setLocalFilters(resetFilters);
+        setFilters(resetFilters);
+        onReset();
+    }, [setFilters, onReset]);
+
+    // Prepare selected locations for Autocomplete
+    const selectedLocations = useMemo(() =>
+            enabledLocations.filter(loc => localFilters.selectedLocations.includes(loc.id)),
+        [enabledLocations, localFilters.selectedLocations]
+    );
 
     // Initial focus
     useEffect(() => {
@@ -171,7 +203,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                 <Box sx={styles.fieldContainer}>
                     <DatePicker
                         label="Start Date"
-                        value={filters.startDate ? DateTime.fromISO(filters.startDate) : null}
+                        value={localFilters.startDate ? DateTime.fromISO(localFilters.startDate) : null}
                         onChange={(date) => handleDateChange('startDate', date)}
                         slotProps={{
                             textField: {
@@ -187,7 +219,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                 <Box sx={styles.fieldContainer}>
                     <DatePicker
                         label="End Date"
-                        value={filters.endDate ? DateTime.fromISO(filters.endDate) : null}
+                        value={localFilters.endDate ? DateTime.fromISO(localFilters.endDate) : null}
                         onChange={(date) => handleDateChange('endDate', date)}
                         slotProps={{
                             textField: {
@@ -204,28 +236,51 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                     variant="outlined"
                     sx={styles.fieldContainer}
                 >
-                    <InputLabel id="location-select-label">Locations</InputLabel>
-                    <Select
-                        labelId="location-select-label"
+                    <Autocomplete
                         multiple
-                        value={filters.selectedLocations}
+                        options={enabledLocations.sort((a, b) => a.label.localeCompare(b.label))}
+                        getOptionLabel={(option) => option.label}
+                        value={selectedLocations}
                         onChange={handleLocationChange}
-                        label="Locations"
-                        renderValue={renderLocationValue}
-                        sx={styles.inputField}
-                    >
-                        {enabledLocations.map((location: SampleLocation) => (
-                            <MenuItem key={location.id} value={location.id}>
-                                {location.label}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Locations"
+                                placeholder="Search locations..."
+                                sx={styles.inputField}
+                            />
+                        )}
+                        renderTags={(tagValue, getTagProps) =>
+                            tagValue.map((option, index) => (
+                                <Chip
+                                    key={option.id}
+                                    label={option.label}
+                                    {...getTagProps({ index })}
+                                    sx={{
+                                        backgroundColor: 'primary.main',
+                                        color: 'white',
+                                    }}
+                                />
+                            ))
+                        }
+                        renderOption={(props, option) => (
+                            <li {...props} key={option.id}>
+                                {option.label}
+                            </li>
+                        )}
+                        ListboxProps={{
+                            style: {
+                                maxHeight: '200px',
+                            },
+                        }}
+                    />
                 </FormControl>
 
                 <Box sx={styles.buttonContainer}>
                     <Button
                         variant="outlined"
-                        onClick={onReset}
+                        onClick={handleReset}
                         sx={{
                             color: 'text.primary',
                             borderColor: 'divider',
@@ -240,7 +295,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                     <Button
                         variant="contained"
                         color="primary"
-                        onClick={onApply}
+                        onClick={handleApply}
                     >
                         Apply
                     </Button>

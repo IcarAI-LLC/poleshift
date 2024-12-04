@@ -5,10 +5,16 @@ import { ThemeProvider } from '@mui/material/styles';
 import { theme } from './theme';
 import AppRoutes from './routes/AppRoutes';
 import './App.css';
-import {db} from "./lib/powersync/db.ts";
+import {setupPowerSync} from "./lib/powersync/db.ts";
 
 function App() {
-    console.log(db);
+    try {
+        setupPowerSync();
+        // Continue with app initialization
+    } catch (error) {
+        console.error('PowerSync setup failed:', error);
+        // Handle error appropriately
+    }
     return (
             <LocalizationProvider dateAdapter={AdapterLuxon}>
                 <ThemeProvider theme={theme}>

@@ -1,3 +1,4 @@
+//src/components/GlobeComponent.tsx
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
@@ -34,58 +35,55 @@ export const GlobeComponent: React.FC = () => {
     const { sampleGroups, locations } = useData();
     const { setSelectedRightItem, filters } = useUI();
 
-    // Debugging statements
-    console.log('Sample Groups:', sampleGroups);
-    console.log('Locations:', locations);
-
-    // Filter sample groups based on location and date filters
-    const filteredSampleGroups = useMemo(() => {
-        return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
-            // Check location filter
-            if (
-                filters.selectedLocations.length > 0 &&
-                !filters.selectedLocations.includes(group.loc_id || '')
-            ) {
-                return false;
+    // Transform locations into globe points with filter consideration
+    const pointsData = useMemo<GlobePoint[]>(() => {
+        const filteredLocations = locations.filter(location => {
+            // If there are selected locations, only show those
+            if (filters.selectedLocations.length > 0) {
+                return filters.selectedLocations.includes(location.id);
             }
-
-            // Check date filters if collection date exists
-            if (group.collection_date) {
-                const sampleDate = DateTime.fromISO(group.collection_date);
-
-                if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
-                    return false;
-                }
-
-                if (filters.endDate && sampleDate > DateTime.fromISO(filters.endDate)) {
-                    return false;
-                }
-            }
-
             return true;
         });
-    }, [sampleGroups, filters]);
 
-    // Debugging statement
-    console.log('Filtered Sample Groups:', filteredSampleGroups);
-
-    // Transform filtered groups into globe points
-    const pointsData = useMemo<GlobePoint[]>(() => {
-        return filteredSampleGroups
-            .map(group => {
-                const location = locations.find(loc => loc.id === group.loc_id);
+        // Convert locations to points
+        return filteredLocations
+            .map(location => {
                 if (location?.lat != null && location?.long != null) {
-                    return {
-                        lat: location.lat,
-                        lng: location.long,
-                        name: location.label,
-                        id: location.id,
-                    };
+                    const locationSamples = Object.values(sampleGroups)
+                        .filter(group => group.loc_id === location.id)
+                        .filter(group => {
+                            // Apply date filters if present
+                            if (!group.collection_date) return true;
+
+                            const sampleDate = DateTime.fromISO(group.collection_date);
+
+                            if (filters.startDate &&
+                                sampleDate < DateTime.fromISO(filters.startDate)) {
+                                return false;
+                            }
+
+                            if (filters.endDate &&
+                                sampleDate > DateTime.fromISO(filters.endDate)) {
+                                return false;
+                            }
+
+                            return true;
+                        });
+
+                    // Only include locations that have samples matching the filters
+                    if (locationSamples.length > 0) {
+                        return {
+                            lat: location.lat,
+                            lng: location.long,
+                            name: location.label,
+                            id: location.id
+                        };
+                    }
                 }
                 return null;
             })
             .filter((point): point is GlobePoint => point !== null);
-    }, [filteredSampleGroups, locations]);
+    }, [locations, sampleGroups, filters]);
 
     // Debugging statement
     console.log('Points Data:', pointsData);

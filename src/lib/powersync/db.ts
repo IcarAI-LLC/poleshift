@@ -17,12 +17,11 @@ class DatabaseSingleton {
                 schema: AppSchema,
                 database: {
                     dbFilename: 'powersync.db',
-                    wasmUrl: '/node_modules/@powersync/sqlite-wasm/sqlite3.wasm',
-                    workerUrl: '/node_modules/@powersync/web/worker'
                 },
                 flags: {
-                    useWebWorker: false
-                }
+                    useWebWorker: false,
+                },
+                sync: true
             });
             console.log('PowerSyncDatabase instance created.');
         } else {

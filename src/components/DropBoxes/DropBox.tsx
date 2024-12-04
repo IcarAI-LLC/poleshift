@@ -7,6 +7,8 @@ import {
     CheckCircle as CheckCircleIcon,
     Lock as LockIcon,
     Search as SearchOutlinedIcon,
+    HourglassEmpty as HourglassEmptyIcon,
+    Error as ErrorIcon,
 } from '@mui/icons-material';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleGroupMetadata } from '../../lib/types';
@@ -18,6 +20,8 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { useAuth } from '../../lib/hooks';
 import { useStorage } from '../../lib/hooks';
 import { readFile } from '@tauri-apps/plugin-fs';
+import { useNetworkStatus } from '../../lib/hooks/useNetworkStatus';
+import { getAllQueuedUploads } from '../../lib/utils/uploadQueue';
 
 interface DropBoxProps {
     configItem: DropboxConfigItem;
@@ -49,16 +53,19 @@ const DropBox = memo(({
     const { processData, getProgressState, getUploadDownloadProgressState } = useProcessedData();
     const dropRef = useRef<HTMLDivElement>(null);
     const { organization } = useAuth();
+    const { uploadFiles } = useStorage();
+    const { isOnline } = useNetworkStatus();
 
     const sampleId = sampleGroup.id;
     const configId = configItem.id;
 
     const progressState = getProgressState(sampleId, configId);
     const uploadDownloadProgressState = getUploadDownloadProgressState(sampleId, configId);
-    const { uploadFiles } = useStorage();
+
     const getFileName = (filePath: string): string => {
         return filePath.split('/').pop()?.split('\\').pop() || filePath;
     };
+
     useEffect(() => {
         setLocalHasData(hasData);
     }, [hasData]);
@@ -67,6 +74,18 @@ const DropBox = memo(({
         () => uploadDownloadProgressState.progress > 0 && uploadDownloadProgressState.progress < 100,
         [uploadDownloadProgressState.progress]
     );
+
+    // **Moved Hooks to Top Level**
+    const [isQueued, setIsQueued] = useState<boolean>(false);
+
+    useEffect(() => {
+        const checkIfQueued = async () => {
+            const queuedUploads = await getAllQueuedUploads();
+            const isThisQueued = queuedUploads.some(upload => upload.path.startsWith(`${organization?.org_short_id}/${sampleGroup.id}`));
+            setIsQueued(isThisQueued);
+        };
+        checkIfQueued();
+    }, [organization, sampleGroup]);
 
     const handleDataProcessedLocally = useCallback((result: any, configItem: DropboxConfigItem, processedData: any) => {
         setLocalHasData(true);
@@ -128,6 +147,11 @@ const DropBox = memo(({
                 }
             );
 
+            if (!isOnline) {
+                // Notify user that uploads are queued
+                onError('You are offline. Your files have been queued and will be uploaded when back online.');
+            }
+
             // Now call processData with the local file paths
             await processData(
                 configItem.processFunctionName,
@@ -144,7 +168,19 @@ const DropBox = memo(({
             console.error('File selection error:', error);
             onError(error.message || 'Failed to select files');
         }
-    }, [isLocked, configItem, isProcessing, openModal, onError, processData, sampleGroup, organization, handleDataProcessedLocally]);
+    }, [
+        isLocked,
+        configItem,
+        isProcessing,
+        openModal,
+        onError,
+        processData,
+        sampleGroup,
+        organization,
+        handleDataProcessedLocally,
+        uploadFiles,
+        isOnline,
+    ]);
 
     // Custom Drag-and-Drop Handlers
     const handleDragEnter = useCallback((e: DragEvent) => {
@@ -236,6 +272,8 @@ const DropBox = memo(({
     ]);
 
     const IconComponent = useMemo(() => {
+        // **Removed Hooks from useMemo**
+
         if (isLocked) {
             return <LockIcon sx={{ fontSize: 32, color: 'text.disabled' }} />;
         }
@@ -262,6 +300,10 @@ const DropBox = memo(({
             );
         }
 
+        if (isQueued) {
+            return <HourglassEmptyIcon sx={{ color: 'warning.main', fontSize: 32 }} />;
+        }
+
         if (hasData) {
             return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
@@ -285,8 +327,8 @@ const DropBox = memo(({
                 sx={{
                     fontSize: 32,
                     color: 'text.primary',
-                    opacity: isProcessing || isUploadingDownloading ? 0.5 : 1,
-                    pointerEvents: isProcessing || isUploadingDownloading ? 'none' : 'auto',
+                    opacity: isProcessing || isUploadingDownloading || isQueued ? 0.5 : 1,
+                    pointerEvents: isProcessing || isUploadingDownloading || isQueued ? 'none' : 'auto',
                     transition: 'opacity 0.3s',
                 }}
             />
@@ -299,6 +341,7 @@ const DropBox = memo(({
         uploadDownloadProgressState,
         hasData,
         handleDataClick,
+        isQueued, // Added isQueued as a dependency
     ]);
 
     const commonBoxStyles = {

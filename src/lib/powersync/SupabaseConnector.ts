@@ -13,7 +13,7 @@ export class SupabaseConnector {
             import.meta.env.VITE_SUPABASE_ANON_KEY,
             { auth: { persistSession: true } }
         );
-        this.currentSession = null;
+        this.currentSession = this.client.auth.getSession() || null;
 
         // Subscribe to authentication state changes
         this.client.auth.onAuthStateChange((event, session) => {

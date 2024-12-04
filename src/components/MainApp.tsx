@@ -1,6 +1,6 @@
 // src/lib/components/MainApp.tsx
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { IconButton, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 
@@ -10,7 +10,7 @@ import {
   useUI,
   useNetworkStatus,
   useProcessedData,
-  useStorage, // Import the useStorage hook
+  useStorage,
 } from '../lib/hooks';
 import type { FileNode, SampleGroupMetadata } from '../lib/types';
 import type { DropboxConfigItem } from '../config/dropboxConfig';
@@ -25,6 +25,7 @@ import AccountActions from './Account/AccountActions';
 import SampleGroupMetadataComponent from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
+import UploadQueueStatus from './UploadQueueStatus'; // Import the new component
 
 interface DataProcessedParams {
   insertData: {
@@ -47,12 +48,12 @@ const MainApp: React.FC = () => {
     errorMessage,
     setErrorMessage,
     setFilters,
-    setContextMenuState,
-    contextMenu,
+    leftSidebarContextMenu,
+    closeLeftSidebarContextMenu  // Changed from setLeftSidebarContextMenuState
   } = useUI();
   const { isOnline } = useNetworkStatus();
   const { fetchProcessedData } = useProcessedData();
-  const storage = useStorage(); // Use the storage hook
+  const storage = useStorage();
 
   // Local state
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -108,22 +109,23 @@ const MainApp: React.FC = () => {
           }
         } catch (error) {
           setErrorMessage(
-              error instanceof Error ? error : 'Failed to process data'
+              error instanceof Error ? error.message : 'Failed to process data'
           );
         }
       },
       [sampleGroup, fetchProcessedData, storage, setErrorMessage, organization]
   );
 
+// Then update handleDeleteSample to use leftSidebarContextMenu instead of contextMenu:
   const handleDeleteSample = useCallback(async () => {
-    if (!contextMenu.itemId) {
+    if (!leftSidebarContextMenu.itemId) {
       setErrorMessage('Could not determine which item to delete.');
       return;
     }
 
     try {
-      await deleteNode(contextMenu.itemId);
-      setContextMenuState({ isVisible: false, x: 0, y: 0, itemId: null });
+      await deleteNode(leftSidebarContextMenu.itemId);
+      closeLeftSidebarContextMenu();  // Changed from setLeftSidebarContextMenuState
     } catch (error) {
       setErrorMessage(
           error instanceof Error
@@ -131,20 +133,17 @@ const MainApp: React.FC = () => {
               : 'An error occurred while deleting the item.'
       );
     }
-  }, [contextMenu, deleteNode, setContextMenuState, setErrorMessage]);
+  }, [leftSidebarContextMenu, deleteNode, closeLeftSidebarContextMenu, setErrorMessage]);
 
   const handleApplyFilters = useCallback(() => {
+    // Filters have already been applied via setFilters in FilterMenu
     setIsFilterMenuOpen(false);
   }, []);
 
   const handleResetFilters = useCallback(() => {
-    setFilters({
-      startDate: null,
-      endDate: null,
-      selectedLocations: [],
-    });
+    // Reset is handled in FilterMenu component
     setIsFilterMenuOpen(false);
-  }, [setFilters]);
+  }, []);
 
   const openFilterMenu = useCallback(() => {
     setIsFilterMenuOpen(true);
@@ -227,6 +226,8 @@ const MainApp: React.FC = () => {
         {showAccountActions && <AccountActions />}
 
         <ContextMenu deleteItem={handleDeleteSample} />
+
+        <UploadQueueStatus /> {/* Add the Upload Queue Status component */}
       </div>
   );
 };
