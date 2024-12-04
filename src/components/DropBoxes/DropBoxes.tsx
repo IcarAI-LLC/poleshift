@@ -106,21 +106,26 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         dataItem: any,
         configItem: DropboxConfigItem
     ): Promise<ProcessedModalData> => {
+        console.log("Modal data item:", dataItem);
         switch (configItem.id) {
             case 'ctd_data': {
-                const { processedData, variableUnits } = processCTDDataForModal(dataItem[0]);
+                dataItem = dataItem.data[0];
+                const { processedData, variableUnits } = processCTDDataForModal(dataItem);
                 return {
                     modalData: processedData,
                     units: variableUnits
                 };
             }
             case 'nutrient_ammonia':
+                dataItem = dataItem.data[0];
                 return {
                     modalData: dataItem,
                 };
             case 'sequencing_data':
+                console.log("Sequence data", dataItem.data.report_content);
+                dataItem = dataItem.data.report_content;
                 return {
-                    modalData: processKrakenDataForModal(dataItem.report_content),
+                    modalData: processKrakenDataForModal(dataItem),
                 };
             default:
                 return {

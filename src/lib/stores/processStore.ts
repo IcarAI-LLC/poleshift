@@ -6,6 +6,7 @@ import type { SampleGroupMetadata } from '../types';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { v4 as uuidv4} from 'uuid';
 
 interface ProcessingState {
     progress: number;
@@ -53,14 +54,19 @@ interface ProcessState {
 
     // Data persistence
     saveProcessedData: (
+        id: string,
         sampleId: string,
         configId: string,
         processFunctionName: string,
         data: any,
-        rawFilePaths: string[] // Add this parameter
+        rawFilePaths: string[],
+        processedFilePaths: string[],
+        metadata: any,
+        orgId: string,
+        orgShortId: string,
+        humanReadableSampleId: string,
+        processedPath: string
     ) => Promise<void>;
-
-
 
     // Status Getters
     getProgressState: (sampleId: string, configId: string) => ProcessingState;
@@ -100,10 +106,10 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
         configItem,
         onSuccess,
         onError,
-        orgId
+        orgId,
+        uploadedRawPaths
     ) => {
         const key = `${sampleGroup.id}:${configItem.id}`;
-
         let progressUnlisten: UnlistenFn | undefined;
 
         try {
@@ -132,13 +138,29 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
                 DEFAULT_RETRY_DELAY
             );
 
+            // Prepare additional data for saving
+            const processedFilePaths = result.processedFilePaths || [];
+            const metadata = result.metadata || {};
+            const processedPath = result.processedPath || '';
+            const humanReadableSampleId = sampleGroup.human_readable_id || sampleGroup.id;
+            const sampleOrgId = sampleGroup.org_id || null;
+            const orgShortId = orgId || null;
+            let id = uuidv4()
+
             // Save to database
             await get().saveProcessedData(
+                id,
                 sampleGroup.id,
                 configItem.id,
                 processFunctionName,
                 result,
-                uploadedRawPaths || []
+                uploadedRawPaths || [],
+                processedFilePaths,
+                metadata,
+                sampleOrgId,
+                orgShortId,
+                humanReadableSampleId,
+                processedPath
             );
 
             // Fetch and update processed data
@@ -173,6 +195,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
         }
     },
 
+
     // Retry helper
     withRetry: async (operation, maxAttempts, delayMs) => {
         let lastError: Error | undefined;
@@ -192,35 +215,61 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
     },
 
     // Save processed data to database
-// Updated implementation of saveProcessedData
-    saveProcessedData: async (sampleId, configId, processFunctionName, data, rawFilePaths) => {
+    saveProcessedData: async (
+        id: string,
+        sampleId: string,
+        configId: string,
+        processFunctionName: string,
+        data: any,
+        rawFilePaths: string[],
+        processedFilePaths: string[], // New parameter
+        metadata: any,                // New parameter
+        orgId: string,                // New parameter
+        orgShortId: string,           // New parameter
+        humanReadableSampleId: string,// New parameter
+        processedPath: string         // New parameter
+    ) => {
         const timestamp = Date.now();
-
         await db.execute(
             `
                 INSERT INTO processed_data (
                     key,
+                    id,
                     sample_id,
+                    human_readable_sample_id,
                     config_id,
                     data,
+                    raw_file_paths,
+                    processed_file_paths,
+                    processed_path,
                     timestamp,
-                    process_function_name,
                     status,
-                    raw_file_paths
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    metadata,
+                    org_id,
+                    org_short_id,
+                    process_function_name
+                ) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
                 `${sampleId}:${configId}:${timestamp}`,
+                `${sampleId}:${configId}:${timestamp}`,
                 sampleId,
+                humanReadableSampleId,
                 configId,
                 JSON.stringify(data),
+                JSON.stringify(rawFilePaths),
+                JSON.stringify(processedFilePaths),
+                processedPath,
                 timestamp,
-                processFunctionName,
                 'completed',
-                JSON.stringify(rawFilePaths), // Include raw_file_paths here
+                JSON.stringify(metadata),
+                orgId,
+                orgShortId,
+                processFunctionName
             ]
         );
     },
+
 
     // Fetch Processed Data
     fetchProcessedData: async (sampleGroup) => {

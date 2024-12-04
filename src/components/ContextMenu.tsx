@@ -1,3 +1,5 @@
+// src/components/ContextMenu.tsx
+
 import React, { useEffect, useCallback, useMemo } from 'react';
 import { useUI, useAuth } from '../lib/hooks';
 import type { SxProps, Theme } from '@mui/material/styles';
@@ -17,55 +19,58 @@ interface StyleProps {
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
   const {
-    contextMenu,
-    setContextMenuState,
+    leftSidebarContextMenu,
+    setLeftSidebarContextMenuState,
     selectedLeftItem,
     setSelectedLeftItem,
-    closeContextMenu,
+    closeLeftSidebarContextMenu,
     setErrorMessage,
   } = useUI();
 
   const { userProfile } = useAuth();
-  const { isVisible, x, y, itemId } = contextMenu;
+  const { isVisible, x, y, itemId } = leftSidebarContextMenu;
 
   // Memoized styles
-  const styles = useMemo<StyleProps>(() => ({
-    menu: {
-      position: 'absolute',
-      top: y,
-      left: x,
-      backgroundColor: 'background.paper',
-      border: '1px solid',
-      borderColor: 'divider',
-      borderRadius: 1,
-      boxShadow: 3,
-      minWidth: 150,
-      zIndex: 1000,
-      opacity: isVisible ? 1 : 0,
-      transform: isVisible ? 'scale(1)' : 'scale(0.95)',
-      transition: 'opacity 0.2s, transform 0.2s',
-    },
-    list: {
-      p: 0.5,
-    },
-    listItem: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 1,
-      py: 1,
-      px: 2,
-      cursor: 'pointer',
-      color: 'text.primary',
-      transition: 'background-color 0.2s',
-      '&:hover': {
-        backgroundColor: 'action.hover',
-      },
-    },
-    icon: {
-      color: 'error.main',
-      fontSize: '1.25rem',
-    },
-  }), [x, y, isVisible]);
+  const styles = useMemo<StyleProps>(
+      () => ({
+        menu: {
+          position: 'absolute',
+          top: y,
+          left: x,
+          backgroundColor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          boxShadow: 3,
+          minWidth: 150,
+          zIndex: 1000,
+          opacity: isVisible ? 1 : 0,
+          transform: isVisible ? 'scale(1)' : 'scale(0.95)',
+          transition: 'opacity 0.2s, transform 0.2s',
+        },
+        list: {
+          p: 0.5,
+        },
+        listItem: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          py: 1,
+          px: 2,
+          cursor: 'pointer',
+          color: 'text.primary',
+          transition: 'background-color 0.2s',
+          '&:hover': {
+            backgroundColor: 'action.hover',
+          },
+        },
+        icon: {
+          color: 'error.main',
+          fontSize: '1.25rem',
+        },
+      }),
+      [x, y, isVisible]
+  );
 
   // Click outside handler
   useEffect(() => {
@@ -75,13 +80,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
       // Ensure we're not clicking inside the menu
       const menu = document.getElementById('context-menu');
       if (menu && !menu.contains(event.target as Node)) {
-        closeContextMenu();
+        closeLeftSidebarContextMenu();
       }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [isVisible, closeContextMenu]);
+  }, [isVisible, closeLeftSidebarContextMenu]);
 
   // Handle delete action
   const handleDelete = useCallback(async () => {
@@ -96,13 +101,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
       }
     } catch (error) {
       console.error('Error deleting item:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to delete item');
-      setContextMenuState(prev => ({
+      setErrorMessage(
+          error instanceof Error ? error.message : 'Failed to delete item'
+      );
+      setLeftSidebarContextMenuState((prev) => ({
         ...prev,
-        isVisible: false
+        isVisible: false,
       }));
     } finally {
-      closeContextMenu();
+      closeLeftSidebarContextMenu();
     }
   }, [
     itemId,
@@ -110,18 +117,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
     selectedLeftItem,
     setSelectedLeftItem,
     setErrorMessage,
-    setContextMenuState,
-    closeContextMenu,
+    setLeftSidebarContextMenuState,
+    closeLeftSidebarContextMenu,
   ]);
 
   // Handle keyboard navigation
-  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      closeContextMenu();
-    } else if (event.key === 'Enter' || event.key === ' ') {
-      handleDelete();
-    }
-  }, [closeContextMenu, handleDelete]);
+  const handleKeyDown = useCallback(
+      (event: React.KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          closeLeftSidebarContextMenu();
+        } else if (event.key === 'Enter' || event.key === ' ') {
+          handleDelete();
+        }
+      },
+      [closeLeftSidebarContextMenu, handleDelete]
+  );
 
   if (!isVisible) return null;
 
@@ -136,11 +146,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
       >
         <List sx={styles.list}>
           {userProfile?.user_tier === 'admin' && (
-              <ListItem
-                  role="menuitem"
-                  onClick={handleDelete}
-                  sx={styles.listItem}
-              >
+              <ListItem role="menuitem" onClick={handleDelete} sx={styles.listItem}>
                 <DeleteIcon sx={styles.icon} />
                 Delete
               </ListItem>

@@ -1,4 +1,4 @@
-//src/lib/hooks/useUI.ts
+// src/lib/hooks/useUI.ts
 
 import { useCallback } from 'react';
 import { useUIStore } from '../stores/uiStore';
@@ -10,7 +10,7 @@ export const useUI = () => {
         isRightSidebarCollapsed,
         selectedLeftItem,
         selectedRightItem,
-        contextMenu,
+        leftSidebarContextMenu,
         showAccountActions,
         errorMessage,
         filters,
@@ -18,12 +18,12 @@ export const useUI = () => {
         toggleRightSidebar,
         setSelectedLeftItem,
         setSelectedRightItem,
-        setContextMenuState,
-        closeContextMenu,
+        setLeftSidebarContextMenuState,
+        closeLeftSidebarContextMenu,
         setShowAccountActions,
         setErrorMessage,
         setFilters,
-        resetFilters
+        resetFilters,
     } = useUIStore();
 
     // Enhanced sidebar handlers
@@ -36,53 +36,68 @@ export const useUI = () => {
     }, [toggleRightSidebar]);
 
     // Selection handlers with type safety
-    const handleSelectLeftItem = useCallback((item: FileNode | null) => {
-        setSelectedLeftItem(item);
-    }, [setSelectedLeftItem]);
+    const handleSelectLeftItem = useCallback(
+        (item: FileNode | null) => {
+            setSelectedLeftItem(item);
+        },
+        [setSelectedLeftItem]
+    );
 
-    const handleSelectRightItem = useCallback((item: SampleLocation | null) => {
-        setSelectedRightItem(item);
-        if (item) {
-            toggleRightSidebar(false); // Open sidebar when item is selected
-        }
-    }, [setSelectedRightItem, toggleRightSidebar]);
+    const handleSelectRightItem = useCallback(
+        (item: SampleLocation | null) => {
+            setSelectedRightItem(item);
+            if (item) {
+                toggleRightSidebar(false); // Open sidebar when item is selected
+            }
+        },
+        [setSelectedRightItem, toggleRightSidebar]
+    );
 
-    // Context menu handlers
-    const handleContextMenu = useCallback((e: React.MouseEvent, itemId: string) => {
-        e.preventDefault();
-        setContextMenuState({
-            isVisible: true,
-            x: e.clientX,
-            y: e.clientY,
-            itemId
-        });
-    }, [setContextMenuState]);
+    // Context menu handlers for left sidebar
+    const handleLeftSidebarContextMenu = useCallback(
+        (e: React.MouseEvent, itemId: string) => {
+            e.preventDefault();
+            setLeftSidebarContextMenuState({
+                isVisible: true,
+                x: e.clientX,
+                y: e.clientY,
+                itemId,
+            });
+        },
+        [setLeftSidebarContextMenuState]
+    );
 
-    const handleCloseContextMenu = useCallback(() => {
-        closeContextMenu();
-    }, [closeContextMenu]);
+    const handleCloseLeftSidebarContextMenu = useCallback(() => {
+        closeLeftSidebarContextMenu();
+    }, [closeLeftSidebarContextMenu]);
 
     // Error message handlers with timeout
-    const handleSetErrorMessage = useCallback((message: string | null) => {
-        setErrorMessage(message);
-        if (message) {
-            setTimeout(() => {
-                setErrorMessage(null);
-            }, 5000); // Clear error after 5 seconds
-        }
-    }, [setErrorMessage]);
+    const handleSetErrorMessage = useCallback(
+        (message: string | null) => {
+            setErrorMessage(message);
+            if (message) {
+                setTimeout(() => {
+                    setErrorMessage(null);
+                }, 5000); // Clear error after 5 seconds
+            }
+        },
+        [setErrorMessage]
+    );
 
     // Filter handlers with validation
-    const handleSetFilters = useCallback((newFilters: Partial<typeof filters>) => {
-        // Validate date ranges if both are provided
-        if (newFilters.startDate && newFilters.endDate) {
-            if (new Date(newFilters.startDate) > new Date(newFilters.endDate)) {
-                handleSetErrorMessage('Start date cannot be after end date');
-                return;
+    const handleSetFilters = useCallback(
+        (newFilters: Partial<typeof filters>) => {
+            // Validate date ranges if both are provided
+            if (newFilters.startDate && newFilters.endDate) {
+                if (new Date(newFilters.startDate) > new Date(newFilters.endDate)) {
+                    handleSetErrorMessage('Start date cannot be after end date');
+                    return;
+                }
             }
-        }
-        setFilters(newFilters);
-    }, [setFilters, handleSetErrorMessage]);
+            setFilters(newFilters);
+        },
+        [setFilters, handleSetErrorMessage]
+    );
 
     return {
         // State
@@ -90,7 +105,7 @@ export const useUI = () => {
         isRightSidebarCollapsed,
         selectedLeftItem,
         selectedRightItem,
-        contextMenu,
+        leftSidebarContextMenu,
         showAccountActions,
         errorMessage,
         filters,
@@ -100,8 +115,8 @@ export const useUI = () => {
         toggleRightSidebar: handleToggleRightSidebar,
         setSelectedLeftItem: handleSelectLeftItem,
         setSelectedRightItem: handleSelectRightItem,
-        handleContextMenu,
-        closeContextMenu: handleCloseContextMenu,
+        handleLeftSidebarContextMenu,
+        closeLeftSidebarContextMenu: handleCloseLeftSidebarContextMenu,
         setShowAccountActions,
         setErrorMessage: handleSetErrorMessage,
         setFilters: handleSetFilters,
@@ -109,7 +124,7 @@ export const useUI = () => {
 
         // Utility getters
         hasSelectedItem: Boolean(selectedLeftItem || selectedRightItem),
-        isContextMenuOpen: contextMenu.isVisible,
+        isLeftSidebarContextMenuOpen: leftSidebarContextMenu.isVisible,
     };
 };
 

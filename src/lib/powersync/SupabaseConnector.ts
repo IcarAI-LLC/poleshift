@@ -150,6 +150,8 @@ export class SupabaseConnector
         }
     }
 
+// src/lib/powersync/SupabaseConnector.ts
+
     async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
 
@@ -165,6 +167,21 @@ export class SupabaseConnector
             for (const op of transaction.crud) {
                 lastOp = op;
                 const table = this.client.from(op.table);
+
+                // **Add this block to parse JSON strings into arrays**
+                if (op.table === 'processed_data') {
+                    const fieldsToParse = ['raw_file_paths', 'processed_file_paths', 'metadata', 'data'];
+                    fieldsToParse.forEach((field) => {
+                        if (op.opData[field] && typeof op.opData[field] === 'string') {
+                            try {
+                                op.opData[field] = JSON.parse(op.opData[field]);
+                            } catch (e) {
+                                console.error(`Failed to parse ${field}:`, e);
+                                // Handle parsing error if necessary
+                            }
+                        }
+                    });
+                }
 
                 let result: any;
                 switch (op.op) {

@@ -1,6 +1,3 @@
-//src/lib/powersync/schema
-import { column, Schema, Table } from '@powersync/web';
-// OR: import { column, Schema, Table } from '@powersync/react-native';
 import { column, Schema, Table } from '@powersync/web';
 // OR: import { column, Schema, Table } from '@powersync/react-native';
 
@@ -59,7 +56,8 @@ const processed_data = new Table(
         human_readable_sample_id: column.text,
         org_short_id: column.text,
         org_id: column.text,
-        process_function_name: column.text
+        process_function_name: column.text,
+        processed_file_paths: column.text
     },
     { indexes: {} }
 );

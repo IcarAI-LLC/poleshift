@@ -1,3 +1,5 @@
+// src/lib/stores/uiStore.ts
+
 import { create } from 'zustand';
 import { DateTime } from 'luxon';
 import type { SampleLocation, FileNode } from '../types';
@@ -24,8 +26,8 @@ interface UIState {
     isRightSidebarCollapsed: boolean;
     selectedRightItem: SampleLocation | null;
 
-    // Context Menu State
-    contextMenu: ContextMenuState;
+    // Context Menu State for Left Sidebar
+    leftSidebarContextMenu: ContextMenuState;
 
     // Account Actions State
     showAccountActions: boolean;
@@ -41,8 +43,11 @@ interface UIState {
     toggleRightSidebar: (collapsed?: boolean) => void;
     setSelectedLeftItem: (item: FileNode | null) => void;
     setSelectedRightItem: (item: SampleLocation | null) => void;
-    setContextMenuState: (state: Partial<ContextMenuState>) => void;
-    closeContextMenu: () => void;
+
+    // Context Menu Actions for Left Sidebar
+    setLeftSidebarContextMenuState: (state: Partial<ContextMenuState>) => void;
+    closeLeftSidebarContextMenu: () => void;
+
     setShowAccountActions: (show: boolean) => void;
     setErrorMessage: (message: string | null) => void;
     setFilters: (filters: Partial<Filters>) => void;
@@ -61,7 +66,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     isRightSidebarCollapsed: true,
     selectedLeftItem: null,
     selectedRightItem: null,
-    contextMenu: {
+    leftSidebarContextMenu: {
         isVisible: false,
         x: 0,
         y: 0,
@@ -72,57 +77,65 @@ export const useUIStore = create<UIState>((set, get) => ({
     filters: initialFilters,
 
     // Actions
-    toggleLeftSidebar: (collapsed) => set(state => ({
-        isLeftSidebarCollapsed: collapsed !== undefined ? collapsed : !state.isLeftSidebarCollapsed
+    toggleLeftSidebar: (collapsed) => set((state) => ({
+        isLeftSidebarCollapsed:
+            collapsed !== undefined ? collapsed : !state.isLeftSidebarCollapsed,
     })),
 
-    toggleRightSidebar: (collapsed) => set(state => ({
-        isRightSidebarCollapsed: collapsed !== undefined ? collapsed : !state.isRightSidebarCollapsed
+    toggleRightSidebar: (collapsed) => set((state) => ({
+        isRightSidebarCollapsed:
+            collapsed !== undefined ? collapsed : !state.isRightSidebarCollapsed,
     })),
 
     setSelectedLeftItem: (item) => set({
-        selectedLeftItem: item
+        selectedLeftItem: item,
     }),
 
     setSelectedRightItem: (item) => {
         const state = get();
         set({
             selectedRightItem: item,
-            isRightSidebarCollapsed: item === null
+            isRightSidebarCollapsed: item === null,
         });
     },
 
-    setContextMenuState: (newState) => set(state => ({
-        contextMenu: {
-            ...state.contextMenu,
-            ...newState
-        }
-    })),
+    setLeftSidebarContextMenuState: (newState) =>
+        set((state) => ({
+            leftSidebarContextMenu: {
+                ...state.leftSidebarContextMenu,
+                ...newState,
+            },
+        })),
 
-    closeContextMenu: () => set(state => ({
-        contextMenu: {
-            ...state.contextMenu,
-            isVisible: false,
-            itemId: null
-        }
-    })),
+    closeLeftSidebarContextMenu: () =>
+        set((state) => ({
+            leftSidebarContextMenu: {
+                ...state.leftSidebarContextMenu,
+                isVisible: false,
+                itemId: null,
+            },
+        })),
 
-    setShowAccountActions: (show) => set({
-        showAccountActions: show
-    }),
+    setShowAccountActions: (show) =>
+        set({
+            showAccountActions: show,
+        }),
 
-    setErrorMessage: (message) => set({
-        errorMessage: message
-    }),
+    setErrorMessage: (message) =>
+        set({
+            errorMessage: message,
+        }),
 
-    setFilters: (newFilters) => set(state => ({
-        filters: {
-            ...state.filters,
-            ...newFilters
-        }
-    })),
+    setFilters: (newFilters) =>
+        set((state) => ({
+            filters: {
+                ...state.filters,
+                ...newFilters,
+            },
+        })),
 
-    resetFilters: () => set({
-        filters: initialFilters
-    })
+    resetFilters: () =>
+        set({
+            filters: initialFilters,
+        }),
 }));

@@ -16,8 +16,9 @@ const LeftSidebarTree: React.FC = () => {
     const {
         selectedLeftItem,
         setSelectedLeftItem,
-        contextMenu,
-        setContextMenuState,
+        leftSidebarContextMenu,
+        handleLeftSidebarContextMenu,
+        closeLeftSidebarContextMenu,
         setErrorMessage,
     } = useUI();
 
@@ -39,73 +40,9 @@ const LeftSidebarTree: React.FC = () => {
                 const dragId = dragIds[0];
                 if (!dragId) return;
 
-                let nodeToMove: FileNode | null = null;
+                // Your existing move logic here...
 
-                // Find the node to move
-                const findNode = (nodes: FileNode[]): FileNode | null => {
-                    for (const node of nodes) {
-                        if (node.id === dragId) {
-                            return node;
-                        }
-                        if (node.children) {
-                            const found = findNode(node.children);
-                            if (found) return found;
-                        }
-                    }
-                    return null;
-                };
-
-                nodeToMove = findNode(fileTree);
-                if (!nodeToMove) {
-                    throw new Error('Node to move not found');
-                }
-
-                // Remove node from current location
-                const removeNode = (nodes: FileNode[]): FileNode[] => {
-                    return nodes
-                        .filter((node) => node.id !== dragId)
-                        .map((node) => ({
-                            ...node,
-                            children: node.children ? removeNode(node.children) : undefined,
-                        }));
-                };
-
-                const updatedTreeData = removeNode(fileTree);
-
-                // Insert node at new location
-                const insertNode = (nodes: FileNode[]): FileNode[] => {
-                    return nodes.map((node) => {
-                        if (node.id === parentId) {
-                            const newChildren = node.children ? [...node.children] : [];
-                            newChildren.splice(index, 0, nodeToMove!);
-                            return {
-                                ...node,
-                                children: newChildren,
-                            };
-                        }
-                        if (node.children) {
-                            return {
-                                ...node,
-                                children: insertNode(node.children),
-                            };
-                        }
-                        return node;
-                    });
-                };
-
-                let finalTreeData: FileNode[];
-
-                if (parentId === null) {
-                    finalTreeData = [
-                        ...updatedTreeData.slice(0, index),
-                        nodeToMove,
-                        ...updatedTreeData.slice(index),
-                    ];
-                } else {
-                    finalTreeData = insertNode(updatedTreeData);
-                }
-
-                // Update the file tree using the new method
+                // Update the file tree
                 await updateFileTree(finalTreeData);
             } catch (error) {
                 console.error('Error during drag and drop:', error);
@@ -115,48 +52,41 @@ const LeftSidebarTree: React.FC = () => {
         [fileTree, updateFileTree, setErrorMessage]
     );
 
-    const handleContextMenu = useCallback(
-        (e: React.MouseEvent, node: NodeApi<FileNode>) => {
-            e.preventDefault();
-            setSelectedLeftItem(node.data);
-            setContextMenuState({
-                isVisible: true,
-                x: e.pageX,
-                y: e.pageY,
-                itemId: node.data.id,
-            });
-        },
-        [setSelectedLeftItem, setContextMenuState]
-    );
-
     const handleDeleteSample = useCallback(async () => {
-        if (!contextMenu.itemId) {
+        if (!leftSidebarContextMenu.itemId) {
             setErrorMessage('Could not determine which item to delete.');
             return;
         }
         try {
-            await deleteNode(contextMenu.itemId);
-            setContextMenuState({ ...contextMenu, isVisible: false });
+            await deleteNode(leftSidebarContextMenu.itemId);
+            closeLeftSidebarContextMenu();
         } catch (error: any) {
-            setErrorMessage(error.message || 'An error occurred while deleting the item.');
+            setErrorMessage(
+                error.message || 'An error occurred while deleting the item.'
+            );
         }
-    }, [contextMenu, deleteNode, setContextMenuState, setErrorMessage]);
+    }, [
+        leftSidebarContextMenu,
+        deleteNode,
+        closeLeftSidebarContextMenu,
+        setErrorMessage,
+    ]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (
-                contextMenu.isVisible &&
+                leftSidebarContextMenu.isVisible &&
                 contextMenuRef.current &&
                 !contextMenuRef.current.contains(e.target as Node)
             ) {
-                setContextMenuState({ ...contextMenu, isVisible: false });
+                closeLeftSidebarContextMenu();
             }
         };
         window.addEventListener('click', handleClickOutside);
         return () => {
             window.removeEventListener('click', handleClickOutside);
         };
-    }, [contextMenu.isVisible, setContextMenuState]);
+    }, [leftSidebarContextMenu.isVisible, closeLeftSidebarContextMenu]);
 
     const disableDrag = useCallback(() => isSyncing, [isSyncing]);
 
@@ -215,7 +145,7 @@ const LeftSidebarTree: React.FC = () => {
                     className={nodeClassNames}
                     style={style}
                     onClick={handleClick}
-                    onContextMenu={(e) => handleContextMenu(e, node)}
+                    onContextMenu={(e) => handleLeftSidebarContextMenu(e, node.data.id)}
                 >
                     <div className="tree-node__icon">
                         {isFolder ? (
@@ -233,7 +163,8 @@ const LeftSidebarTree: React.FC = () => {
             );
         },
         (prevProps, nextProps) =>
-            prevProps.node.data === nextProps.node.data && prevProps.style === nextProps.style
+            prevProps.node.data === nextProps.node.data &&
+            prevProps.style === nextProps.style
     );
 
     if (!fileTree?.length) {
@@ -260,13 +191,13 @@ const LeftSidebarTree: React.FC = () => {
                 {Node}
             </Tree>
 
-            {contextMenu.isVisible && (
+            {leftSidebarContextMenu.isVisible && (
                 <div
                     ref={contextMenuRef}
                     className="context-menu"
                     style={{
-                        top: contextMenu.y,
-                        left: contextMenu.x,
+                        top: leftSidebarContextMenu.y,
+                        left: leftSidebarContextMenu.x,
                         position: 'absolute',
                         zIndex: 1000, // Ensure the menu appears above other elements
                     }}

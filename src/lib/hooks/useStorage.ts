@@ -51,30 +51,6 @@ export const useStorage = () => {
 
                 if (error) throw error;
                 if (!data) throw new Error('Upload failed');
-
-                // Record the upload in PowerSync
-                await db.execute(
-                    `
-                        INSERT INTO file_uploads (
-                            id,
-                            file_path,
-                            file_name,
-                            file_size,
-                            upload_date,
-                            status
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                    `,
-                    [
-                        `${path}:${Date.now()}`,
-                        data.path,
-                        file.name,
-                        file.size,
-                        new Date().toISOString(),
-                        'completed',
-                    ]
-                );
-
-                return data.path;
             } catch (error) {
                 console.error('Upload error:', error);
                 throw error;

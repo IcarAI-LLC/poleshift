@@ -55,8 +55,8 @@ interface NutrientAmmoniaViewProps {
  * @returns {JSX.Element} The rendered component for displaying nutrient ammonia details.
  */
 const NutrientAmmoniaView: React.FC<NutrientAmmoniaViewProps> = ({ data }) => {
-  const { ammonia_value, ammonium_value } = data[0];
-
+  const { ammonia_value, ammonium_value } = data;
+  console.log(data);
   return (
     <Box sx={{ padding: 2 }}>
       <Typography variant="h6" gutterBottom>

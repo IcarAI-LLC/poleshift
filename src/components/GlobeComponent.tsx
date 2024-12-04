@@ -34,7 +34,7 @@ export const GlobeComponent: React.FC = () => {
 
     const { sampleGroups, locations } = useData();
     const { setSelectedRightItem, toggleRightSidebar, filters } = useUI();
-
+    console.log(sampleGroups);
     // Filter sample groups based on location and date filters
     const filteredSampleGroups = useMemo(() => {
         return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
@@ -112,7 +112,7 @@ export const GlobeComponent: React.FC = () => {
         width: window.innerWidth,
         height: window.innerHeight
     }), []);
-
+    console.log(pointsData);
     return (
         <div className="globe-container">
             <Globe

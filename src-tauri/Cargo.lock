@@ -2809,6 +2809,7 @@ dependencies = [
  "chrono",
  "flate2",
  "futures-util",
+ "log",
  "reqwest",
  "rusqlite",
  "serde",

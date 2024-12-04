@@ -1,6 +1,6 @@
 // src/lib/components/DropBox.tsx
 
-import { memo, useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { memo, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import {
     Add as AddIcon,
@@ -18,7 +18,6 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { useAuth } from '../../lib/hooks';
 import { useStorage } from '../../lib/hooks';
 import { readFile } from '@tauri-apps/plugin-fs';
-import path from 'path';
 
 interface DropBoxProps {
     configItem: DropboxConfigItem;
@@ -57,7 +56,9 @@ const DropBox = memo(({
     const progressState = getProgressState(sampleId, configId);
     const uploadDownloadProgressState = getUploadDownloadProgressState(sampleId, configId);
     const { uploadFiles } = useStorage();
-
+    const getFileName = (filePath: string): string => {
+        return filePath.split('/').pop()?.split('\\').pop() || filePath;
+    };
     useEffect(() => {
         setLocalHasData(hasData);
     }, [hasData]);
@@ -111,7 +112,7 @@ const DropBox = memo(({
             const files = await Promise.all(
                 filePaths.map(async (filePath) => {
                     const fileContents = await readFile(filePath);
-                    const fileName = path.basename(filePath);
+                    const fileName = getFileName(filePath);
                     return new File([new Uint8Array(fileContents)], fileName);
                 })
             );

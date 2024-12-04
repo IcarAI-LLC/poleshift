@@ -27,6 +27,7 @@ export const useProcessedData = () => {
     }, [setError]);
 
     // Enhanced process data handler
+// Add uploadedRawPaths as a parameter in the function signature
     const handleProcessData = useCallback(
         async (
             processFunctionName: string,
@@ -36,7 +37,8 @@ export const useProcessedData = () => {
             configItem: DropboxConfigItem,
             onSuccess: (result: any, configItem: DropboxConfigItem, processedData: any) => void,
             onError: (message: string) => void,
-            orgId: string
+            orgId: string,
+            uploadedRawPaths?: string[] // Add this line
         ) => {
             try {
                 await processData(
@@ -47,7 +49,8 @@ export const useProcessedData = () => {
                     configItem,
                     onSuccess,
                     onError,
-                    orgId
+                    orgId,
+                    uploadedRawPaths // Pass it here
                 );
             } catch (error) {
                 setError(error instanceof Error ? error.message : 'Processing failed');
@@ -56,6 +59,7 @@ export const useProcessedData = () => {
         },
         [processData, setError]
     );
+
 
     // Enhanced fetch processed data handler
     const handleFetchProcessedData = useCallback(
