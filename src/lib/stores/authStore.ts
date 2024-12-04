@@ -1,309 +1,235 @@
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import type { User, UserProfile, Organization } from '../types';
-import { supabase } from '../supabase/client';
-import { storage } from '../services';
+import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { db } from '../powersync/db';
+
+interface UserProfile {
+    id: string;
+    organization_id: string;
+    user_tier: string;
+    created_at: string;
+}
+
+interface Organization {
+    id: string;
+    name: string;
+    short_id: string;
+}
 
 interface AuthState {
+    client: SupabaseClient;
     user: User | null;
     userProfile: UserProfile | null;
     organization: Organization | null;
-    isLoading: boolean;
     error: string | null;
-}
-
-interface AuthActions {
-    signIn: (email: string, password: string) => Promise<{
-        storedLicenseKey: string | null;
-    }>;
+    loading: boolean;
+    initialized: boolean;
+    // Actions
+    initializeAuth: () => Promise<void>;
+    login: (email: string, password: string) => Promise<{ storedLicenseKey?: string }>;
     signUp: (email: string, password: string, licenseKey: string) => Promise<void>;
-    signOut: () => Promise<void>;
+    logout: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
     processLicenseKey: (licenseKey: string) => Promise<void>;
-    initializeAuth: () => Promise<void>;
     setError: (error: string | null) => void;
-    clearAuth: () => void;
 }
 
-const initialState: AuthState = {
+const supabase = createClient(
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+    client: supabase,
     user: null,
     userProfile: null,
     organization: null,
-    isLoading: false,
     error: null,
-};
+    loading: true,
+    initialized: false,
 
-export const useAuthStore = create<AuthState & AuthActions>()(
-    devtools(
-        persist(
-            (set, get) => ({
-                ...initialState,
+    initializeAuth: async () => {
+        try {
+            set({ loading: true });
+            const { data: { session }, error } = await supabase.auth.getSession();
 
-                setError: (error) => set({ error }),
+            if (error) throw error;
 
-                clearAuth: () => {
-                    set(initialState);
-                },
+            if (session?.user) {
+                // Use PowerSync to get user profile
+                const userProfile = await db.execute(`
+                    SELECT * FROM user_profiles WHERE id = ?
+                `, [session.user.id]);
 
-                signIn: async (email: string, password: string) => {
-                    set({ isLoading: true, error: null });
+                if (userProfile.length > 0) {
+                    // Use PowerSync to get organization
+                    const org = await db.execute(`
+                        SELECT * FROM organizations WHERE id = ?
+                    `, [userProfile[0].organization_id]);
 
-                    try {
-                        const { data, error } = await supabase.auth.signInWithPassword({
-                            email,
-                            password,
-                        });
-
-                        if (error) throw error;
-                        if (!data.user || !data.session) {
-                            throw new Error('No user or session returned from sign in');
-                        }
-
-                        const user: User = {
-                            id: data.user.id,
-                            email: data.user.email || '',
-                            last_sign_in_at: data.user.last_sign_in_at || null,
-                        };
-
-                        // Save session and user to local storage
-                        await storage.saveSession(data.session);
-                        await storage.saveUser(user);
-
-                        // Get user profile
-                        const { data: profileData, error: profileError } = await supabase
-                            .from('user_profiles')
-                            .select('*')
-                            .eq('id', user.id)
-                            .single();
-
-                        if (profileError) throw profileError;
-
-                        // Get organization if user has one
-                        let organization = null;
-                        if (profileData.organization_id) {
-                            const { data: orgData, error: orgError } = await supabase
-                                .from('organizations')
-                                .select('*')
-                                .eq('id', profileData.organization_id)
-                                .single();
-
-                            if (orgError) throw orgError;
-                            organization = orgData;
-                            await storage.saveOrganization(orgData);
-                        }
-
-                        await storage.saveUserProfile(profileData);
-
-                        set({
-                            user,
-                            userProfile: profileData,
-                            organization,
-                            isLoading: false,
-                            error: null,
-                        });
-
-                        const storedLicenseKey = localStorage.getItem('stored_license_key');
-                        return { storedLicenseKey };
-
-                    } catch (error: any) {
-                        set({
-                            error: error.message,
-                            isLoading: false,
-                        });
-                        throw error;
-                    }
-                },
-
-                signUp: async (email: string, password: string, licenseKey: string) => {
-                    set({ isLoading: true, error: null });
-
-                    try {
-                        // Verify license key first
-                        const { data: licenseData, error: licenseError } = await supabase
-                            .from('license_keys')
-                            .select('*')
-                            .eq('key', licenseKey)
-                            .single();
-
-                        if (licenseError || !licenseData) {
-                            throw new Error('Invalid license key');
-                        }
-
-                        if (!licenseData.is_active) {
-                            throw new Error('License key is inactive');
-                        }
-
-                        // Store license key for post-signup processing
-                        localStorage.setItem('stored_license_key', licenseKey);
-
-                        const { error: signUpError } = await supabase.auth.signUp({
-                            email,
-                            password,
-                            options: {
-                                data: {
-                                    license_key: licenseKey,
-                                },
-                            },
-                        });
-
-                        if (signUpError) throw signUpError;
-
-                        set({ isLoading: false, error: null });
-                    } catch (error: any) {
-                        set({
-                            error: error.message,
-                            isLoading: false,
-                        });
-                        throw error;
-                    }
-                },
-
-                signOut: async () => {
-                    set({ isLoading: true, error: null });
-
-                    try {
-                        const { error } = await supabase.auth.signOut();
-                        if (error) throw error;
-
-                        // Clear local storage
-                        await storage.clearStore('user_profiles');
-                        await storage.clearStore('organizations');
-                        await storage.removeSession();
-                        await storage.removeUser();
-                        localStorage.removeItem('stored_license_key');
-
-                        set(initialState);
-                    } catch (error: any) {
-                        set({
-                            error: error.message,
-                            isLoading: false,
-                        });
-                        throw error;
-                    }
-                },
-
-                resetPassword: async (email: string) => {
-                    set({ isLoading: true, error: null });
-
-                    try {
-                        const { error } = await supabase.auth.resetPasswordForEmail(email);
-                        if (error) throw error;
-                        set({ isLoading: false });
-                    } catch (error: any) {
-                        set({
-                            error: error.message,
-                            isLoading: false,
-                        });
-                        throw error;
-                    }
-                },
-
-                processLicenseKey: async (licenseKey: string) => {
-                    set({ isLoading: true, error: null });
-
-                    try {
-                        const { data, error } = await supabase
-                            .from('license_keys')
-                            .select('*')
-                            .eq('key', licenseKey)
-                            .single();
-
-                        if (error || !data) {
-                            throw new Error('Invalid license key');
-                        }
-
-                        localStorage.removeItem('stored_license_key');
-                        set({ isLoading: false });
-                    } catch (error: any) {
-                        set({
-                            error: error.message,
-                            isLoading: false,
-                        });
-                        throw error;
-                    }
-                },
-
-                initializeAuth: async () => {
-                    set({ isLoading: true, error: null });
-
-                    try {
-                        // Check for existing session
-                        const { data: { session }, error: sessionError } =
-                            await supabase.auth.getSession();
-
-                        if (sessionError) throw sessionError;
-
-                        if (!session) {
-                            // Try to get session from storage
-                            const storedSession = await storage.getSession();
-                            if (!storedSession) {
-                                set({ ...initialState, isLoading: false });
-                                return;
-                            }
-                        }
-
-                        // Get current user
-                        const { data: { user }, error: userError } =
-                            await supabase.auth.getUser();
-
-                        if (userError) throw userError;
-                        if (!user) {
-                            set({ ...initialState, isLoading: false });
-                            return;
-                        }
-
-                        const currentUser: User = {
-                            id: user.id,
-                            email: user.email || '',
-                            last_sign_in_at: user.last_sign_in_at || null,
-                        };
-
-                        // Get user profile
-                        const { data: profile, error: profileError } = await supabase
-                            .from('user_profiles')
-                            .select('*')
-                            .eq('id', user.id)
-                            .single();
-
-                        if (profileError) throw profileError;
-
-                        // Get organization if user has one
-                        let organization = null;
-                        if (profile.organization_id) {
-                            const { data: org, error: orgError } = await supabase
-                                .from('organizations')
-                                .select('*')
-                                .eq('id', profile.organization_id)
-                                .single();
-
-                            if (orgError) throw orgError;
-                            organization = org;
-                        }
-
-                        set({
-                            user: currentUser,
-                            userProfile: profile,
-                            organization,
-                            isLoading: false,
-                            error: null,
-                        });
-                    } catch (error: any) {
-                        set({
-                            error: error.message,
-                            isLoading: false,
-                        });
-                        throw error;
-                    }
-                },
-            }),
-            {
-                name: 'auth-storage',
-                partialize: (state) => ({
-                    user: state.user,
-                    userProfile: state.userProfile,
-                    organization: state.organization,
-                }),
+                    set({
+                        user: session.user,
+                        userProfile: userProfile[0],
+                        organization: org[0],
+                        initialized: true
+                    });
+                }
             }
-        )
-    )
-);
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Authentication error' });
+        } finally {
+            set({ loading: false });
+        }
+    },
+
+    login: async (email: string, password: string) => {
+        try {
+            set({ loading: true, error: null });
+
+            const { data: { session }, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) throw error;
+
+            if (session?.user) {
+                // Use PowerSync to get user profile
+                const userProfile = await db.execute(`
+                    SELECT * FROM user_profiles WHERE id = ?
+                `, [session.user.id]);
+
+                if (userProfile.length > 0) {
+                    // Use PowerSync to get organization
+                    const org = await db.execute(`
+                        SELECT * FROM organizations WHERE id = ?
+                    `, [userProfile[0].organization_id]);
+
+                    set({
+                        user: session.user,
+                        userProfile: userProfile[0],
+                        organization: org[0]
+                    });
+
+                    // Use PowerSync to check for stored license key
+                    const licenseKey = await db.execute(`
+                        SELECT key FROM license_keys 
+                        WHERE organization_id = ? AND is_active = 1
+                        LIMIT 1
+                    `, [userProfile[0].organization_id]);
+
+                    return { storedLicenseKey: licenseKey[0]?.key };
+                }
+            }
+            return {};
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Login failed' });
+            throw error;
+        } finally {
+            set({ loading: false });
+        }
+    },
+
+    signUp: async (email: string, password: string, licenseKey: string) => {
+        try {
+            set({ loading: true, error: null });
+
+            // Verify license key using PowerSync
+            const license = await db.execute(`
+                SELECT * FROM license_keys 
+                WHERE key = ? AND is_active = 1
+                LIMIT 1
+            `, [licenseKey]);
+
+            if (!license.length) {
+                throw new Error('Invalid license key');
+            }
+
+            const { data: { user }, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        organization_id: license[0].organization_id
+                    }
+                }
+            });
+
+            if (error) throw error;
+
+            if (user) {
+                // Insert user profile using PowerSync
+                await db.execute(`
+                    INSERT INTO user_profiles (id, organization_id, user_tier, created_at)
+                    VALUES (?, ?, ?, ?)
+                `, [
+                    user.id,
+                    license[0].organization_id,
+                    'researcher',
+                    new Date().toISOString()
+                ]);
+            }
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Signup failed' });
+            throw error;
+        } finally {
+            set({ loading: false });
+        }
+    },
+
+    logout: async () => {
+        try {
+            set({ loading: true, error: null });
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+            set({
+                user: null,
+                userProfile: null,
+                organization: null
+            });
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Logout failed' });
+            throw error;
+        } finally {
+            set({ loading: false });
+        }
+    },
+
+    resetPassword: async (email: string) => {
+        try {
+            set({ loading: true, error: null });
+            const { error } = await supabase.auth.resetPasswordForEmail(email);
+            if (error) throw error;
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Password reset failed' });
+            throw error;
+        } finally {
+            set({ loading: false });
+        }
+    },
+
+    processLicenseKey: async (licenseKey: string) => {
+        try {
+            set({ loading: true, error: null });
+
+            // Use PowerSync to verify license key
+            const license = await db.execute(`
+                SELECT * FROM license_keys 
+                WHERE key = ? AND is_active = 1
+                LIMIT 1
+            `, [licenseKey]);
+
+            if (!license.length) {
+                throw new Error('Invalid license key');
+            }
+
+            // Additional license key processing logic here
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'License key processing failed' });
+            throw error;
+        } finally {
+            set({ loading: false });
+        }
+    },
+
+    setError: (error: string | null) => set({ error })
+}));

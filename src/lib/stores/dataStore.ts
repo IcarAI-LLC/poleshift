@@ -1,270 +1,183 @@
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import { v4 as uuidv4 } from 'uuid';
-import type {
-    FileNode,
-    SampleGroupMetadata,
-    SampleLocation,
-    SampleMetadata
-} from '../types';
-import { supabase } from '../supabase/client';
-import { storage } from '../services';
+import { db } from '../powersync/db';
+import type { FileNode, SampleLocation, SampleGroupMetadata, SampleMetadata } from '../types';
+import { arrayToRecord } from '../utils/arrayToRecord';
 
 interface DataState {
-    fileTree: FileNode[];
-    sampleGroups: Record<string, SampleGroupMetadata>;
+    // Data
     locations: SampleLocation[];
-    isSyncing: boolean;
-    lastSynced: number | null;
+    fileNodes: Record<string, FileNode>;
+    sampleGroups: Record<string, SampleGroupMetadata>;
+    sampleMetadata: Record<string, SampleMetadata>;
     error: string | null;
-}
+    loading: boolean;
 
-interface DataActions {
-    createSampleGroup: (data: Partial<SampleGroupMetadata>) => Promise<SampleGroupMetadata>;
+    // Actions
+    fetchLocations: () => Promise<void>;
+    fetchFileNodes: () => Promise<void>;
+    fetchSampleGroups: () => Promise<void>;
+    fetchSampleMetadata: () => Promise<void>;
+    addFileNode: (node: FileNode) => Promise<void>;
+    updateFileNode: (id: string, updates: Partial<FileNode>) => Promise<void>;
+    deleteNode: (id: string) => Promise<void>;
     updateSampleGroup: (id: string, updates: Partial<SampleGroupMetadata>) => Promise<void>;
-    deleteSampleGroup: (id: string) => Promise<void>;
-    createFileNode: (data: Partial<FileNode>) => Promise<FileNode>;
-    updateFileTree: (updatedTree: FileNode[]) => Promise<void>;
-    deleteNode: (nodeId: string) => Promise<void>;
-    getAllFileNodes: () => Promise<FileNode[]>;
-    getAllSampleGroups: () => Promise<SampleGroupMetadata[]>;
-    getAllLocations: () => Promise<SampleLocation[]>;
-    setSyncing: (isSyncing: boolean) => void;
+    getLocationById: (id: string | null) => SampleLocation | null;
     setError: (error: string | null) => void;
-    syncData: () => Promise<void>;
 }
 
-const initialState: DataState = {
-    fileTree: [],
-    sampleGroups: {},
+export const useDataStore = create<DataState>((set, get) => ({
     locations: [],
-    isSyncing: false,
-    lastSynced: null,
+    fileNodes: {},
+    sampleGroups: {},
+    sampleMetadata: {},
     error: null,
-};
+    loading: false,
 
-export const useDataStore = create<DataState & DataActions>()(
-    devtools(
-        persist(
-            (set, get) => ({
-                ...initialState,
+    fetchLocations: async () => {
+        try {
+            const locations = await db.execute(`
+                SELECT * FROM sample_locations 
+                WHERE is_enabled = 1
+                ORDER BY label ASC
+            `);
 
-                setSyncing: (isSyncing) => set({ isSyncing }),
+            set({ locations });
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to fetch locations' });
+        }
+    },
 
-                setError: (error) => set({ error }),
+    fetchFileNodes: async () => {
+        try {
+            const nodes = await db.execute(`
+                SELECT * FROM file_nodes 
+                ORDER BY created_at DESC
+            `);
 
-                createSampleGroup: async (data) => {
-                    try {
-                        const newSampleGroup: SampleGroupMetadata = {
-                            ...data as SampleGroupMetadata,
-                            id: data.id || uuidv4(),
-                            created_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString()
-                        };
+            set({ fileNodes: arrayToRecord(nodes) });
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to fetch file nodes' });
+        }
+    },
 
-                        await storage.saveSampleGroup(newSampleGroup);
+    fetchSampleGroups: async () => {
+        try {
+            const groups = await db.execute(`
+                SELECT * FROM sample_group_metadata 
+                ORDER BY created_at DESC
+            `);
 
-                        set((state) => ({
-                            sampleGroups: {
-                                ...state.sampleGroups,
-                                [newSampleGroup.id]: newSampleGroup
-                            }
-                        }));
+            set({ sampleGroups: arrayToRecord(groups) });
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to fetch sample groups' });
+        }
+    },
 
-                        return newSampleGroup;
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
+    fetchSampleMetadata: async () => {
+        try {
+            const metadata = await db.execute(`
+                SELECT * FROM sample_metadata 
+                ORDER BY created_at DESC
+            `);
 
-                updateSampleGroup: async (id, updates) => {
-                    try {
-                        const existing = await storage.getSampleGroup(id);
-                        if (!existing) throw new Error('Sample group not found');
+            set({ sampleMetadata: arrayToRecord(metadata) });
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to fetch sample metadata' });
+        }
+    },
 
-                        const updatedGroup = {
-                            ...existing,
-                            ...updates,
-                            updated_at: new Date().toISOString()
-                        };
+    addFileNode: async (node: FileNode) => {
+        try {
+            const { id, org_id, parent_id, name, type, created_at, updated_at, version,
+                sample_group_id, children, droppable } = node;
 
-                        await storage.saveSampleGroup(updatedGroup);
+            await db.execute(`
+                INSERT INTO file_nodes 
+                (id, org_id, parent_id, name, type, created_at, updated_at, version, 
+                 sample_group_id, children, droppable)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [id, org_id, parent_id, name, type, created_at, updated_at, version,
+                sample_group_id, JSON.stringify(children), droppable ? 1 : 0]);
 
-                        set((state) => ({
-                            sampleGroups: {
-                                ...state.sampleGroups,
-                                [id]: updatedGroup
-                            }
-                        }));
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
+            await get().fetchFileNodes();
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to add file node' });
+            throw error;
+        }
+    },
 
-                deleteSampleGroup: async (id) => {
-                    try {
-                        await storage.deleteSampleGroup(id);
+    updateFileNode: async (id: string, updates: Partial<FileNode>) => {
+        try {
+            const setClause = Object.keys(updates)
+                .map(key => `${key} = ?`)
+                .join(', ');
 
-                        set((state) => {
-                            const { [id]: deleted, ...remainingSampleGroups } = state.sampleGroups;
-                            return { sampleGroups: remainingSampleGroups };
-                        });
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
+            const values = Object.values(updates).map(value =>
+                typeof value === 'object' ? JSON.stringify(value) : value
+            );
 
-                createFileNode: async (data) => {
-                    try {
-                        const newNode: FileNode = {
-                            ...data as FileNode,
-                            id: data.id || uuidv4(),
-                            created_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString()
-                        };
+            await db.execute(`
+                UPDATE file_nodes 
+                SET ${setClause}
+                WHERE id = ?
+            `, [...values, id]);
 
-                        await storage.saveFileNode(newNode);
+            await get().fetchFileNodes();
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to update file node' });
+            throw error;
+        }
+    },
 
-                        set((state) => ({
-                            fileTree: [...state.fileTree, newNode]
-                        }));
+    deleteNode: async (id: string) => {
+        try {
+            // First, recursively delete all child nodes
+            const deleteChildren = async (nodeId: string) => {
+                const children = await db.execute(`
+                    SELECT id FROM file_nodes 
+                    WHERE parent_id = ?
+                `, [nodeId]);
 
-                        return newNode;
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
-
-                updateFileTree: async (updatedTree) => {
-                    try {
-                        const timestamp = new Date().toISOString();
-                        const updatedNodes = updatedTree.map(node => ({
-                            ...node,
-                            updated_at: timestamp
-                        }));
-
-                        await Promise.all(updatedNodes.map(node => storage.saveFileNode(node)));
-
-                        set({ fileTree: updatedNodes });
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
-
-                deleteNode: async (nodeId) => {
-                    try {
-                        await storage.deleteNode(nodeId);
-
-                        set((state) => ({
-                            fileTree: state.fileTree.filter(node => node.id !== nodeId)
-                        }));
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
-
-                getAllFileNodes: async () => {
-                    try {
-                        const nodes = await storage.getAllFileNodes();
-                        set({ fileTree: nodes });
-                        return nodes;
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
-
-                getAllSampleGroups: async () => {
-                    try {
-                        const groups = await storage.getAllSampleGroups();
-                        const groupsRecord = groups.reduce((acc, group) => {
-                            acc[group.id] = group;
-                            return acc;
-                        }, {} as Record<string, SampleGroupMetadata>);
-
-                        set({ sampleGroups: groupsRecord });
-                        return groups;
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
-
-                getAllLocations: async () => {
-                    try {
-                        const locations = await storage.getAllLocations();
-                        set({ locations });
-                        return locations;
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    }
-                },
-
-                syncData: async () => {
-                    try {
-                        set({ isSyncing: true });
-
-                        // Sync with remote
-                        const { data: fileNodesData } = await supabase
-                            .from('file_nodes')
-                            .select('*');
-
-                        const { data: sampleGroupsData } = await supabase
-                            .from('sample_group_metadata')
-                            .select('*');
-
-                        const { data: locationsData } = await supabase
-                            .from('sample_locations')
-                            .select('*');
-
-                        if (fileNodesData) {
-                            await Promise.all(fileNodesData.map(node => storage.saveFileNode(node)));
-                            set({ fileTree: fileNodesData });
-                        }
-
-                        if (sampleGroupsData) {
-                            const groupsRecord = sampleGroupsData.reduce((acc, group) => {
-                                acc[group.id] = group;
-                                return acc;
-                            }, {} as Record<string, SampleGroupMetadata>);
-
-                            await Promise.all(sampleGroupsData.map(group => storage.saveSampleGroup(group)));
-                            set({ sampleGroups: groupsRecord });
-                        }
-
-                        if (locationsData) {
-                            await Promise.all(locationsData.map(location => storage.saveLocation(location)));
-                            set({ locations: locationsData });
-                        }
-
-                        set({
-                            lastSynced: Date.now(),
-                            error: null
-                        });
-                    } catch (error: any) {
-                        set({ error: error.message });
-                        throw error;
-                    } finally {
-                        set({ isSyncing: false });
-                    }
+                for (const child of children) {
+                    await deleteChildren(child.id);
                 }
-            }),
-            {
-                name: 'data-storage',
-                partialize: (state) => ({
-                    fileTree: state.fileTree,
-                    sampleGroups: state.sampleGroups,
-                    locations: state.locations,
-                    lastSynced: state.lastSynced
-                })
-            }
-        )
-    )
-);
+
+                await db.execute('DELETE FROM file_nodes WHERE id = ?', [nodeId]);
+            };
+
+            await deleteChildren(id);
+            await get().fetchFileNodes();
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to delete node' });
+            throw error;
+        }
+    },
+
+    updateSampleGroup: async (id: string, updates: Partial<SampleGroupMetadata>) => {
+        try {
+            const setClause = Object.keys(updates)
+                .map(key => `${key} = ?`)
+                .join(', ');
+
+            const values = Object.values(updates);
+
+            await db.execute(`
+                UPDATE sample_group_metadata 
+                SET ${setClause}
+                WHERE id = ?
+            `, [...values, id]);
+
+            await get().fetchSampleGroups();
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to update sample group' });
+            throw error;
+        }
+    },
+
+    getLocationById: (id: string | null) => {
+        if (!id) return null;
+        return get().locations.find(location => location.id === id) || null;
+    },
+
+    setError: (error: string | null) => set({ error })
+}));

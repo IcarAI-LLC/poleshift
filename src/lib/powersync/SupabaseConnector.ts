@@ -1,3 +1,5 @@
+//src/lib/powersync/SupabaseConnector.ts
+
 import {
     AbstractPowerSyncDatabase,
     BaseObserver,

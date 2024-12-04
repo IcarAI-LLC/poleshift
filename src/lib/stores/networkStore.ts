@@ -1,102 +1,203 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-import type { PendingOperation } from '../types';
+import { db } from '../powersync/db';
+import { setupPowerSync } from '../powersync/db';
+
+interface ConnectionStats {
+    lastSync: Date | null;
+    syncAttempts: number;
+    failedAttempts: number;
+}
 
 interface NetworkState {
+    // Status
     isOnline: boolean;
-    connectionStrength: 'strong' | 'weak' | 'none';
-    lastChecked: number;
-    lastSuccessfulSync: number | null;
-    pendingOperations: PendingOperation[];
+    isSyncing: boolean;
+    connectionStats: ConnectionStats;
+    error: string | null;
+    lastError: Date | null;
+
+    // Connection Management
+    reconnectAttempts: number;
+    maxReconnectAttempts: number;
+    reconnectInterval: number;
+
+    // Actions
+    initialize: () => Promise<void>;
+    checkConnection: () => Promise<void>;
+    startSync: () => Promise<void>;
+    stopSync: () => void;
+    resetConnectionStats: () => void;
+    setError: (error: string | null) => void;
+
+    // Getters
+    getLastSyncTime: () => Date | null;
+    getSyncStatus: () => { isSyncing: boolean; lastSync: Date | null };
 }
 
-interface NetworkActions {
-    setOnlineStatus: (status: boolean) => void;
-    setConnectionStrength: (strength: 'strong' | 'weak' | 'none') => void;
-    updateLastChecked: () => void;
-    setLastSuccessfulSync: (timestamp: number) => void;
-    addPendingOperation: (operation: PendingOperation) => void;
-    removePendingOperation: (operationId: string) => void;
-    clearPendingOperations: () => void;
-    waitForConnection: (timeout?: number) => Promise<boolean>;
-}
+const INITIAL_RECONNECT_INTERVAL = 5000; // 5 seconds
+const MAX_RECONNECT_ATTEMPTS = 5;
 
-const initialState: NetworkState = {
+export const useNetworkStore = create<NetworkState>((set, get) => ({
+    // Initial State
     isOnline: navigator.onLine,
-    connectionStrength: 'none',
-    lastChecked: Date.now(),
-    lastSuccessfulSync: null,
-    pendingOperations: [],
-};
+    isSyncing: false,
+    connectionStats: {
+        lastSync: null,
+        syncAttempts: 0,
+        failedAttempts: 0,
+    },
+    error: null,
+    lastError: null,
+    reconnectAttempts: 0,
+    maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+    reconnectInterval: INITIAL_RECONNECT_INTERVAL,
 
-export const useNetworkStore = create<NetworkState & NetworkActions>()(
-    devtools(
-        (set, get) => ({
-            ...initialState,
+    // Initialize network monitoring and sync
+    initialize: async () => {
+        try {
+            // Set up PowerSync
+            await setupPowerSync();
 
-            setOnlineStatus: (status) => {
-                set({
-                    isOnline: status,
-                    lastChecked: Date.now(),
-                });
-            },
+            // Set up online/offline listeners
+            window.addEventListener('online', () => {
+                set({ isOnline: true });
+                get().startSync();
+            });
 
-            setConnectionStrength: (strength) => {
-                set({ connectionStrength: strength });
-            },
+            window.addEventListener('offline', () => {
+                set({ isOnline: false });
+                get().stopSync();
+            });
 
-            updateLastChecked: () => {
-                set({ lastChecked: Date.now() });
-            },
+            // Initial connection check
+            await get().checkConnection();
 
-            setLastSuccessfulSync: (timestamp) => {
-                set({ lastSuccessfulSync: timestamp });
-            },
-
-            addPendingOperation: (operation) => {
-                set((state) => ({
-                    pendingOperations: [...state.pendingOperations, operation],
-                }));
-            },
-
-            removePendingOperation: (operationId) => {
-                set((state) => ({
-                    pendingOperations: state.pendingOperations.filter(
-                        (op) => op.id !== operationId
-                    ),
-                }));
-            },
-
-            clearPendingOperations: () => {
-                set({ pendingOperations: [] });
-            },
-
-            waitForConnection: async (timeout = 30000): Promise<boolean> => {
-                const startTime = Date.now();
-
-                while (Date.now() - startTime < timeout) {
-                    if (get().isOnline) {
-                        return true;
-                    }
-                    await new Promise((resolve) => setTimeout(resolve, 1000));
-                }
-
-                return false;
-            },
-        }),
-        {
-            name: 'network-store',
+            // Start sync if online
+            if (get().isOnline) {
+                await get().startSync();
+            }
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Network initialization failed',
+                lastError: new Date()
+            });
         }
-    )
-);
+    },
 
-// Initialize network listeners
-if (typeof window !== 'undefined') {
-    window.addEventListener('online', () => {
-        useNetworkStore.getState().setOnlineStatus(true);
-    });
+    // Check connection status
+    checkConnection: async () => {
+        try {
+            const isConnected = navigator.onLine;
 
-    window.addEventListener('offline', () => {
-        useNetworkStore.getState().setOnlineStatus(false);
-    });
-}
+            if (isConnected) {
+                // Test database connection
+                await db.execute('SELECT 1');
+                set({
+                    isOnline: true,
+                    error: null,
+                    reconnectAttempts: 0,
+                    reconnectInterval: INITIAL_RECONNECT_INTERVAL
+                });
+            } else {
+                throw new Error('No network connection');
+            }
+        } catch (error) {
+            const { reconnectAttempts, maxReconnectAttempts } = get();
+
+            if (reconnectAttempts < maxReconnectAttempts) {
+                // Schedule reconnection attempt
+                setTimeout(() => {
+                    set(state => ({
+                        reconnectAttempts: state.reconnectAttempts + 1,
+                        reconnectInterval: state.reconnectInterval * 2 // Exponential backoff
+                    }));
+                    get().checkConnection();
+                }, get().reconnectInterval);
+            }
+
+            set({
+                isOnline: false,
+                error: error instanceof Error ? error.message : 'Connection check failed',
+                lastError: new Date()
+            });
+        }
+    },
+
+    // Start synchronization
+    startSync: async () => {
+        try {
+            const state = get();
+            if (state.isSyncing || !state.isOnline) return;
+
+            set(state => ({
+                isSyncing: true,
+                connectionStats: {
+                    ...state.connectionStats,
+                    syncAttempts: state.connectionStats.syncAttempts + 1
+                }
+            }));
+
+            // PowerSync handles the actual sync process
+            // Here we just update our local state tracking
+            await setupPowerSync();
+
+            set(state => ({
+                isSyncing: false,
+                connectionStats: {
+                    ...state.connectionStats,
+                    lastSync: new Date()
+                },
+                error: null
+            }));
+        } catch (error) {
+            set(state => ({
+                isSyncing: false,
+                error: error instanceof Error ? error.message : 'Sync failed',
+                lastError: new Date(),
+                connectionStats: {
+                    ...state.connectionStats,
+                    failedAttempts: state.connectionStats.failedAttempts + 1
+                }
+            }));
+        }
+    },
+
+    // Stop synchronization
+    stopSync: () => {
+        set({ isSyncing: false });
+    },
+
+    // Reset connection statistics
+    resetConnectionStats: () => {
+        set({
+            connectionStats: {
+                lastSync: null,
+                syncAttempts: 0,
+                failedAttempts: 0
+            },
+            reconnectAttempts: 0,
+            reconnectInterval: INITIAL_RECONNECT_INTERVAL,
+            error: null,
+            lastError: null
+        });
+    },
+
+    // Error handling
+    setError: (error: string | null) => {
+        set({
+            error,
+            lastError: error ? new Date() : get().lastError
+        });
+    },
+
+    // Getters
+    getLastSyncTime: () => get().connectionStats.lastSync,
+
+    getSyncStatus: () => ({
+        isSyncing: get().isSyncing,
+        lastSync: get().connectionStats.lastSync
+    })
+}));
+
+// Export singleton instance
+export default useNetworkStore;

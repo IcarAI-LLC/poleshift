@@ -1,102 +1,128 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-import type { FileNode, SampleLocation, ModalState, ContextMenuState } from '../types';
+import { DateTime } from 'luxon';
+import type { SampleLocation, FileNode } from '../types';
+
+interface ContextMenuState {
+    isVisible: boolean;
+    x: number;
+    y: number;
+    itemId: string | null;
+}
+
+interface Filters {
+    startDate: string | null;
+    endDate: string | null;
+    selectedLocations: string[];
+}
 
 interface UIState {
+    // Left Sidebar State
+    isLeftSidebarCollapsed: boolean;
     selectedLeftItem: FileNode | null;
-    selectedRightItem: SampleLocation | null;
-    isSidebarCollapsed: boolean;
-    isRightSidebarCollapsed: boolean;
-    showAccountActions: boolean;
-    errorMessage: string;
-    filters: {
-        startDate: string | null;
-        endDate: string | null;
-        selectedLocations: string[];
-    };
-    modal: ModalState;
-    contextMenu: ContextMenuState;
-}
 
-interface UIActions {
+    // Right Sidebar State
+    isRightSidebarCollapsed: boolean;
+    selectedRightItem: SampleLocation | null;
+
+    // Context Menu State
+    contextMenu: ContextMenuState;
+
+    // Account Actions State
+    showAccountActions: boolean;
+
+    // Error Message State
+    errorMessage: string | null;
+
+    // Filter State
+    filters: Filters;
+
+    // Actions
+    toggleLeftSidebar: (collapsed?: boolean) => void;
+    toggleRightSidebar: (collapsed?: boolean) => void;
     setSelectedLeftItem: (item: FileNode | null) => void;
     setSelectedRightItem: (item: SampleLocation | null) => void;
-    toggleSidebar: (isCollapsed?: boolean) => void;
-    toggleRightSidebar: (isCollapsed?: boolean) => void;
-    setShowAccountActions: (show: boolean) => void;
-    setErrorMessage: (message: string) => void;
-    setFilters: (filters: UIState['filters']) => void;
-    setModalState: (modalState: ModalState) => void;
-    setContextMenuState: (contextMenu: ContextMenuState) => void;
+    setContextMenuState: (state: Partial<ContextMenuState>) => void;
     closeContextMenu: () => void;
+    setShowAccountActions: (show: boolean) => void;
+    setErrorMessage: (message: string | null) => void;
+    setFilters: (filters: Partial<Filters>) => void;
+    resetFilters: () => void;
 }
 
-const initialState: UIState = {
+const initialFilters: Filters = {
+    startDate: null,
+    endDate: null,
+    selectedLocations: [],
+};
+
+export const useUIStore = create<UIState>((set, get) => ({
+    // Initial States
+    isLeftSidebarCollapsed: false,
+    isRightSidebarCollapsed: true,
     selectedLeftItem: null,
     selectedRightItem: null,
-    isSidebarCollapsed: false,
-    isRightSidebarCollapsed: false,
-    showAccountActions: false,
-    errorMessage: '',
-    filters: {
-        startDate: null,
-        endDate: null,
-        selectedLocations: [],
-    },
-    modal: {
-        isOpen: false,
-        title: '',
-        type: 'input',
-        configItem: undefined,
-        modalInputs: undefined,
-        data: undefined
-    },
     contextMenu: {
         isVisible: false,
         x: 0,
         y: 0,
-        itemId: null
-    }
-};
+        itemId: null,
+    },
+    showAccountActions: false,
+    errorMessage: null,
+    filters: initialFilters,
 
-export const useUIStore = create<UIState & UIActions>()(
-    devtools(
-        (set) => ({
-            ...initialState,
+    // Actions
+    toggleLeftSidebar: (collapsed) => set(state => ({
+        isLeftSidebarCollapsed: collapsed !== undefined ? collapsed : !state.isLeftSidebarCollapsed
+    })),
 
-            setSelectedLeftItem: (item) => set({ selectedLeftItem: item }),
+    toggleRightSidebar: (collapsed) => set(state => ({
+        isRightSidebarCollapsed: collapsed !== undefined ? collapsed : !state.isRightSidebarCollapsed
+    })),
 
-            setSelectedRightItem: (item) => set({ selectedRightItem: item }),
+    setSelectedLeftItem: (item) => set({
+        selectedLeftItem: item
+    }),
 
-            toggleSidebar: (isCollapsed) => set((state) => ({
-                isSidebarCollapsed: isCollapsed !== undefined ? isCollapsed : !state.isSidebarCollapsed
-            })),
+    setSelectedRightItem: (item) => {
+        const state = get();
+        set({
+            selectedRightItem: item,
+            isRightSidebarCollapsed: item === null
+        });
+    },
 
-            toggleRightSidebar: (isCollapsed) => set((state) => ({
-                isRightSidebarCollapsed: isCollapsed !== undefined ? isCollapsed : !state.isRightSidebarCollapsed
-            })),
-
-            setShowAccountActions: (show) => set({ showAccountActions: show }),
-
-            setErrorMessage: (message) => set({ errorMessage: message }),
-
-            setFilters: (filters) => set({ filters }),
-
-            setModalState: (modalState) => set({ modal: modalState }),
-
-            setContextMenuState: (contextMenu) => set({ contextMenu }),
-
-            closeContextMenu: () => set({
-                contextMenu: {
-                    isVisible: false,
-                    x: 0,
-                    y: 0,
-                    itemId: null
-                }
-            }),
-        }),
-        {
-            name: 'ui-store'
+    setContextMenuState: (newState) => set(state => ({
+        contextMenu: {
+            ...state.contextMenu,
+            ...newState
         }
-    )
-);
+    })),
+
+    closeContextMenu: () => set(state => ({
+        contextMenu: {
+            ...state.contextMenu,
+            isVisible: false,
+            itemId: null
+        }
+    })),
+
+    setShowAccountActions: (show) => set({
+        showAccountActions: show
+    }),
+
+    setErrorMessage: (message) => set({
+        errorMessage: message
+    }),
+
+    setFilters: (newFilters) => set(state => ({
+        filters: {
+            ...state.filters,
+            ...newFilters
+        }
+    })),
+
+    resetFilters: () => set({
+        filters: initialFilters
+    })
+}));

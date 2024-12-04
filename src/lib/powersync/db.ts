@@ -1,3 +1,4 @@
+//src/lib/powersync/db.ts
 import { PowerSyncDatabase } from '@powersync/web';
 import { SupabaseConnector } from './SupabaseConnector.ts';
 import { AppSchema } from './Schema';

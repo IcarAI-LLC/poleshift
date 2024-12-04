@@ -1,3 +1,5 @@
+//src/lib/powersync/Schema.ts
+
 import { column, Schema, Table } from '@powersync/web';
 // OR: import { column, Schema, Table } from '@powersync/react-native';
 
