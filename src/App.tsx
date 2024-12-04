@@ -15,6 +15,7 @@ function App() {
         console.error('PowerSync setup failed:', error);
         // Handle error appropriately
     }
+
     return (
             <LocalizationProvider dateAdapter={AdapterLuxon}>
                 <ThemeProvider theme={theme}>

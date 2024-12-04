@@ -10,6 +10,7 @@ import {
   Menu as MenuIcon,
   AddCircle as AddCircleIcon,
   CreateNewFolder as CreateNewFolderIcon,
+  Public as PublicIcon, // Import the globe icon
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { useUI } from '../../lib/hooks';
@@ -46,6 +47,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     toggleLeftSidebar,
     setErrorMessage,
     setShowAccountActions,
+    setSelectedLeftItem, // Destructure setSelectedLeftItem
   } = useUI();
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -107,6 +109,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           flexDirection: 'column',
           gap: theme.spacing(1),
           borderBottom: '1px solid var(--color-border)',
+        } as const,
+        resetButton: { // Optional: Custom style for reset button
+          width: '100%',
+          justifyContent: 'flex-start',
+          backgroundColor: 'var(--color-background)',
+          color: 'var(--color-text)',
         } as const,
       }),
       [theme]
@@ -380,6 +388,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
       [toggleLeftSidebar]
   );
 
+  // Define the reset selection handler
+  const handleResetSelection = useCallback(() => {
+    setSelectedLeftItem(null);
+  }, [setSelectedLeftItem]);
+
   return (
       <>
         <Box className="sidebar-controls">
@@ -438,6 +451,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 <CreateNewFolderIcon />
                 {!isLeftSidebarCollapsed && (
                     <span style={{ marginLeft: theme.spacing(1) }}>New Folder</span>
+                )}
+              </Button>
+
+              {/* Globe Icon Button */}
+              <Button
+                  variant="contained"
+                  onClick={handleResetSelection}
+                  aria-label="Reset Selection"
+                  sx={styles.resetButton} // Optional: Use a separate style if defined
+                  disableElevation
+              >
+                <PublicIcon />
+                {!isLeftSidebarCollapsed && (
+                    <span style={{ marginLeft: theme.spacing(1) }}>
+                  Reset Selection
+                </span>
                 )}
               </Button>
             </Box>
