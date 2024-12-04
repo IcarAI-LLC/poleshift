@@ -332,7 +332,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           },
           {
             name: 'collectionTime',
-            label: 'Collection Time',
+            label: 'Collection Time (UTC)',
             type: 'time',
             tooltip:
                 'Optionally specify the time when the sample was collected. Leave blank if unknown.',

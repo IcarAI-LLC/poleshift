@@ -52,25 +52,35 @@ export const SampleGroupMetadata: React.FC = () => {
       ? locations.find(loc => loc.id === sampleGroup.loc_id)
       : null;
 
-  // Memoized styles
+  // Styles with enhanced overflow handling
   const styles: StyleProps = {
     containerStyles: {
       backgroundColor: 'background.paper',
       borderRadius: 2,
       boxShadow: 'var(--shadow-sm)',
       m: 2,
+      maxHeight: 'calc(100vh - 180px)', // Increased space for container
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      position: 'relative', // Added for proper positioning
     },
     accordionStyles: {
       '&:before': {
         display: 'none',
       },
       boxShadow: 'none',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden', // Prevent accordion overflow
     },
     summaryStyles: {
       borderBottom: `1px solid ${theme.palette.divider}`,
       '&.Mui-expanded': {
         minHeight: '48px',
       },
+      flexShrink: 0, // Prevent summary from shrinking
     },
     metadataItemStyles: {
       display: 'flex',
@@ -194,6 +204,7 @@ export const SampleGroupMetadata: React.FC = () => {
             expanded={isExpanded}
             onChange={() => setIsExpanded(!isExpanded)}
             sx={styles.accordionStyles}
+            disableGutters
         >
           <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
@@ -210,95 +221,113 @@ export const SampleGroupMetadata: React.FC = () => {
             </Box>
           </AccordionSummary>
 
-          <AccordionDetails sx={{ p: 0 }}>
-            {/* Basic Info Fields */}
-            <Box sx={styles.metadataItemStyles}>
-              <Typography sx={styles.labelStyles}>Sample ID:</Typography>
-              <Typography sx={styles.valueStyles}>
-                {sampleGroup.human_readable_sample_id || 'N/A'}
-              </Typography>
-            </Box>
-
-            <Box sx={styles.metadataItemStyles}>
-              <Typography sx={styles.labelStyles}>Date:</Typography>
-              <Typography sx={styles.valueStyles}>
-                {sampleGroup.collection_date || 'N/A'}
-              </Typography>
-            </Box>
-
-            {/* Time Picker */}
-            <Box sx={styles.metadataItemStyles}>
-              <Typography sx={styles.labelStyles}>Time (UTC):</Typography>
-              <Box sx={styles.valueStyles}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <TimePicker
-                      value={
-                        localState.collectionTimeUTC
-                            ? parse(localState.collectionTimeUTC, 'HH:mm:ss', new Date())
-                            : null
-                      }
-                      onChange={(newValue) => {
-                        if (newValue && !isNaN(newValue.getTime())) {
-                          const timeString = format(newValue, 'HH:mm:ss');
-                          handleCollectionTimeUpdate(timeString);
-                        }
-                      }}
-                      ampm={false}
-                      views={['hours', 'minutes', 'seconds']}
-                      slots={{ openPickerIcon: AccessTimeIcon }}
-                      slotProps={{
-                        textField: {
-                          variant: 'outlined',
-                          placeholder: 'HH:MM:SS',
-                          fullWidth: true,
-                          size: 'small',
-                          sx: styles.darkFieldStyles,
-                        },
-                      }}
-                  />
-                </LocalizationProvider>
+          <AccordionDetails sx={{
+            p: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden', // Prevent horizontal scroll
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            maxHeight: 'calc(100vh - 240px)', // Adjusted for header and margins
+          }}>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 'min-content',
+              pb: 2, // Add bottom padding for last item
+            }}>
+              {/* Basic Info Fields */}
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Sample ID:</Typography>
+                <Typography sx={styles.valueStyles}>
+                  {sampleGroup.human_readable_sample_id || 'N/A'}
+                </Typography>
               </Box>
-            </Box>
 
-            {/* Location Info */}
-            <Box sx={styles.metadataItemStyles}>
-              <Typography sx={styles.labelStyles}>Location:</Typography>
-              <Typography sx={styles.valueStyles}>
-                {location?.label || 'Unknown Location'}
-              </Typography>
-            </Box>
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Date:</Typography>
+                <Typography sx={styles.valueStyles}>
+                  {sampleGroup.collection_date || 'N/A'}
+                </Typography>
+              </Box>
 
-            {/* Notes Field */}
-            <Box sx={styles.metadataItemStyles}>
-              <Typography sx={styles.labelStyles}>Notes:</Typography>
-              <TextField
-                  multiline
-                  rows={3}
-                  value={localState.notes}
-                  onChange={(e) => setLocalState(prev => ({
-                    ...prev,
-                    notes: e.target.value
-                  }))}
-                  onBlur={() => handleNotesUpdate(localState.notes)}
-                  placeholder="Add notes about this sample..."
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    ...styles.darkFieldStyles,
-                    flex: 1,
+              {/* Time Picker */}
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Time (UTC):</Typography>
+                <Box sx={styles.valueStyles}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <TimePicker
+                        value={
+                          localState.collectionTimeUTC
+                              ? parse(localState.collectionTimeUTC, 'HH:mm:ss', new Date())
+                              : null
+                        }
+                        onChange={(newValue) => {
+                          if (newValue && !isNaN(newValue.getTime())) {
+                            const timeString = format(newValue, 'HH:mm:ss');
+                            handleCollectionTimeUpdate(timeString);
+                          }
+                        }}
+                        ampm={false}
+                        views={['hours', 'minutes', 'seconds']}
+                        slots={{ openPickerIcon: AccessTimeIcon }}
+                        slotProps={{
+                          textField: {
+                            variant: 'outlined',
+                            placeholder: 'HH:MM:SS',
+                            fullWidth: true,
+                            size: 'small',
+                            sx: styles.darkFieldStyles,
+                          },
+                        }}
+                    />
+                  </LocalizationProvider>
+                </Box>
+              </Box>
+
+              {/* Location Info */}
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Location:</Typography>
+                <Typography sx={styles.valueStyles}>
+                  {location?.label || 'Unknown Location'}
+                </Typography>
+              </Box>
+
+              {/* Notes Field */}
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Notes:</Typography>
+                <TextField
+                    multiline
+                    rows={3}
+                    value={localState.notes}
+                    onChange={(e) => setLocalState(prev => ({
+                      ...prev,
+                      notes: e.target.value
+                    }))}
+                    onBlur={() => handleNotesUpdate(localState.notes)}
+                    placeholder="Add notes about this sample..."
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      ...styles.darkFieldStyles,
+                      flex: 1,
+                    }}
+                />
+              </Box>
+
+              {/* Location Fields Component */}
+              <LocationFields
+                  sampleGroup={sampleGroup}
+                  metadataItemStyles={{
+                    ...styles.metadataItemStyles,
+                    minHeight: 'fit-content', // Ensure enough space for error messages
+                    py: 2, // Add vertical padding
                   }}
+                  labelStyles={styles.labelStyles}
+                  darkFieldStyles={styles.darkFieldStyles}
               />
             </Box>
-
-            {/* Location Fields Component */}
-            <LocationFields
-                sampleGroup={sampleGroup}
-                theme={theme}
-                metadataItemStyles={styles.metadataItemStyles}
-                labelStyles={styles.labelStyles}
-                darkFieldStyles={styles.darkFieldStyles}
-            />
           </AccordionDetails>
         </Accordion>
       </Card>

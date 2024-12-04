@@ -60,7 +60,7 @@
   --spacing-xl: 2.25rem;
 
   /* Layout */
-  --sidebar-width: 275px;
+  --sidebar-width: 350px;
   --header-height: 60px;
 
   /* Transitions */
@@ -119,6 +119,13 @@ body {
   background-color: var(--color-background);
   transition: margin-left var(--transition-medium);
   height: 100%;
+}
+
+.content-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--spacing-md);
+  position: relative;
 }
 
 /* ===================================== */
