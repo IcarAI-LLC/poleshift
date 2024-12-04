@@ -1,6 +1,9 @@
+// src/lib/hooks/authStore.ts
+
 import { create } from 'zustand';
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
-import { db } from '../powersync/db';
+import { db, setupPowerSync } from '../powersync/db';
+import type { User } from '../types';
+import { SupabaseConnector } from '../powersync/SupabaseConnector';
 
 interface UserProfile {
     id: string;
@@ -16,13 +19,14 @@ interface Organization {
 }
 
 interface AuthState {
-    client: SupabaseClient;
+    connector: SupabaseConnector | null;
     user: User | null;
     userProfile: UserProfile | null;
     organization: Organization | null;
     error: string | null;
     loading: boolean;
     initialized: boolean;
+
     // Actions
     initializeAuth: () => Promise<void>;
     login: (email: string, password: string) => Promise<{ storedLicenseKey?: string }>;
@@ -33,13 +37,8 @@ interface AuthState {
     setError: (error: string | null) => void;
 }
 
-const supabase = createClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_ANON_KEY
-);
-
 export const useAuthStore = create<AuthState>((set, get) => ({
-    client: supabase,
+    connector: null,
     user: null,
     userProfile: null,
     organization: null,
@@ -49,35 +48,108 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     initializeAuth: async () => {
         try {
-            set({ loading: true });
-            const { data: { session }, error } = await supabase.auth.getSession();
+            console.log('Initializing authentication...');
+            set({ loading: true, error: null });
 
-            if (error) throw error;
+            const connector = new SupabaseConnector();
 
-            if (session?.user) {
-                // Use PowerSync to get user profile
-                const userProfile = await db.execute(`
-                    SELECT * FROM user_profiles WHERE id = ?
-                `, [session.user.id]);
+            // Register session listeners before initializing the connector
+            connector.registerListener({
+                sessionStarted: async (session) => {
+                    try {
+                        console.log('Session started:', session);
+                        if (session?.user) {
+                            let userProfile = await db.get(
+                                `SELECT * FROM user_profiles WHERE id = ?`,
+                                [session.user.id]
+                            );
 
-                if (userProfile.length > 0) {
-                    // Use PowerSync to get organization
-                    const org = await db.execute(`
-                        SELECT * FROM organizations WHERE id = ?
-                    `, [userProfile[0].organization_id]);
+                            if (userProfile.length === 0) {
+                                // No user profile found, create one
+                                console.log('No user profile found. Creating one...');
+                                await db.execute(
+                                    `INSERT INTO user_profiles (id, organization_id, user_tier, created_at) VALUES (?, ?, ?, ?)`,
+                                    [
+                                        session.user.id,
+                                        'default_org_id', // Replace with logic to determine organization_id
+                                        'researcher', // Default user tier
+                                        new Date().toISOString()
+                                    ]
+                                );
+                                // Fetch the newly created profile
+                                userProfile = await db.execute(
+                                    `SELECT * FROM user_profiles WHERE id = ?`,
+                                    [session.user.id]
+                                );
+                            }
 
+                            // Proceed as before
+                            const org = await db.get(
+                                `SELECT * FROM organizations WHERE id = ?`,
+                                [userProfile.organization_id]
+                            );
+
+                            set({
+                                user: session.user,
+                                userProfile: userProfile,
+                                organization: org,
+                                initialized: true,
+                                loading: false
+                            });
+                        } else {
+                            // Handle case where session has no user
+                            set({
+                                user: null,
+                                userProfile: null,
+                                organization: null,
+                                initialized: true,
+                                loading: false
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error in sessionStarted listener:', error);
+                        set({
+                            error: error instanceof Error ? error.message : 'Session processing error',
+                            loading: false,
+                            initialized: true
+                        });
+                    }
+                },
+                sessionEnded: () => {
+                    console.log('Session ended. Redirecting to login.');
                     set({
-                        user: session.user,
-                        userProfile: userProfile[0],
-                        organization: org[0],
-                        initialized: true
+                        user: null,
+                        userProfile: null,
+                        organization: null,
+                        initialized: true, // Ensure initialized remains true
+                        loading: false // Ensure loading is false
                     });
                 }
+            });
+
+            await connector.init(); // Now any session updates will trigger the listener
+
+            // Set the connector in the state immediately
+            set({ connector });
+
+            console.log('SupabaseConnector initialized.');
+
+            // **Add this line to connect db**
+            await setupPowerSync(connector);
+            console.log('PowerSync setup completed.');
+
+            // If no session is found, set loading to false
+            if (!get().user) {
+                set({ loading: false });
             }
+
         } catch (error) {
-            set({ error: error instanceof Error ? error.message : 'Authentication error' });
-        } finally {
-            set({ loading: false });
+            console.error('Error initializing authentication:', error);
+            set({
+                error: error instanceof Error ? error.message : 'Authentication error',
+                loading: false,
+                initialized: true // Ensure initialized is set to true even on error
+            });
         }
     },
 
@@ -85,47 +157,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             set({ loading: true, error: null });
 
-            const { data: { session }, error } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
-
-            if (error) throw error;
-
-            if (session?.user) {
-                // Use PowerSync to get user profile
-                const userProfile = await db.execute(`
-                    SELECT * FROM user_profiles WHERE id = ?
-                `, [session.user.id]);
-
-                if (userProfile.length > 0) {
-                    // Use PowerSync to get organization
-                    const org = await db.execute(`
-                        SELECT * FROM organizations WHERE id = ?
-                    `, [userProfile[0].organization_id]);
-
-                    set({
-                        user: session.user,
-                        userProfile: userProfile[0],
-                        organization: org[0]
-                    });
-
-                    // Use PowerSync to check for stored license key
-                    const licenseKey = await db.execute(`
-                        SELECT key FROM license_keys 
-                        WHERE organization_id = ? AND is_active = 1
-                        LIMIT 1
-                    `, [userProfile[0].organization_id]);
-
-                    return { storedLicenseKey: licenseKey[0]?.key };
-                }
+            const connector = get().connector;
+            if (!connector) {
+                throw new Error('Auth not initialized');
             }
-            return {};
+
+            await connector.login(email, password);
+
+            // After login, loading state will be updated by sessionStarted listener
+            // So we don't need to set loading to false here
+
+            // **No need to call setupPowerSync again here since it's already connected**
+
+            const licenseKey = await db.execute(
+                `SELECT key FROM license_keys WHERE organization_id = ? AND is_active = 1 LIMIT 1`,
+                [get().userProfile?.organization_id]
+            );
+
+            return { storedLicenseKey: licenseKey[0]?.key };
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Login failed' });
             throw error;
         } finally {
-            set({ loading: false });
+            // Do not set loading to false here; sessionStarted will handle it
         }
     },
 
@@ -133,41 +187,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             set({ loading: true, error: null });
 
-            // Verify license key using PowerSync
-            const license = await db.execute(`
-                SELECT * FROM license_keys 
-                WHERE key = ? AND is_active = 1
-                LIMIT 1
-            `, [licenseKey]);
+            const license = await db.execute(
+                `SELECT * FROM license_keys WHERE key = ? AND is_active = 1 LIMIT 1`,
+                [licenseKey]
+            );
 
             if (!license.length) {
                 throw new Error('Invalid license key');
             }
 
-            const { data: { user }, error } = await supabase.auth.signUp({
+            const connector = get().connector;
+            if (!connector) {
+                throw new Error('Auth not initialized');
+            }
+
+            const user = await connector.client.auth.signUp({
                 email,
                 password,
                 options: {
-                    data: {
-                        organization_id: license[0].organization_id
-                    }
+                    data: { organization_id: license[0].organization_id }
                 }
             });
 
-            if (error) throw error;
+            if (!user.data.user) {
+                throw new Error('Failed to create user');
+            }
 
-            if (user) {
-                // Insert user profile using PowerSync
-                await db.execute(`
-                    INSERT INTO user_profiles (id, organization_id, user_tier, created_at)
-                    VALUES (?, ?, ?, ?)
-                `, [
-                    user.id,
+            await db.execute(
+                `INSERT INTO user_profiles (id, organization_id, user_tier, created_at) VALUES (?, ?, ?, ?)`,
+                [
+                    user.data.user.id,
                     license[0].organization_id,
                     'researcher',
                     new Date().toISOString()
-                ]);
-            }
+                ]
+            );
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Signup failed' });
             throw error;
@@ -179,12 +233,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     logout: async () => {
         try {
             set({ loading: true, error: null });
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
+
+            const connector = get().connector;
+            if (!connector) {
+                throw new Error('Auth not initialized');
+            }
+
+            await connector.logout();
+            await db.disconnect();
+
             set({
                 user: null,
                 userProfile: null,
-                organization: null
+                organization: null,
+                loading: false // Set loading to false here
             });
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Logout failed' });
@@ -197,8 +259,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     resetPassword: async (email: string) => {
         try {
             set({ loading: true, error: null });
-            const { error } = await supabase.auth.resetPasswordForEmail(email);
-            if (error) throw error;
+
+            const connector = get().connector;
+            if (!connector) {
+                throw new Error('Auth not initialized');
+            }
+
+            await connector.client.auth.resetPasswordForEmail(email);
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Password reset failed' });
             throw error;
@@ -211,18 +278,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             set({ loading: true, error: null });
 
-            // Use PowerSync to verify license key
-            const license = await db.execute(`
-                SELECT * FROM license_keys 
-                WHERE key = ? AND is_active = 1
-                LIMIT 1
-            `, [licenseKey]);
+            const license = await db.execute(
+                `SELECT * FROM license_keys WHERE key = ? AND is_active = 1 LIMIT 1`,
+                [licenseKey]
+            );
 
             if (!license.length) {
                 throw new Error('Invalid license key');
             }
-
-            // Additional license key processing logic here
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'License key processing failed' });
             throw error;

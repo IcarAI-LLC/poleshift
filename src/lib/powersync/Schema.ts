@@ -1,5 +1,6 @@
-//src/lib/powersync/Schema.ts
-
+//src/lib/powersync/schema
+import { column, Schema, Table } from '@powersync/web';
+// OR: import { column, Schema, Table } from '@powersync/react-native';
 import { column, Schema, Table } from '@powersync/web';
 // OR: import { column, Schema, Table } from '@powersync/react-native';
 
@@ -57,7 +58,8 @@ const processed_data = new Table(
         sample_id: column.text,
         human_readable_sample_id: column.text,
         org_short_id: column.text,
-        org_id: column.text
+        org_id: column.text,
+        process_function_name: column.text
     },
     { indexes: {} }
 );
@@ -123,6 +125,16 @@ const user_tiers = new Table(
     { indexes: {} }
 );
 
+const organizations = new Table(
+    {
+        // id column (text) is automatically included
+        name: column.text,
+        created_at: column.text,
+        org_short_id: column.text
+    },
+    { indexes: {} }
+);
+
 export const AppSchema = new Schema({
     sample_locations,
     file_nodes,
@@ -131,7 +143,8 @@ export const AppSchema = new Schema({
     sample_group_metadata,
     sample_metadata,
     user_profiles,
-    user_tiers
+    user_tiers,
+    organizations
 });
 
 export type Database = (typeof AppSchema)['types'];

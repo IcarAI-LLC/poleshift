@@ -1,11 +1,31 @@
-// SignUp.tsx
-interface SignUpFormState extends FormState {
+// components/PreAuth/SignUp.tsx
+import React, { useState, useMemo } from 'react';
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  CircularProgress,
+  Alert,
+} from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
+import { useAuth } from '../../lib/hooks';
+import type { PreAuthView } from '../../lib/types';
+
+interface SignUpFormState {
+  email: string;
   password: string;
   licenseKey: string;
+  message: string | null;
+  error: string | null;
+  isLoading: boolean;
 }
 
-export const SignUp: React.FC<{ onNavigate: (view: 'login') => void }> = ({ onNavigate }) => {
-  const theme = useTheme();
+interface SignUpProps {
+  onNavigate: (view: PreAuthView) => void;
+}
+
+export const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
   const { signUp } = useAuth();
   const [formState, setFormState] = useState<SignUpFormState>({
     email: '',
@@ -16,43 +36,51 @@ export const SignUp: React.FC<{ onNavigate: (view: 'login') => void }> = ({ onNa
     isLoading: false,
   });
 
-  // Memoized styles - reusing same styles as ResetPassword
-  const styles = useMemo(() => ({
-    container: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      bgcolor: 'background.default',
-      color: 'text.primary',
-      p: 2,
-    } as SxProps<Theme>,
-    form: {
-      width: '100%',
-      maxWidth: 400,
-      p: 4,
-      bgcolor: 'background.paper',
-      borderRadius: 2,
-      boxShadow: 3,
-    } as SxProps<Theme>,
-    button: {
-      mt: 2,
-      mb: 1,
-    } as SxProps<Theme>,
-  }), []);
+  const handleInputChange =
+      (field: keyof SignUpFormState) =>
+          (e: React.ChangeEvent<HTMLInputElement>) => {
+            setFormState((prev) => ({ ...prev, [field]: e.target.value }));
+          };
 
-  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+  const styles = useMemo(
+      () => ({
+        container: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          bgcolor: 'background.default',
+          color: 'text.primary',
+          p: 2,
+        } as SxProps<Theme>,
+        form: {
+          width: '100%',
+          maxWidth: 400,
+          p: 4,
+          bgcolor: 'background.paper',
+          borderRadius: 2,
+          boxShadow: 3,
+        } as SxProps<Theme>,
+        button: {
+          mt: 2,
+          mb: 1,
+        } as SxProps<Theme>,
+      }),
+      []
+  );
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!formState.email || !formState.password || !formState.licenseKey) {
-      setFormState(prev => ({
+      setFormState((prev) => ({
         ...prev,
-        error: 'Email, password, and license key are required.',
+        error: 'All fields are required.',
       }));
       return;
     }
 
-    setFormState(prev => ({
+    setFormState((prev) => ({
       ...prev,
       error: null,
       message: null,
@@ -61,26 +89,22 @@ export const SignUp: React.FC<{ onNavigate: (view: 'login') => void }> = ({ onNa
 
     try {
       await signUp(formState.email, formState.password, formState.licenseKey);
-      setFormState(prev => ({
+      setFormState((prev) => ({
         ...prev,
-        message: 'Sign-up successful! Please check your email to confirm your account before logging in.',
+        message:
+            'Sign-up successful! Please check your email to confirm your account before logging in.',
         isLoading: false,
       }));
     } catch (err) {
       console.error('Sign-up error:', err);
-      setFormState(prev => ({
+      setFormState((prev) => ({
         ...prev,
-        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+        error:
+            err instanceof Error ? err.message : 'An unexpected error occurred',
         isLoading: false,
       }));
     }
-  }, [formState.email, formState.password, formState.licenseKey, signUp]);
-
-  const handleInputChange = useCallback((field: keyof SignUpFormState) => (
-      e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormState(prev => ({ ...prev, [field]: e.target.value }));
-  }, []);
+  };
 
   return (
       <Box sx={styles.container}>

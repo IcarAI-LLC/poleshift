@@ -1,13 +1,12 @@
+//src/lib/contexts/AppContext.tsx
 import React, { createContext, useReducer, useContext, ReactNode } from 'react';
-import { api } from '../services/api';
 import { storage } from '../services/storage';
-import { processing } from '../services/processing';
+import { processData } from '../services/processing';
 
 // Services object that holds all our service instances
 export const services = {
-    api,
     storage,
-    processing
+    processData
 };
 
 // Initial state for our app
@@ -104,7 +103,7 @@ type AppContextType = {
     services: typeof services;
 };
 
-export const AppContext = createContext<AppContextType>({
+const AppContext = createContext<AppContextType>({
     state: initialState,
     dispatch: () => null,
     services
@@ -133,3 +132,5 @@ export function useAppContext() {
     }
     return context;
 }
+
+export { AppContext };

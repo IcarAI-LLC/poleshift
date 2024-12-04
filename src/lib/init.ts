@@ -1,3 +1,5 @@
+//src/lib/init.ts
+
 import { db, setupPowerSync } from './powersync/db';
 import { useAuthStore } from './stores/authStore';
 import { useUIStore } from './stores/uiStore';
@@ -5,11 +7,10 @@ import { useDataStore } from './stores/dataStore';
 import { useProcessStore } from './stores/processStore';
 import { useNetworkStore } from './stores/networkStore';
 
+// src/lib/init.ts
+
 export async function initializeApp() {
     try {
-        // Initialize PowerSync
-        await setupPowerSync();
-
         // Initialize stores
         const authStore = useAuthStore.getState();
         const networkStore = useNetworkStore.getState();
@@ -20,8 +21,9 @@ export async function initializeApp() {
         // Initialize network monitoring
         await networkStore.initialize();
 
+
         // Set up sync listeners
-        db.addListener({
+        db.registerListener({
             onConfigure: () => {
                 console.log('PowerSync configured');
             },
@@ -35,7 +37,7 @@ export async function initializeApp() {
                 console.error('PowerSync error:', error);
             },
             onCrudOperation: (operation) => {
-                console.log('PowerSync crud operation:', operation);
+                console.log('PowerSync CRUD operation:', operation);
             }
         });
 
@@ -45,6 +47,7 @@ export async function initializeApp() {
         throw error;
     }
 }
+
 
 export async function cleanupApp() {
     try {

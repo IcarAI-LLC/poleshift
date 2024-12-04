@@ -1,25 +1,27 @@
+// src/lib/hooks/useAuth.ts
 import { useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
 
 export const useAuth = () => {
-    // Get state and actions from auth store
-    const {
-        user,
-        userProfile,
-        organization,
-        error,
-        loading,
-        initialized,
-        login,
-        signUp,
-        logout,
-        resetPassword,
-        processLicenseKey,
-        initializeAuth,
-        setError
-    } = useAuthStore();
+    // Subscribe to specific pieces of state to trigger re-renders
+    const user = useAuthStore((state) => state.user);
+    const userProfile = useAuthStore((state) => state.userProfile);
+    const organization = useAuthStore((state) => state.organization);
+    const error = useAuthStore((state) => state.error);
+    const loading = useAuthStore((state) => state.loading);
+    const initialized = useAuthStore((state) => state.initialized);
+    const connector = useAuthStore((state) => state.connector);
 
-    // Wrapped handlers with error management
+    // Actions
+    const login = useAuthStore((state) => state.login);
+    const signUp = useAuthStore((state) => state.signUp);
+    const logout = useAuthStore((state) => state.logout);
+    const resetPassword = useAuthStore((state) => state.resetPassword);
+    const processLicenseKey = useAuthStore((state) => state.processLicenseKey);
+    const initializeAuth = useAuthStore((state) => state.initializeAuth);
+    const setError = useAuthStore((state) => state.setError);
+
+    // Memoized handlers to prevent unnecessary re-renders
     const handleLogin = useCallback(async (email: string, password: string) => {
         try {
             return await login(email, password);
@@ -66,7 +68,7 @@ export const useAuth = () => {
     }, [processLicenseKey, setError]);
 
     // Utility functions
-    const isAuthenticated = Boolean(user && userProfile);
+    const isAuthenticated = Boolean(user && userProfile && connector);
     const canAccessAdmin = userProfile?.user_tier === 'admin';
     const hasValidLicense = Boolean(organization);
 
@@ -81,6 +83,7 @@ export const useAuth = () => {
         isAuthenticated,
         canAccessAdmin,
         hasValidLicense,
+        connector,
 
         // Actions
         initializeAuth,

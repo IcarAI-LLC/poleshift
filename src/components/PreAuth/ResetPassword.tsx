@@ -1,5 +1,5 @@
-// ResetPassword.tsx
-import React, { useState, useCallback, useMemo } from 'react';
+// components/PreAuth/ResetPassword.tsx
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -7,13 +7,13 @@ import {
   Typography,
   CircularProgress,
   Alert,
-  useTheme,
 } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { useAuth } from '../../lib/hooks';
+import type { PreAuthView } from '../../lib/types';
 
 interface ResetPasswordProps {
-  onNavigate: (view: 'login') => void;
+  onNavigate: (view: PreAuthView) => void;
 }
 
 interface FormState {
@@ -23,8 +23,31 @@ interface FormState {
   isLoading: boolean;
 }
 
+const styles = {
+  container: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100vh',
+    bgcolor: 'background.default',
+    color: 'text.primary',
+    p: 2,
+  } as SxProps<Theme>,
+  form: {
+    width: '100%',
+    maxWidth: 400,
+    p: 4,
+    bgcolor: 'background.paper',
+    borderRadius: 2,
+    boxShadow: 3,
+  } as SxProps<Theme>,
+  button: {
+    mt: 2,
+    mb: 1,
+  } as SxProps<Theme>,
+};
+
 const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
-  const theme = useTheme();
   const { resetPassword } = useAuth();
   const [formState, setFormState] = useState<FormState>({
     email: '',
@@ -33,60 +56,39 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
     isLoading: false,
   });
 
-  // Memoized styles
-  const styles = useMemo(() => ({
-    container: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      bgcolor: 'background.default',
-      color: 'text.primary',
-      p: 2,
-    } as SxProps<Theme>,
-    form: {
-      width: '100%',
-      maxWidth: 400,
-      p: 4,
-      bgcolor: 'background.paper',
-      borderRadius: 2,
-      boxShadow: 3,
-    } as SxProps<Theme>,
-    button: {
-      mt: 2,
-      mb: 1,
-    } as SxProps<Theme>,
-  }), []);
+  const handleSubmit = useCallback(
+      async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
 
-  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+        setFormState((prev) => ({
+          ...prev,
+          error: null,
+          message: null,
+          isLoading: true,
+        }));
 
-    setFormState(prev => ({
-      ...prev,
-      error: null,
-      message: null,
-      isLoading: true,
-    }));
-
-    try {
-      await resetPassword(formState.email);
-      setFormState(prev => ({
-        ...prev,
-        message: 'Password reset email sent. Check your inbox.',
-        isLoading: false,
-      }));
-    } catch (err) {
-      console.error('Reset Password error:', err);
-      setFormState(prev => ({
-        ...prev,
-        error: err instanceof Error ? err.message : 'An unexpected error occurred',
-        isLoading: false,
-      }));
-    }
-  }, [formState.email, resetPassword]);
+        try {
+          await resetPassword(formState.email);
+          setFormState((prev) => ({
+            ...prev,
+            message: 'Password reset email sent. Check your inbox.',
+            isLoading: false,
+          }));
+        } catch (err) {
+          console.error('Reset Password error:', err);
+          setFormState((prev) => ({
+            ...prev,
+            error:
+                err instanceof Error ? err.message : 'An unexpected error occurred',
+            isLoading: false,
+          }));
+        }
+      },
+      [formState.email, resetPassword]
+  );
 
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormState(prev => ({ ...prev, email: e.target.value }));
+    setFormState((prev) => ({ ...prev, email: e.target.value }));
   }, []);
 
   return (

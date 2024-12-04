@@ -1,7 +1,11 @@
+// src/lib/stores/processStore.ts
+
 import { create } from 'zustand';
 import { db } from '../powersync/db';
 import type { SampleGroupMetadata } from '../types';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
+import { invoke } from '@tauri-apps/api/core';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 
 interface ProcessingState {
     progress: number;
@@ -29,14 +33,34 @@ interface ProcessState {
         processFunctionName: string,
         sampleGroup: SampleGroupMetadata,
         inputs: Record<string, any>,
-        filePaths: string[],
+        filePaths: string[], // Local file paths
         configItem: DropboxConfigItem,
-        onSuccess: (insertData: any, configItem: DropboxConfigItem, processedData: any) => void,
+        onSuccess: (result: any, configItem: DropboxConfigItem, processedData: any) => void,
         onError: (message: string) => void,
-        orgId: string
+        orgId: string,
+        orgId: string,
+        uploadedRawPaths?: string[] // Add this parameter
     ) => Promise<void>;
 
     fetchProcessedData: (sampleGroup: SampleGroupMetadata) => Promise<void>;
+
+    // Retry helper
+    withRetry: (
+        operation: () => Promise<any>,
+        maxAttempts: number,
+        delayMs: number
+    ) => Promise<any>;
+
+    // Data persistence
+    saveProcessedData: (
+        sampleId: string,
+        configId: string,
+        processFunctionName: string,
+        data: any,
+        rawFilePaths: string[] // Add this parameter
+    ) => Promise<void>;
+
+
 
     // Status Getters
     getProgressState: (sampleId: string, configId: string) => ProcessingState;
@@ -48,6 +72,9 @@ interface ProcessState {
     setError: (error: string | null) => void;
 }
 
+const DEFAULT_RETRY_ATTEMPTS = 3;
+const DEFAULT_RETRY_DELAY = 1000;
+
 const createDefaultProcessStatus = (): ProcessStatus => ({
     isProcessing: false,
     progress: 0,
@@ -55,7 +82,7 @@ const createDefaultProcessStatus = (): ProcessStatus => ({
     uploadProgress: 0,
     downloadProgress: 0,
     uploadStatus: '',
-    downloadStatus: ''
+    downloadStatus: '',
 });
 
 export const useProcessStore = create<ProcessState>((set, get) => ({
@@ -77,114 +104,55 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
     ) => {
         const key = `${sampleGroup.id}:${configItem.id}`;
 
+        let progressUnlisten: UnlistenFn | undefined;
+
         try {
             // Initialize processing state
             get().updateProcessStatus(key, {
                 isProcessing: true,
                 progress: 0,
                 status: 'Starting process...',
-                uploadProgress: 0,
-                uploadStatus: 'Preparing upload...'
             });
 
-            // Check for existing processed data
-            const existingData = await db.execute(`
-                SELECT * FROM processed_data 
-                WHERE sample_id = ? AND config_id = ?
-                AND status = 'completed'
-            `, [sampleGroup.id, configItem.id]);
+            // Set up progress listener
+            progressUnlisten = await listen('progress', (event) => {
+                const { progress, status } = event.payload;
+                get().updateProcessStatus(key, { progress, status });
+            });
 
-            if (existingData.length > 0) {
-                get().updateProcessStatus(key, {
-                    status: 'Data already processed',
-                    progress: 100
-                });
-                return;
-            }
+            // Process with retry logic
+            const result = await get().withRetry(
+                () =>
+                    invoke(processFunctionName, {
+                        sampleId: sampleGroup.id,
+                        modalInputs: inputs,
+                        filePaths,
+                    }),
+                DEFAULT_RETRY_ATTEMPTS,
+                DEFAULT_RETRY_DELAY
+            );
 
-            // Simulate file upload progress
-            for (let i = 0; i < filePaths.length; i++) {
-                const progress = (i + 1) / filePaths.length * 100;
-                get().updateProcessStatus(key, {
-                    uploadProgress: progress,
-                    uploadStatus: `Uploading file ${i + 1} of ${filePaths.length}...`
-                });
-                await new Promise(resolve => setTimeout(resolve, 500)); // Simulate upload time
-            }
+            // Save to database
+            await get().saveProcessedData(
+                sampleGroup.id,
+                configItem.id,
+                processFunctionName,
+                result,
+                uploadedRawPaths || []
+            );
 
-            // Create processing record
-            const timestamp = Date.now();
-            const insertData = {
-                key: `${sampleGroup.id}:${configItem.id}:${timestamp}`,
-                config_id: configItem.id,
-                data: JSON.stringify(inputs),
-                raw_file_paths: JSON.stringify(filePaths),
-                processed_path: null,
-                timestamp,
-                status: 'processing',
-                metadata: JSON.stringify({}),
-                sample_id: sampleGroup.id,
-                human_readable_sample_id: sampleGroup.human_readable_sample_id,
-                org_short_id: orgId,
-                org_id: orgId
-            };
-
-            await db.execute(`
-                INSERT INTO processed_data (
-                    key, config_id, data, raw_file_paths, processed_path,
-                    timestamp, status, metadata, sample_id, human_readable_sample_id,
-                    org_short_id, org_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                insertData.key,
-                insertData.config_id,
-                insertData.data,
-                insertData.raw_file_paths,
-                insertData.processed_path,
-                insertData.timestamp,
-                insertData.status,
-                insertData.metadata,
-                insertData.sample_id,
-                insertData.human_readable_sample_id,
-                insertData.org_short_id,
-                insertData.org_id
-            ]);
-
-            // Simulate processing steps
-            const processingSteps = [
-                'Validating data...',
-                'Processing files...',
-                'Analyzing results...',
-                'Finalizing...'
-            ];
-
-            for (let i = 0; i < processingSteps.length; i++) {
-                get().updateProcessStatus(key, {
-                    progress: (i + 1) / processingSteps.length * 100,
-                    status: processingSteps[i]
-                });
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate processing time
-            }
-
-            // Update record status to completed
-            await db.execute(`
-                UPDATE processed_data 
-                SET status = 'completed'
-                WHERE key = ?
-            `, [insertData.key]);
+            // Fetch and update processed data
+            await get().fetchProcessedData(sampleGroup);
 
             // Final status update
             get().updateProcessStatus(key, {
                 progress: 100,
                 status: 'Processing complete',
-                isProcessing: false
+                isProcessing: false,
             });
 
-            // Fetch and return updated data
-            const updatedData = await get().fetchProcessedData(sampleGroup);
-
             if (onSuccess) {
-                onSuccess(insertData, configItem, updatedData[key]);
+                onSuccess(result, configItem, get().processedData[key]);
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Processing failed';
@@ -192,37 +160,92 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
 
             get().updateProcessStatus(key, {
                 status: `Error: ${errorMessage}`,
-                isProcessing: false
+                isProcessing: false,
             });
 
             if (onError) {
                 onError(errorMessage);
             }
+        } finally {
+            if (progressUnlisten) {
+                await progressUnlisten();
+            }
         }
     },
 
+    // Retry helper
+    withRetry: async (operation, maxAttempts, delayMs) => {
+        let lastError: Error | undefined;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+                return await operation();
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+                if (attempt < maxAttempts - 1) {
+                    await new Promise((resolve) => setTimeout(resolve, delayMs * Math.pow(2, attempt)));
+                }
+            }
+        }
+
+        throw lastError || new Error('Processing failed after retries');
+    },
+
+    // Save processed data to database
+// Updated implementation of saveProcessedData
+    saveProcessedData: async (sampleId, configId, processFunctionName, data, rawFilePaths) => {
+        const timestamp = Date.now();
+
+        await db.execute(
+            `
+                INSERT INTO processed_data (
+                    key,
+                    sample_id,
+                    config_id,
+                    data,
+                    timestamp,
+                    process_function_name,
+                    status,
+                    raw_file_paths
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            [
+                `${sampleId}:${configId}:${timestamp}`,
+                sampleId,
+                configId,
+                JSON.stringify(data),
+                timestamp,
+                processFunctionName,
+                'completed',
+                JSON.stringify(rawFilePaths), // Include raw_file_paths here
+            ]
+        );
+    },
+
     // Fetch Processed Data
-    fetchProcessedData: async (sampleGroup: SampleGroupMetadata) => {
+    fetchProcessedData: async (sampleGroup) => {
         try {
-            const results = await db.execute(`
-                SELECT * FROM processed_data 
-                WHERE sample_id = ? AND status = 'completed'
-                ORDER BY timestamp DESC
-            `, [sampleGroup.id]);
+            const results = await db.getAll(
+                `
+        SELECT * FROM processed_data 
+        WHERE sample_id = ? AND status = 'completed'
+        ORDER BY timestamp DESC
+      `,
+                [sampleGroup.id]
+            );
 
             const processedData: Record<string, any> = {};
-            results.forEach(result => {
+            results.forEach((result) => {
                 const key = `${result.sample_id}:${result.config_id}`;
                 processedData[key] = {
                     ...result,
                     data: result.data ? JSON.parse(result.data) : null,
                     metadata: result.metadata ? JSON.parse(result.metadata) : null,
-                    raw_file_paths: result.raw_file_paths ? JSON.parse(result.raw_file_paths) : null
+                    raw_file_paths: result.raw_file_paths ? JSON.parse(result.raw_file_paths) : null,
                 };
             });
 
             set({ processedData });
-            return processedData;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to fetch processed data';
             set({ error: errorMessage });
@@ -231,49 +254,50 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
     },
 
     // Status Getters
-    getProgressState: (sampleId: string, configId: string) => {
+    getProgressState: (sampleId, configId) => {
         const key = `${sampleId}:${configId}`;
         const status = get().processStatuses[key] || createDefaultProcessStatus();
         return {
             progress: status.progress,
-            status: status.status
+            status: status.status,
         };
     },
 
-    getUploadDownloadProgressState: (sampleId: string, configId: string) => {
+    getUploadDownloadProgressState: (sampleId, configId) => {
         const key = `${sampleId}:${configId}`;
         const status = get().processStatuses[key] || createDefaultProcessStatus();
         const progress = (status.uploadProgress + status.downloadProgress) / 2;
-        const currentStatus = status.uploadProgress < 100 ? status.uploadStatus : status.downloadStatus;
+        const currentStatus =
+            status.uploadProgress < 100 ? status.uploadStatus : status.downloadStatus;
 
         return {
             progress,
-            status: currentStatus
+            status: currentStatus,
         };
     },
 
     // Status Setters
-    updateProcessStatus: (key: string, updates: Partial<ProcessStatus>) => {
-        set(state => ({
+    updateProcessStatus: (key, updates) => {
+        set((state) => ({
             processStatuses: {
                 ...state.processStatuses,
                 [key]: {
                     ...createDefaultProcessStatus(),
                     ...state.processStatuses[key],
-                    ...updates
-                }
-            }
+                    ...updates,
+                },
+            },
         }));
     },
 
-    resetProcessStatus: (key: string) => {
-        set(state => ({
+    resetProcessStatus: (key) => {
+        set((state) => ({
             processStatuses: {
                 ...state.processStatuses,
-                [key]: createDefaultProcessStatus()
-            }
+                [key]: createDefaultProcessStatus(),
+            },
         }));
     },
 
-    setError: (error: string | null) => set({ error })
+    setError: (error) => set({ error }),
 }));

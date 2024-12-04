@@ -1,5 +1,7 @@
+//src/lib/hooks/useNetworkStatus.ts
+
 import { useCallback, useEffect, useMemo } from 'react';
-import { useNetworkStore } from '../stores/networkStore';
+import useNetworkStore from '../stores/networkStore';
 import { DateTime } from 'luxon';
 
 export const useNetworkStatus = () => {

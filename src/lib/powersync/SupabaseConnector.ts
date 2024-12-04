@@ -18,27 +18,24 @@ export type SupabaseConfig = {
 
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
-    // Class 22 — Data Exception
-    // Examples include data type mismatch.
-    new RegExp('^22...$'),
-    // Class 23 — Integrity Constraint Violation.
-    // Examples include NOT NULL, FOREIGN KEY and UNIQUE violations.
-    new RegExp('^23...$'),
-    // INSUFFICIENT PRIVILEGE - typically a row-level security violation
-    new RegExp('^42501$')
+    new RegExp('^22...$'), // Class 22 — Data Exception
+    new RegExp('^23...$'), // Class 23 — Integrity Constraint Violation
+    new RegExp('^42501$')  // INSUFFICIENT PRIVILEGE
 ];
 
 export type SupabaseConnectorListener = {
-    initialized: () => void;
-    sessionStarted: (session: Session) => void;
+    initialized?: () => void;
+    sessionStarted?: (session: Session) => void;
+    sessionEnded?: () => void;
 };
 
-export class SupabaseConnector extends BaseObserver<SupabaseConnectorListener> implements PowerSyncBackendConnector {
+export class SupabaseConnector
+    extends BaseObserver<SupabaseConnectorListener>
+    implements PowerSyncBackendConnector {
     readonly client: SupabaseClient;
     readonly config: SupabaseConfig;
 
     ready: boolean;
-
     currentSession: Session | null;
 
     constructor() {
@@ -54,76 +51,125 @@ export class SupabaseConnector extends BaseObserver<SupabaseConnectorListener> i
                 persistSession: true
             }
         });
+
         this.currentSession = null;
         this.ready = false;
     }
 
     async init() {
         if (this.ready) {
+            console.debug('SupabaseConnector is already initialized.');
             return;
         }
 
-        const sessionResponse = await this.client.auth.getSession();
-        this.updateSession(sessionResponse.data.session);
+        try {
+            console.debug('Initializing SupabaseConnector...');
+            const sessionResponse = await this.client.auth.getSession();
+            this.updateSession(sessionResponse.data.session);
 
-        this.ready = true;
-        this.iterateListeners((cb) => cb.initialized?.());
-    }
+            // Add this auth state change listener
+            this.client.auth.onAuthStateChange((event, session) => {
+                this.updateSession(session);
+            });
 
-    async login(username: string, password: string) {
-        const {
-            data: { session },
-            error
-        } = await this.client.auth.signInWithPassword({
-            email: username,
-            password: password
-        });
-
-        if (error) {
+            this.ready = true;
+            this.iterateListeners((cb) => cb.initialized?.());
+            console.debug('SupabaseConnector initialized successfully.');
+        } catch (error) {
+            console.error('Failed to initialize SupabaseConnector:', error);
             throw error;
         }
+    }
 
-        this.updateSession(session);
+    async login(email: string, password: string) {
+        try {
+            console.debug('Logging in...');
+            const { data, error } = await this.client.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) {
+                console.error('Login error:', error);
+                throw error;
+            }
+
+            this.updateSession(data.session);
+            console.debug('Login successful:', data.session);
+        } catch (error) {
+            console.error('Failed to log in:', error);
+            throw error;
+        }
+    }
+
+    async logout() {
+        try {
+            console.debug('Logging out...');
+            const { error } = await this.client.auth.signOut();
+
+            if (error) {
+                console.error('Logout error:', error);
+                throw error;
+            }
+
+            this.updateSession(null);
+            console.debug('Logout successful.');
+        } catch (error) {
+            console.error('Failed to log out:', error);
+            throw error;
+        }
     }
 
     async fetchCredentials() {
-        const {
-            data: { session },
-            error
-        } = await this.client.auth.getSession();
+        try {
+            console.debug('Fetching Supabase credentials...');
+            const { data, error } = await this.client.auth.getSession();
 
-        if (!session || error) {
-            throw new Error(`Could not fetch Supabase credentials: ${error}`);
+            if (error) {
+                throw error;
+            }
+
+            if (!data.session) {
+                console.debug('No session found.');
+                return null;
+            }
+
+            console.debug('Credentials fetched successfully.');
+
+            return {
+                endpoint: this.config.powersyncUrl,
+                token: data.session.access_token ?? '',
+                expiresAt: data.session.expires_at
+                    ? new Date(data.session.expires_at * 1000)
+                    : undefined
+            };
+        } catch (error) {
+            console.error('Failed to fetch credentials:', error);
+            this.updateSession(null); // Clear session on failure
+            throw error;
         }
-
-        console.debug('session expires at', session.expires_at);
-
-        return {
-            endpoint: this.config.powersyncUrl,
-            token: session.access_token ?? '',
-            expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : undefined
-        };
     }
 
     async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
 
         if (!transaction) {
+            console.debug('No transactions to upload.');
             return;
         }
 
         let lastOp: CrudEntry | null = null;
+
         try {
-            // Note: If transactional consistency is important, use database functions
-            // or edge functions to process the entire transaction in a single call.
+            console.debug('Uploading data...');
             for (const op of transaction.crud) {
                 lastOp = op;
                 const table = this.client.from(op.table);
+
                 let result: any;
                 switch (op.op) {
                     case UpdateType.PUT:
-                        const record = { ...op.opData, id: op.id };
-                        result = await table.upsert(record);
+                        result = await table.upsert({ ...op.opData, id: op.id });
                         break;
                     case UpdateType.PATCH:
                         result = await table.update(op.opData).eq('id', op.id);
@@ -131,42 +177,38 @@ export class SupabaseConnector extends BaseObserver<SupabaseConnectorListener> i
                     case UpdateType.DELETE:
                         result = await table.delete().eq('id', op.id);
                         break;
+                    default:
+                        throw new Error(`Unsupported operation type: ${op.op}`);
                 }
 
                 if (result.error) {
-                    console.error(result.error);
-                    result.error.message = `Could not update Supabase. Received error: ${result.error.message}`;
                     throw result.error;
                 }
             }
 
             await transaction.complete();
-        } catch (ex: any) {
-            console.debug(ex);
-            if (typeof ex.code == 'string' && FATAL_RESPONSE_CODES.some((regex) => regex.test(ex.code))) {
-                /**
-                 * Instead of blocking the queue with these errors,
-                 * discard the (rest of the) transaction.
-                 *
-                 * Note that these errors typically indicate a bug in the application.
-                 * If protecting against data loss is important, save the failing records
-                 * elsewhere instead of discarding, and/or notify the user.
-                 */
-                console.error('Data upload error - discarding:', lastOp, ex);
+            console.debug('Data upload successful.');
+        } catch (error: any) {
+            console.error('Error uploading data:', error, 'Last operation:', lastOp);
+
+            if (typeof error.code === 'string' && FATAL_RESPONSE_CODES.some((regex) => regex.test(error.code))) {
+                console.error('Fatal error during upload - discarding transaction:', error);
                 await transaction.complete();
             } else {
-                // Error may be retryable - e.g. network error or temporary server error.
-                // Throwing an error here causes this call to be retried after a delay.
-                throw ex;
+                throw error;
             }
         }
     }
 
     updateSession(session: Session | null) {
         this.currentSession = session;
-        if (!session) {
-            return;
+
+        if (session) {
+            console.debug('Session started:', session);
+            this.iterateListeners((cb) => cb.sessionStarted?.(session));
+        } else {
+            console.debug('Session ended.');
+            this.iterateListeners((cb) => cb.sessionEnded?.());
         }
-        this.iterateListeners((cb) => cb.sessionStarted?.(session));
     }
 }

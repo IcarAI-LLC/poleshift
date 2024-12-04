@@ -1,3 +1,4 @@
+// components/PreAuth/Login.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -11,7 +12,7 @@ import { useAuth } from '../../lib/hooks';
 import type { PreAuthView } from '../../lib/types';
 
 interface LoginProps {
-  onNavigate: (view: PreAuthView['view']) => void;
+  onNavigate: (view: PreAuthView) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onNavigate }) => {
@@ -24,24 +25,25 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
     e.preventDefault();
     setLocalError(null);
 
+    if (!email || !password) {
+      setLocalError('Please enter both email and password');
+      return;
+    }
+
     try {
-      // Attempt login
       const { storedLicenseKey } = await login(email, password);
 
-      // Process license key if one was stored during signup
       if (storedLicenseKey) {
-        try {
-          await processLicenseKey(storedLicenseKey);
-        } catch (error) {
-          setLocalError(error instanceof Error ? error.message : 'Error processing license key');
-        }
+        await processLicenseKey(storedLicenseKey).catch((error) => {
+          console.error('License key processing error:', error);
+          // Continue even if license processing fails
+        });
       }
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : 'Login failed');
     }
   };
 
-  // Use either local error state or auth error from store
   const displayError = localError || authError;
 
   return (
@@ -116,7 +118,6 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               sx={{ mt: 2, mb: 1 }}
               disabled={loading}
               startIcon={loading ? <CircularProgress size={20} /> : null}
-              aria-label={loading ? 'Logging in' : 'Login'}
           >
             {loading ? 'Logging In...' : 'Login'}
           </Button>
@@ -126,7 +127,6 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                 variant="text"
                 onClick={() => onNavigate('reset-password')}
                 disabled={loading}
-                aria-label="Reset Password"
             >
               Forgot your password?
             </Button>
@@ -139,7 +139,6 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                   variant="text"
                   onClick={() => onNavigate('signup')}
                   disabled={loading}
-                  aria-label="Sign Up"
               >
                 Sign Up
               </Button>

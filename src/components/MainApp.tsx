@@ -1,3 +1,5 @@
+// src/lib/components/MainApp.tsx
+
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { IconButton, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -8,12 +10,10 @@ import {
   useUI,
   useNetworkStatus,
   useProcessedData,
-  services,
-  SyncService // Add this import
-} from '../lib';
+  useStorage, // Import the useStorage hook
+} from '../lib/hooks';
 import type { FileNode, SampleGroupMetadata } from '../lib/types';
 import type { DropboxConfigItem } from '../config/dropboxConfig';
-import { initializeSync } from '../lib/index.ts';  // Update this import path
 
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
@@ -38,7 +38,8 @@ interface DataProcessedParams {
 }
 
 const MainApp: React.FC = () => {
-  const { userProfile, error: authError } = useAuth();
+  // Hooks
+  const { userProfile, error: authError, organization } = useAuth();
   const { sampleGroups, deleteNode, error: dataError } = useData();
   const {
     selectedLeftItem,
@@ -47,20 +48,11 @@ const MainApp: React.FC = () => {
     setErrorMessage,
     setFilters,
     setContextMenuState,
-    contextMenu
+    contextMenu,
   } = useUI();
   const { isOnline } = useNetworkStatus();
   const { fetchProcessedData } = useProcessedData();
-
-// In the useEffect:
-  useEffect(() => {
-    const syncService = initializeSync(services.api, services.storage);
-    const cleanup = syncService.initialize();
-
-    return () => {
-      cleanup();
-    };
-  }, []);
+  const storage = useStorage(); // Use the storage hook
 
   // Local state
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -76,10 +68,11 @@ const MainApp: React.FC = () => {
   // Error handling
   const displayedError = authError || dataError || errorMessage;
 
+  // Clear error message after timeout
   useEffect(() => {
     if (displayedError) {
       const timer = setTimeout(() => {
-        setErrorMessage('');
+        setErrorMessage(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
@@ -91,18 +84,34 @@ const MainApp: React.FC = () => {
   }, [isOnline]);
 
   const handleDataProcessed = useCallback(
-      ({ insertData, configItem, processedData }: DataProcessedParams) => {
-        console.log('Data processed:', {
-          insertData,
-          configId: configItem.id,
-          processedData
-        });
+      async ({ insertData, configItem, processedData }: DataProcessedParams) => {
+        try {
+          // If there are any processed files to upload
+          if (processedData.files) {
+            const basePath = `${organization.org_short_id}/${insertData.sampleId}`;
+            const uploadedProcessedPaths = await storage.uploadFiles(
+                processedData.files,
+                basePath,
+                'processed-data',
+                (progress) => {
+                  console.log('Processed files upload progress:', progress);
+                }
+            );
 
-        if (sampleGroup) {
-          fetchProcessedData(sampleGroup);
+            // Update processedData with uploaded processed paths
+            processedData.uploadedProcessedPaths = uploadedProcessedPaths;
+          }
+
+          if (sampleGroup) {
+            await fetchProcessedData(sampleGroup);
+          }
+        } catch (error) {
+          setErrorMessage(
+              error instanceof Error ? error.message : 'Failed to process data'
+          );
         }
       },
-      [sampleGroup, fetchProcessedData]
+      [sampleGroup, fetchProcessedData, storage, setErrorMessage, organization]
   );
 
   const handleDeleteSample = useCallback(async () => {
@@ -113,9 +122,13 @@ const MainApp: React.FC = () => {
 
     try {
       await deleteNode(contextMenu.itemId);
-      setContextMenuState({ ...contextMenu, isVisible: false });
+      setContextMenuState({ isVisible: false, x: 0, y: 0, itemId: null });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'An error occurred while deleting the item.');
+      setErrorMessage(
+          error instanceof Error
+              ? error.message
+              : 'An error occurred while deleting the item.'
+      );
     }
   }, [contextMenu, deleteNode, setContextMenuState, setErrorMessage]);
 
@@ -164,7 +177,7 @@ const MainApp: React.FC = () => {
   return (
       <div id="app">
         <div className="app-container">
-          <LeftSidebar userTier={userProfile?.user_tier || "researcher"} />
+          <LeftSidebar userTier={userProfile?.user_tier || 'researcher'} />
 
           <Tooltip title="Open Filters" arrow>
             <IconButton
@@ -199,14 +212,12 @@ const MainApp: React.FC = () => {
             {displayedError && (
                 <ErrorMessage
                     message={displayedError}
-                    onClose={() => setErrorMessage('')}
+                    onClose={() => setErrorMessage(null)}
                     className="error-message"
                 />
             )}
 
-            <div className="content-body">
-              {renderContent()}
-            </div>
+            <div className="content-body">{renderContent()}</div>
           </div>
 
           <RightSidebar />

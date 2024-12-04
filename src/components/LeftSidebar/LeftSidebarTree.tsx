@@ -1,12 +1,12 @@
-// lib/components/LeftSidebarTree.tsx
-import React, {useCallback, useRef, useEffect} from 'react';
+// src/components/LeftSidebarTree.tsx
+
+import React, { useCallback, useRef, useEffect } from 'react';
 import { Tree, NodeApi, CursorProps } from 'react-arborist';
 import {
     Folder as FolderIcon,
     FolderOpen as FolderOpenIcon,
-    Science as ScienceIcon
+    Science as ScienceIcon,
 } from '@mui/icons-material';
-//@ts-ignore
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
 import CustomCursor from './CustomCursor';
@@ -115,16 +115,19 @@ const LeftSidebarTree: React.FC = () => {
         [fileTree, updateFileTree, setErrorMessage]
     );
 
-    const handleContextMenu = useCallback((e: React.MouseEvent, node: NodeApi<FileNode>) => {
-        e.preventDefault();
-        setSelectedLeftItem(node.data);
-        setContextMenuState({
-            isVisible: true,
-            x: e.pageX,
-            y: e.pageY,
-            itemId: node.data.id
-        });
-    }, [setSelectedLeftItem, setContextMenuState]);
+    const handleContextMenu = useCallback(
+        (e: React.MouseEvent, node: NodeApi<FileNode>) => {
+            e.preventDefault();
+            setSelectedLeftItem(node.data);
+            setContextMenuState({
+                isVisible: true,
+                x: e.pageX,
+                y: e.pageY,
+                itemId: node.data.id,
+            });
+        },
+        [setSelectedLeftItem, setContextMenuState]
+    );
 
     const handleDeleteSample = useCallback(async () => {
         if (!contextMenu.itemId) {
@@ -174,11 +177,12 @@ const LeftSidebarTree: React.FC = () => {
         [setSelectedLeftItem]
     );
 
-    const Node = React.memo(({
-                                 node,
-                                 style,
-                                 dragHandle,
-                             }: {
+    const Node = React.memo(
+        ({
+             node,
+             style,
+             dragHandle,
+         }: {
             node: NodeApi<FileNode>;
             style: React.CSSProperties;
             dragHandle?: (el: HTMLDivElement | null) => void;
@@ -200,8 +204,10 @@ const LeftSidebarTree: React.FC = () => {
                 isSelected ? 'tree-node--selected' : '',
                 isFolder ? 'tree-node--folder' : '',
                 isSampleGroup ? 'tree-node--sampleGroup' : '',
-                isSyncing ? 'tree-node--disabled' : ''
-            ].filter(Boolean).join(' ');
+                isSyncing ? 'tree-node--disabled' : '',
+            ]
+                .filter(Boolean)
+                .join(' ');
 
             return (
                 <div
@@ -213,7 +219,11 @@ const LeftSidebarTree: React.FC = () => {
                 >
                     <div className="tree-node__icon">
                         {isFolder ? (
-                            node.isOpen ? <FolderOpenIcon /> : <FolderIcon />
+                            node.isOpen ? (
+                                <FolderOpenIcon />
+                            ) : (
+                                <FolderIcon />
+                            )
                         ) : isSampleGroup ? (
                             <ScienceIcon />
                         ) : null}
@@ -221,9 +231,9 @@ const LeftSidebarTree: React.FC = () => {
                     <div className="tree-node__text">{node.data.name}</div>
                 </div>
             );
-        }, (prevProps, nextProps) =>
-            prevProps.node.data === nextProps.node.data &&
-            prevProps.style === nextProps.style
+        },
+        (prevProps, nextProps) =>
+            prevProps.node.data === nextProps.node.data && prevProps.style === nextProps.style
     );
 
     if (!fileTree?.length) {

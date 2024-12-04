@@ -1,3 +1,5 @@
+// src/lib/components/DropBoxes.tsx
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, SelectChangeEvent, Typography } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
@@ -7,7 +9,7 @@ import {
     useUI,
     useData,
     useProcessedData,
-    useAuth
+    useAuth, useStorage
 } from '../../lib/hooks';
 import type {
     SampleGroupMetadata,
@@ -18,15 +20,13 @@ import type { DropboxConfigItem } from '../../config/dropboxConfig';
 
 import dropboxConfig from '../../config/dropboxConfig';
 import { processKrakenDataForModal } from '../../lib/utils/dataProcessingUtils';
-import { processCTDDataForModal } from "../../lib/utils/processCTDDataForModal";
-
+import { processCTDDataForModal } from '../../lib/utils/processCTDDataForModal';
 import Modal from '../Modal';
 import DataTable from '../DataTable';
 import DataChart from '../DataChart';
 import DropBox from './DropBox';
 import NutrientAmmoniaView from '../NutrientAmmoniaView';
 import KrakenVisualization from '../KrakenVisualization/KrakenVisualization';
-
 interface ProcessedModalData {
     modalData: any;
     units?: Record<string, string>;
@@ -34,12 +34,7 @@ interface ProcessedModalData {
 
 interface DropBoxesProps {
     onDataProcessed: (params: {
-        insertData: {
-            sampleId: string;
-            configId: string;
-            timestamp: number;
-            status: string;
-        };
+        insertData: any;
         configItem: DropboxConfigItem;
         processedData: any;
     }) => void;
@@ -53,9 +48,10 @@ interface LocalModalState extends UIModalState {
 
 const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     const { selectedLeftItem } = useUI();
-    const { sampleGroups, getLocationById  } = useData();
+    const { sampleGroups, getLocationById } = useData();
     const { processData, fetchProcessedData, processedData, isProcessing } = useProcessedData();
     const { organization } = useAuth();
+    const { uploadFiles } = useStorage();
 
     const [localProcessedData, setLocalProcessedData] = useState<Record<string, any>>({});
     const [modalState, setModalState] = useState<LocalModalState>({
@@ -93,18 +89,18 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         }
     }, [sampleGroup, fetchProcessedData]);
 
-    const handleLocalDataProcessed = useCallback((
-        insertData: any,
-        configItem: DropboxConfigItem,
-        processedData: any
-    ) => {
-        const key = getProgressKey(sampleGroup?.id || '', configItem.id);
-        setLocalProcessedData(prev => ({
-            ...prev,
-            [key]: processedData
-        }));
-        onDataProcessed({ insertData, configItem, processedData });
-    }, [sampleGroup?.id, getProgressKey, onDataProcessed]);
+    const handleLocalDataProcessed = useCallback(
+        (result: any, configItem: DropboxConfigItem, processedData: any) => {
+            const key = getProgressKey(sampleGroup?.id || '', configItem.id);
+            setLocalProcessedData(prev => ({
+                ...prev,
+                [key]: processedData,
+            }));
+            onDataProcessed({ insertData: result, configItem, processedData });
+        },
+        [sampleGroup?.id, getProgressKey, onDataProcessed]
+    );
+
 
     const processModalData = async (
         dataItem: any,
@@ -210,27 +206,55 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
     }, []);
 
     const handleModalSubmit = useCallback(async () => {
-        const { configItem, modalInputs, uploadedFiles } = modalState;
+        const { configItem, modalInputs } = modalState;
 
         if (!configItem || !sampleGroup || !organization?.org_short_id) return;
 
         try {
+            // 1. Create a JSON file from modalInputs
+            const fileName = `${configItem.id}_${Date.now()}.json`;
+            const fileContent = JSON.stringify(modalInputs, null, 2);
+            const file = new File([fileContent], fileName, { type: 'application/json' });
+
+            // 2. Upload the file to 'raw-data' bucket
+            const basePath = `${organization.org_short_id}/${sampleGroup.id}`;
+            const uploadedRawPaths = await uploadFiles(
+                [file],
+                basePath,
+                'raw-data',
+                (progress) => {
+                    console.log('Raw input upload progress:', progress);
+                }
+            );
+
+            // 3. Call processData with the uploaded raw paths
             await processData(
                 configItem.processFunctionName,
                 sampleGroup,
                 modalInputs!,
-                uploadedFiles || [],
+                [], // No local file paths
                 configItem,
                 handleLocalDataProcessed,
                 onError,
-                organization.org_short_id
+                organization.org_short_id,
+                uploadedRawPaths // Pass the uploaded raw file paths
             );
+
             closeModal();
         } catch (error) {
             console.error('Error processing data:', error);
             onError('Failed to process uploaded data');
         }
-    }, [modalState, sampleGroup, processData, handleLocalDataProcessed, onError, closeModal, organization?.org_short_id]);
+    }, [
+        modalState,
+        sampleGroup,
+        processData,
+        handleLocalDataProcessed,
+        onError,
+        closeModal,
+        organization?.org_short_id,
+        uploadFiles,
+    ]);
 
     const boxStyles = useMemo((): SxProps<Theme> => ({
         width: {
@@ -268,7 +292,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
                     <Box key={key} sx={boxStyles}>
                         <DropBox
                             configItem={configItem}
-                            isProcessing={isProcessing[key] || false}
+                            isProcessing={isProcessing(sampleId, configId)}
                             hasData={!!localProcessedData[key]}
                             openModal={openModal}
                             isLocked={false}

@@ -1,3 +1,5 @@
+// src/lib/hooks/useProcessedData.ts
+
 import { useCallback, useEffect } from 'react';
 import { useProcessStore } from '../stores/processStore';
 import type { SampleGroupMetadata } from '../types';
@@ -14,7 +16,7 @@ export const useProcessedData = () => {
         getUploadDownloadProgressState,
         updateProcessStatus,
         resetProcessStatus,
-        setError
+        setError,
     } = useProcessStore();
 
     // Reset error on unmount
@@ -25,84 +27,106 @@ export const useProcessedData = () => {
     }, [setError]);
 
     // Enhanced process data handler
-    const handleProcessData = useCallback(async (
-        processFunctionName: string,
-        sampleGroup: SampleGroupMetadata,
-        inputs: Record<string, any>,
-        filePaths: string[],
-        configItem: DropboxConfigItem,
-        onSuccess: (insertData: any, configItem: DropboxConfigItem, processedData: any) => void,
-        onError: (message: string) => void,
-        orgId: string
-    ) => {
-        try {
-            await processData(
-                processFunctionName,
-                sampleGroup,
-                inputs,
-                filePaths,
-                configItem,
-                onSuccess,
-                onError,
-                orgId
-            );
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Processing failed');
-            throw error;
-        }
-    }, [processData, setError]);
+    const handleProcessData = useCallback(
+        async (
+            processFunctionName: string,
+            sampleGroup: SampleGroupMetadata,
+            inputs: Record<string, any>,
+            filePaths: string[],
+            configItem: DropboxConfigItem,
+            onSuccess: (result: any, configItem: DropboxConfigItem, processedData: any) => void,
+            onError: (message: string) => void,
+            orgId: string
+        ) => {
+            try {
+                await processData(
+                    processFunctionName,
+                    sampleGroup,
+                    inputs,
+                    filePaths,
+                    configItem,
+                    onSuccess,
+                    onError,
+                    orgId
+                );
+            } catch (error) {
+                setError(error instanceof Error ? error.message : 'Processing failed');
+                throw error;
+            }
+        },
+        [processData, setError]
+    );
 
     // Enhanced fetch processed data handler
-    const handleFetchProcessedData = useCallback(async (sampleGroup: SampleGroupMetadata) => {
-        try {
-            return await fetchProcessedData(sampleGroup);
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Failed to fetch processed data');
-            throw error;
-        }
-    }, [fetchProcessedData, setError]);
+    const handleFetchProcessedData = useCallback(
+        async (sampleGroup: SampleGroupMetadata) => {
+            try {
+                return await fetchProcessedData(sampleGroup);
+            } catch (error) {
+                setError(error instanceof Error ? error.message : 'Failed to fetch processed data');
+                throw error;
+            }
+        },
+        [fetchProcessedData, setError]
+    );
 
     // Utility functions
-    const isProcessing = useCallback((sampleId: string, configId: string): boolean => {
-        const key = `${sampleId}:${configId}`;
-        return processStatuses[key]?.isProcessing || false;
-    }, [processStatuses]);
+    const isProcessing = useCallback(
+        (sampleId: string, configId: string): boolean => {
+            const key = `${sampleId}:${configId}`;
+            return processStatuses[key]?.isProcessing || false;
+        },
+        [processStatuses]
+    );
 
-    const getProgress = useCallback((sampleId: string, configId: string): number => {
-        const key = `${sampleId}:${configId}`;
-        return processStatuses[key]?.progress || 0;
-    }, [processStatuses]);
+    const getProgress = useCallback(
+        (sampleId: string, configId: string): number => {
+            const key = `${sampleId}:${configId}`;
+            return processStatuses[key]?.progress || 0;
+        },
+        [processStatuses]
+    );
 
-    const getStatus = useCallback((sampleId: string, configId: string): string => {
-        const key = `${sampleId}:${configId}`;
-        return processStatuses[key]?.status || '';
-    }, [processStatuses]);
+    const getStatus = useCallback(
+        (sampleId: string, configId: string): string => {
+            const key = `${sampleId}:${configId}`;
+            return processStatuses[key]?.status || '';
+        },
+        [processStatuses]
+    );
 
-    const hasProcessedData = useCallback((sampleId: string, configId: string): boolean => {
-        const key = `${sampleId}:${configId}`;
-        return Boolean(processedData[key]);
-    }, [processedData]);
+    const hasProcessedData = useCallback(
+        (sampleId: string, configId: string): boolean => {
+            const key = `${sampleId}:${configId}`;
+            return Boolean(processedData[key]);
+        },
+        [processedData]
+    );
 
-    const getProcessedData = useCallback((sampleId: string, configId: string): any => {
-        const key = `${sampleId}:${configId}`;
-        return processedData[key];
-    }, [processedData]);
+    const getProcessedData = useCallback(
+        (sampleId: string, configId: string): any => {
+            const key = `${sampleId}:${configId}`;
+            return processedData[key];
+        },
+        [processedData]
+    );
 
     // Progress tracking utilities
-    const trackProgress = useCallback((
-        sampleId: string,
-        configId: string,
-        progress: number,
-        status: string
-    ) => {
-        const key = `${sampleId}:${configId}`;
-        updateProcessStatus(key, { progress, status });
-    }, [updateProcessStatus]);
+    const trackProgress = useCallback(
+        (sampleId: string, configId: string, progress: number, status: string) => {
+            const key = `${sampleId}:${configId}`;
+            updateProcessStatus(key, { progress, status });
+        },
+        [updateProcessStatus]
+    );
 
-    const resetProgress = useCallback((sampleId: string, configId: string) => {
-        const key = `${sampleId}:${configId}`;
-        resetProcessStatus(key);
-    }, [resetProcessStatus]);
+    const resetProgress = useCallback(
+        (sampleId: string, configId: string) => {
+            const key = `${sampleId}:${configId}`;
+            resetProcessStatus(key);
+        },
+        [resetProcessStatus]
+    );
 
     return {
         // State
@@ -131,7 +155,7 @@ export const useProcessedData = () => {
 
         // Computed properties
         totalProcessedItems: Object.keys(processedData).length,
-        hasActiveProcesses: Object.values(processStatuses).some(status => status.isProcessing)
+        hasActiveProcesses: Object.values(processStatuses).some((status) => status.isProcessing),
     };
 };
 

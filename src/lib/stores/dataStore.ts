@@ -1,3 +1,5 @@
+// src/lib/stores/dataStore.ts
+
 import { create } from 'zustand';
 import { db } from '../powersync/db';
 import type { FileNode, SampleLocation, SampleGroupMetadata, SampleMetadata } from '../types';
@@ -35,8 +37,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
     fetchLocations: async () => {
         try {
-            const locations = await db.execute(`
-                SELECT * FROM sample_locations 
+            const locations = await db.getAll(`
+                SELECT * FROM sample_locations
                 WHERE is_enabled = 1
                 ORDER BY label ASC
             `);
@@ -49,8 +51,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
     fetchFileNodes: async () => {
         try {
-            const nodes = await db.execute(`
-                SELECT * FROM file_nodes 
+            const nodes = await db.getAll(`
+                SELECT * FROM file_nodes
                 ORDER BY created_at DESC
             `);
 
@@ -62,8 +64,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
     fetchSampleGroups: async () => {
         try {
-            const groups = await db.execute(`
-                SELECT * FROM sample_group_metadata 
+            const groups = await db.getAll(`
+                SELECT * FROM sample_group_metadata
                 ORDER BY created_at DESC
             `);
 
@@ -75,8 +77,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
     fetchSampleMetadata: async () => {
         try {
-            const metadata = await db.execute(`
-                SELECT * FROM sample_metadata 
+            const metadata = await db.getAll(`
+                SELECT * FROM sample_metadata
                 ORDER BY created_at DESC
             `);
 
@@ -88,16 +90,39 @@ export const useDataStore = create<DataState>((set, get) => ({
 
     addFileNode: async (node: FileNode) => {
         try {
-            const { id, org_id, parent_id, name, type, created_at, updated_at, version,
-                sample_group_id, children, droppable } = node;
+            const {
+                id,
+                org_id,
+                parent_id,
+                name,
+                type,
+                created_at,
+                updated_at,
+                version,
+                sample_group_id,
+                droppable,
+            } = node;
 
-            await db.execute(`
-                INSERT INTO file_nodes 
-                (id, org_id, parent_id, name, type, created_at, updated_at, version, 
-                 sample_group_id, children, droppable)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [id, org_id, parent_id, name, type, created_at, updated_at, version,
-                sample_group_id, JSON.stringify(children), droppable ? 1 : 0]);
+            await db.execute(
+                `
+                    INSERT INTO file_nodes
+                    (id, org_id, parent_id, name, type, created_at, updated_at, version,
+                     sample_group_id, droppable)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `,
+                [
+                    id,
+                    org_id,
+                    parent_id,
+                    name,
+                    type,
+                    created_at,
+                    updated_at,
+                    version,
+                    sample_group_id,
+                    droppable ? 1 : 0,
+                ]
+            );
 
             await get().fetchFileNodes();
         } catch (error) {
@@ -109,18 +134,21 @@ export const useDataStore = create<DataState>((set, get) => ({
     updateFileNode: async (id: string, updates: Partial<FileNode>) => {
         try {
             const setClause = Object.keys(updates)
-                .map(key => `${key} = ?`)
+                .map((key) => `${key} = ?`)
                 .join(', ');
 
-            const values = Object.values(updates).map(value =>
+            const values = Object.values(updates).map((value) =>
                 typeof value === 'object' ? JSON.stringify(value) : value
             );
 
-            await db.execute(`
-                UPDATE file_nodes 
-                SET ${setClause}
-                WHERE id = ?
-            `, [...values, id]);
+            await db.execute(
+                `
+                    UPDATE file_nodes
+                    SET ${setClause}
+                    WHERE id = ?
+                `,
+                [...values, id]
+            );
 
             await get().fetchFileNodes();
         } catch (error) {
@@ -133,10 +161,13 @@ export const useDataStore = create<DataState>((set, get) => ({
         try {
             // First, recursively delete all child nodes
             const deleteChildren = async (nodeId: string) => {
-                const children = await db.execute(`
-                    SELECT id FROM file_nodes 
-                    WHERE parent_id = ?
-                `, [nodeId]);
+                const children = await db.getAll(
+                    `
+                        SELECT id FROM file_nodes
+                        WHERE parent_id = ?
+                    `,
+                    [nodeId]
+                );
 
                 for (const child of children) {
                     await deleteChildren(child.id);
@@ -156,28 +187,33 @@ export const useDataStore = create<DataState>((set, get) => ({
     updateSampleGroup: async (id: string, updates: Partial<SampleGroupMetadata>) => {
         try {
             const setClause = Object.keys(updates)
-                .map(key => `${key} = ?`)
+                .map((key) => `${key} = ?`)
                 .join(', ');
 
             const values = Object.values(updates);
 
-            await db.execute(`
-                UPDATE sample_group_metadata 
-                SET ${setClause}
-                WHERE id = ?
-            `, [...values, id]);
+            await db.execute(
+                `
+                    UPDATE sample_group_metadata
+                    SET ${setClause}
+                    WHERE id = ?
+                `,
+                [...values, id]
+            );
 
             await get().fetchSampleGroups();
         } catch (error) {
-            set({ error: error instanceof Error ? error.message : 'Failed to update sample group' });
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update sample group',
+            });
             throw error;
         }
     },
 
     getLocationById: (id: string | null) => {
         if (!id) return null;
-        return get().locations.find(location => location.id === id) || null;
+        return get().locations.find((location) => location.id === id) || null;
     },
 
-    setError: (error: string | null) => set({ error })
+    setError: (error: string | null) => set({ error }),
 }));

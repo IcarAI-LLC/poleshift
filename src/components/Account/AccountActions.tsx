@@ -17,7 +17,7 @@ const AccountActions: React.FC = () => {
   const { showAccountActions, setShowAccountActions } = useUI();
   const { user, logout, userProfile, organization } = useAuth();
   const theme = useTheme();
-
+  console.log(organization);
   const closeModal = () => {
     setShowAccountActions(false);
   };

@@ -1,4 +1,4 @@
-// lib/components/DropBox.tsx
+// src/lib/components/DropBox.tsx
 
 import { memo, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
@@ -10,12 +10,15 @@ import {
 } from '@mui/icons-material';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleGroupMetadata } from '../../lib/types';
-import { useProcessedData } from '../../lib/hooks';
+import { useProcessedData } from '../../lib/hooks/useProcessedData';
 import ProgressTracker from './ProgressTracker';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useAuth } from "../../lib/hooks";
+import { useAuth } from '../../lib/hooks';
+import { useStorage } from '../../lib/hooks';
+import { readFile } from '@tauri-apps/plugin-fs';
+import path from 'path';
 
 interface DropBoxProps {
     configItem: DropboxConfigItem;
@@ -24,7 +27,7 @@ interface DropBoxProps {
     isLocked: boolean;
     openModal: (title: string, configItem: DropboxConfigItem, uploadedFiles?: string[]) => void;
     sampleGroup: SampleGroupMetadata;
-    onDataProcessed: (insertData: any, configItem: DropboxConfigItem, processedData: any) => void;
+    onDataProcessed: (result: any, configItem: DropboxConfigItem, processedData: any) => void;
     onError: (message: string) => void;
     uploadedDataItem: any;
     openDataModal: (title: string, dataItem: any, configItem: DropboxConfigItem) => void;
@@ -53,8 +56,8 @@ const DropBox = memo(({
 
     const progressState = getProgressState(sampleId, configId);
     const uploadDownloadProgressState = getUploadDownloadProgressState(sampleId, configId);
+    const { uploadFiles } = useStorage();
 
-    // Update local state when prop changes
     useEffect(() => {
         setLocalHasData(hasData);
     }, [hasData]);
@@ -64,12 +67,11 @@ const DropBox = memo(({
         [uploadDownloadProgressState.progress]
     );
 
-    const handleDataProcessedLocally = useCallback((insertData: any, configItem: DropboxConfigItem, processedData: any) => {
+    const handleDataProcessedLocally = useCallback((result: any, configItem: DropboxConfigItem, processedData: any) => {
         setLocalHasData(true);
-        onDataProcessed(insertData, configItem, processedData);
+        onDataProcessed(result, configItem, processedData);
     }, [onDataProcessed]);
 
-    // File Selection Handler
     const handleFileSelect = useCallback(async () => {
         if (isLocked) {
             onError('DropBox is locked.');
@@ -105,15 +107,37 @@ const DropBox = memo(({
                 return;
             }
 
+            // Read files and create File objects
+            const files = await Promise.all(
+                filePaths.map(async (filePath) => {
+                    const fileContents = await readFile(filePath);
+                    const fileName = path.basename(filePath);
+                    return new File([new Uint8Array(fileContents)], fileName);
+                })
+            );
+
+            // Upload raw files to 'raw-data' bucket
+            const basePath = `${organization.org_short_id}/${sampleGroup.id}`;
+            const uploadedRawPaths = await uploadFiles(
+                files,
+                basePath,
+                'raw-data', // Specify 'raw-data' bucket
+                (progress) => {
+                    console.log('Raw files upload progress:', progress);
+                }
+            );
+
+            // Now call processData with the local file paths
             await processData(
                 configItem.processFunctionName,
                 sampleGroup,
                 {},
-                filePaths,
+                filePaths, // Local file paths for processing
                 configItem,
                 handleDataProcessedLocally,
                 onError,
-                organization.id
+                organization.id,
+                uploadedRawPaths // Pass uploaded raw file paths
             );
         } catch (error: any) {
             console.error('File selection error:', error);
@@ -156,44 +180,12 @@ const DropBox = memo(({
         }
 
         try {
-            // Since File objects do not have paths, use Tauri's fs API to get paths if possible
-            // Alternatively, read file contents and handle accordingly
-            // Here, we'll assume that you can obtain file paths via Tauri's APIs or by other means
-
-            // Placeholder: Implement logic to obtain file paths from File objects
-            // This might require custom Tauri commands or additional setup
-
-            // For demonstration, we'll pass the File objects directly
-            // Ensure that your backend can handle File objects or adjust accordingly
-
-            // Example: Upload file contents instead of paths
-            // You might need to adjust the processData function to handle this
-
-            // Alternatively, inform the user to use the file selection dialog for path-based uploads
             onError('Drag-and-drop file path retrieval is not supported. Please use the file selection dialog.');
-
-            // Uncomment below if handling file contents
-            /*
-            const fileArray = Array.from(files);
-            const fileContents = await Promise.all(fileArray.map(file => file.text()));
-            const filePaths = fileArray.map(file => file.name); // Placeholder paths
-
-            await processData(
-                configItem.processFunctionName,
-                sampleGroup,
-                {},
-                filePaths,
-                configItem,
-                handleDataProcessedLocally,
-                onError,
-                organization.id
-            );
-            */
         } catch (error: any) {
             console.error('Drop error:', error);
             onError(error.message || 'Failed to process dropped files');
         }
-    }, [isLocked, configItem.isModalInput, onError, processData, sampleGroup, configItem, onDataProcessed]);
+    }, [isLocked, configItem.isModalInput, onError]);
 
     useEffect(() => {
         const div = dropRef.current;

@@ -1,13 +1,12 @@
+// src/App.tsx
 import { useEffect, useState } from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from './theme';
 import AppRoutes from './routes/AppRoutes';
-import { AppProvider } from './lib/contexts/AppContext';
 import { initializeApp } from './lib/init';
 import LoadingScreen from './components/PreAuth/LoadingScreen';
-import ErrorBoundary from './components/ErrorBoundary';
 
 import './App.css';
 
@@ -42,15 +41,11 @@ function App() {
     }
 
     return (
-        <ErrorBoundary>
-            <AppProvider>
-                <LocalizationProvider dateAdapter={AdapterLuxon}>
-                    <ThemeProvider theme={theme}>
-                        <AppRoutes />
-                    </ThemeProvider>
-                </LocalizationProvider>
-            </AppProvider>
-        </ErrorBoundary>
+            <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <ThemeProvider theme={theme}>
+                    <AppRoutes />
+                </ThemeProvider>
+            </LocalizationProvider>
     );
 }
 

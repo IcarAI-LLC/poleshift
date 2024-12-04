@@ -55,9 +55,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     // Initialize network monitoring and sync
     initialize: async () => {
         try {
-            // Set up PowerSync
-            await setupPowerSync();
-
             // Set up online/offline listeners
             window.addEventListener('online', () => {
                 set({ isOnline: true });

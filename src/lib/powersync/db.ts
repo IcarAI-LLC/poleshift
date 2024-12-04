@@ -1,21 +1,46 @@
 //src/lib/powersync/db.ts
+
 import { PowerSyncDatabase } from '@powersync/web';
-import { SupabaseConnector } from './SupabaseConnector.ts';
+import type { PowerSyncDatabaseOptions } from '@powersync/web/lib/index.js';
+import { SupabaseConnector } from './SupabaseConnector';
 import { AppSchema } from './Schema';
 
 export const db = new PowerSyncDatabase({
-    // The schema you defined in the previous step
     schema: AppSchema,
     database: {
-        // Filename for the SQLite database — it's important to only instantiate one instance per file.
-        dbFilename: 'powersync.db'
-        // Optional. Directory where the database file is located.'
-        // dbLocation: 'path/to/directory'
+        dbFilename: 'powersync.db',
+        wasmUrl: '/node_modules/@powersync/sqlite-wasm/sqlite3.wasm',
+        workerUrl: '/node_modules/@powersync/web/worker'
     }
 });
 
-export const setupPowerSync = async () => {
-    // Uses the backend connector that will be created in the next section
-    const connector = new SupabaseConnector();
-    db.connect(connector);
+// PowerSync setup with event listeners
+export const setupPowerSync = async (connector: SupabaseConnector) => {
+    if (db.connected) {
+        console.debug('PowerSync is already connected.');
+        return;
+    }
+    // Connect the database with the Supabase connector
+    await db.connect(connector);
+
+    // Register event listeners using `registerListener`
+    db.registerListener({
+        onConfigure: () => {
+            console.log('PowerSync configured');
+        },
+        onConnect: () => {
+            console.log('PowerSync connected');
+        },
+        onDisconnect: () => {
+            console.log('PowerSync disconnected');
+        },
+        onError: (error) => {
+            console.error('PowerSync error:', error);
+        },
+        onCrudOperation: (operation) => {
+            console.log('PowerSync CRUD operation:', operation);
+        }
+    });
+
+    console.log('PowerSync initialized successfully.');
 };
