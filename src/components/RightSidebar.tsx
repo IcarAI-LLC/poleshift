@@ -129,8 +129,7 @@ export const RightSidebar: React.FC = () => {
 
   // Process CTD data
   const processCTDData = useCallback((data: any) => {
-    if (!Array.isArray(data) || !data[0]?.channels) return null;
-
+    data = data.data;
     const channelMap: Record<string, string> = {};
     data[0].channels.forEach((channel: any) => {
       channelMap[channel.long_name] = `channel${String(channel.channel_id).padStart(2, '0')}`;
@@ -202,7 +201,7 @@ export const RightSidebar: React.FC = () => {
 
         // Process nutrient data
         const nutrientKey = `${sampleId}:nutrient_ammonia`;
-        const nutrientData = processedData[nutrientKey]?.[0];
+        const nutrientData = processedData[nutrientKey]?.data[0];
         if (nutrientData?.ammonium_value != null) {
           const ammValue = nutrientData.ammonium_value;
           totalAmm += ammValue;
@@ -214,8 +213,9 @@ export const RightSidebar: React.FC = () => {
         // Process sequencing data
         const seqKey = `${sampleId}:sequencing_data`;
         if (processedData[seqKey]) {
+          console.log(processedData[seqKey]);
           try {
-            const krakenData = processKrakenDataForModal(processedData[seqKey].report_content);
+            const krakenData = processKrakenDataForModal(processedData[seqKey].data.report_content);
             krakenData.data?.forEach(rankData => {
               const rank = rankData.rankBase.toUpperCase();
               if (rank === 'SPECIES' || rank === 'GENUS') {

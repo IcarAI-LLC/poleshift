@@ -1,3 +1,5 @@
+// src/components/Account/AccountActions.tsx
+
 import React from 'react';
 import {
   Dialog,
@@ -15,9 +17,9 @@ import { useAuth } from '../../lib/hooks';
 
 const AccountActions: React.FC = () => {
   const { showAccountActions, setShowAccountActions } = useUI();
-  const { user, logout, userProfile, organization } = useAuth();
+  const { user, logout, userProfile, organization } = useAuth(); // Destructure userProfile and organization
   const theme = useTheme();
-  console.log(organization);
+
   const closeModal = () => {
     setShowAccountActions(false);
   };
@@ -27,11 +29,12 @@ const AccountActions: React.FC = () => {
     closeModal();
   };
 
-  function capitalizeFirstLetter(string: string | undefined | null) {
-    if (string) {
-      return string.charAt(0).toUpperCase() + string.slice(1);
+  const capitalizeFirstLetter = (str?: string | null) => {
+    if (str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
     }
-  }
+    return '';
+  };
 
   const infoRowStyles = {
     display: 'flex',
@@ -56,107 +59,108 @@ const AccountActions: React.FC = () => {
     flex: 1,
     textAlign: 'right',
   };
+
   return (
-    <Dialog
-      open={showAccountActions}
-      onClose={closeModal}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          backgroundColor: theme.palette.background.paper,
-          backgroundImage: 'none',
-          borderRadius: '8px',
-          boxShadow: 'var(--shadow-lg)',
-        },
-      }}
-    >
-      <DialogTitle
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: theme.spacing(2),
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          color: theme.palette.text.primary,
-        }}
-      >
-        <Typography variant="h6">Account</Typography>
-        <IconButton
-          onClick={closeModal}
-          aria-label="Close"
-          size="small"
-          sx={{
-            color: theme.palette.text.primary,
-            '&:hover': {
-              backgroundColor: theme.palette.action.hover,
+      <Dialog
+          open={showAccountActions}
+          onClose={closeModal}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              backgroundColor: theme.palette.background.paper,
+              backgroundImage: 'none',
+              borderRadius: '8px',
+              boxShadow: 'var(--shadow-lg)',
             },
           }}
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent
-        sx={{
-          padding: theme.spacing(2),
-          backgroundColor: theme.palette.background.paper,
-        }}
       >
-        <Box>
-          <Box sx={infoRowStyles}>
-            <Typography sx={labelStyles}>Email:</Typography>
-            <Typography sx={valueStyles}>{user?.email}</Typography>
-          </Box>
-
-          <Box sx={infoRowStyles}>
-            <Typography sx={labelStyles}>User type:</Typography>
-            <Typography sx={valueStyles}>
-              {capitalizeFirstLetter(userProfile?.user_tier)}
-            </Typography>
-          </Box>
-
-          <Box sx={infoRowStyles}>
-            <Typography sx={labelStyles}>Organization:</Typography>
-            <Typography sx={valueStyles}>
-              {capitalizeFirstLetter(organization?.name)}
-            </Typography>
-          </Box>
-
-          <Box sx={infoRowStyles}>
-            <Typography sx={labelStyles}>Last Sign In:</Typography>
-            <Typography sx={valueStyles}>
-              {user?.last_sign_in_at
-                ? new Date(user.last_sign_in_at).toLocaleString()
-                : 'N/A'}
-            </Typography>
-          </Box>
-
-          <Box
+        <DialogTitle
             sx={{
               display: 'flex',
-              justifyContent: 'flex-end',
-              marginTop: theme.spacing(3),
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: theme.spacing(2),
+              borderBottom: `1px solid ${theme.palette.divider}`,
+              color: theme.palette.text.primary,
             }}
-          >
-            <Button
-              variant="contained"
-              onClick={handleLogoutClick}
+        >
+          <Typography variant="h6">Account</Typography>
+          <IconButton
+              onClick={closeModal}
+              aria-label="Close"
+              size="small"
               sx={{
-                backgroundColor: theme.palette.error.main,
-                color: theme.palette.common.white,
+                color: theme.palette.text.primary,
                 '&:hover': {
-                  backgroundColor: theme.palette.error.dark,
+                  backgroundColor: theme.palette.action.hover,
                 },
-                minWidth: '100px',
               }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent
+            sx={{
+              padding: theme.spacing(2),
+              backgroundColor: theme.palette.background.paper,
+            }}
+        >
+          <Box>
+            <Box sx={infoRowStyles}>
+              <Typography sx={labelStyles}>Email:</Typography>
+              <Typography sx={valueStyles}>{user?.email}</Typography>
+            </Box>
+
+            <Box sx={infoRowStyles}>
+              <Typography sx={labelStyles}>User Type:</Typography>
+              <Typography sx={valueStyles}>
+                {capitalizeFirstLetter(userProfile?.user_tier)}
+              </Typography>
+            </Box>
+
+            <Box sx={infoRowStyles}>
+              <Typography sx={labelStyles}>Organization:</Typography>
+              <Typography sx={valueStyles}>
+                {capitalizeFirstLetter(organization?.name)}
+              </Typography>
+            </Box>
+
+            <Box sx={infoRowStyles}>
+              <Typography sx={labelStyles}>Last Sign In:</Typography>
+              <Typography sx={valueStyles}>
+                {user?.last_sign_in_at
+                    ? new Date(user.last_sign_in_at).toLocaleString()
+                    : 'N/A'}
+              </Typography>
+            </Box>
+
+            <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  marginTop: theme.spacing(3),
+                }}
             >
-              Logout
-            </Button>
+              <Button
+                  variant="contained"
+                  onClick={handleLogoutClick}
+                  sx={{
+                    backgroundColor: theme.palette.error.main,
+                    color: theme.palette.common.white,
+                    '&:hover': {
+                      backgroundColor: theme.palette.error.dark,
+                    },
+                    minWidth: '100px',
+                  }}
+              >
+                Logout
+              </Button>
+            </Box>
           </Box>
-        </Box>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
   );
 };
 

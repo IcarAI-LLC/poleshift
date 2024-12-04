@@ -85,6 +85,7 @@ const MainApp: React.FC = () => {
 
   const handleDataProcessed = useCallback(
       async ({ insertData, configItem, processedData }: DataProcessedParams) => {
+        console.log("Handling data processed");
         try {
           // If there are any processed files to upload
           if (processedData.files) {
@@ -107,7 +108,7 @@ const MainApp: React.FC = () => {
           }
         } catch (error) {
           setErrorMessage(
-              error instanceof Error ? error.message : 'Failed to process data'
+              error instanceof Error ? error : 'Failed to process data'
           );
         }
       },

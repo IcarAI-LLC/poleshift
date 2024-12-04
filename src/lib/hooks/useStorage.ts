@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import { db } from '../powersync/db.ts';
 import { useAuth } from './useAuth.ts';
-
+import {supabaseConnector} from "../powersync/SupabaseConnector.ts";
 interface UploadProgress {
     progress: number;
     bytesUploaded: number;
@@ -17,8 +17,7 @@ interface DownloadProgress {
 }
 
 export const useStorage = () => {
-    const { connector } = useAuth();
-
+    let connector = supabaseConnector
     const getStorageClient = useCallback(() => {
         if (!connector) {
             throw new Error('No auth connector available');

@@ -6,7 +6,7 @@ import type { SampleGroupMetadata } from '../types';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { v4 as uuidv4} from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ProcessingState {
     progress: number;
@@ -38,7 +38,7 @@ interface ProcessState {
         configItem: DropboxConfigItem,
         onSuccess: (result: any, configItem: DropboxConfigItem, processedData: any) => void,
         onError: (message: string) => void,
-        orgId: string,
+        orgShortId: string, // orgShortId comes before orgId
         orgId: string,
         uploadedRawPaths?: string[] // Add this parameter
     ) => Promise<void>;
@@ -106,12 +106,13 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
         configItem,
         onSuccess,
         onError,
+        orgShortId, // Corrected order
         orgId,
         uploadedRawPaths
     ) => {
         const key = `${sampleGroup.id}:${configItem.id}`;
         let progressUnlisten: UnlistenFn | undefined;
-
+        console.log("Process data in process store called");
         try {
             // Initialize processing state
             get().updateProcessStatus(key, {
@@ -137,31 +138,34 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
                 DEFAULT_RETRY_ATTEMPTS,
                 DEFAULT_RETRY_DELAY
             );
+            console.log("Process with retry logic returned", result);
 
             // Prepare additional data for saving
             const processedFilePaths = result.processedFilePaths || [];
             const metadata = result.metadata || {};
             const processedPath = result.processedPath || '';
-            const humanReadableSampleId = sampleGroup.human_readable_id || sampleGroup.id;
+            const humanReadableSampleId = sampleGroup.human_readable_sample_id || sampleGroup.id;
             const sampleOrgId = sampleGroup.org_id || null;
-            const orgShortId = orgId || null;
-            let id = uuidv4()
+            const effectiveOrgShortId = orgShortId || null; // Renamed to avoid shadowing
+            const id = uuidv4();
 
+            console.log("Saving processed data");
             // Save to database
             await get().saveProcessedData(
                 id,
                 sampleGroup.id,
                 configItem.id,
-                processFunctionName,
+                configItem.processFunctionName,
                 result,
                 uploadedRawPaths || [],
                 processedFilePaths,
                 metadata,
                 sampleOrgId,
-                orgShortId,
+                effectiveOrgShortId, // Use the renamed variable
                 humanReadableSampleId,
                 processedPath
             );
+            console.log("Processed data saved");
 
             // Fetch and update processed data
             await get().fetchProcessedData(sampleGroup);
@@ -177,6 +181,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
                 onSuccess(result, configItem, get().processedData[key]);
             }
         } catch (error) {
+            console.error(error);
             const errorMessage = error instanceof Error ? error.message : 'Processing failed';
             set({ error: errorMessage });
 
@@ -194,7 +199,6 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
             }
         }
     },
-
 
     // Retry helper
     withRetry: async (operation, maxAttempts, delayMs) => {
@@ -229,6 +233,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
         humanReadableSampleId: string,// New parameter
         processedPath: string         // New parameter
     ) => {
+        console.log("Saving processed data");
         const timestamp = Date.now();
         await db.execute(
             `
@@ -248,7 +253,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
                     org_id,
                     org_short_id,
                     process_function_name
-                ) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             `,
             [
                 `${sampleId}:${configId}:${timestamp}`,
@@ -270,16 +275,15 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
         );
     },
 
-
     // Fetch Processed Data
     fetchProcessedData: async (sampleGroup) => {
         try {
             const results = await db.getAll(
                 `
-        SELECT * FROM processed_data 
-        WHERE sample_id = ? AND status = 'completed'
-        ORDER BY timestamp DESC
-      `,
+                    SELECT * FROM processed_data
+                    WHERE sample_id = ? AND status = 'completed'
+                    ORDER BY timestamp DESC
+                `,
                 [sampleGroup.id]
             );
 

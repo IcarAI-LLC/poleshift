@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback } from 'react';
+import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
 import globeImage from '../assets/globe.jpg';
@@ -21,26 +21,31 @@ interface GlobeClickCoords {
 
 const GLOBE_CONFIG = {
     pointAltitude: 0.1,
-    pointRadius: 0.05,
+    pointRadius: 0.2, // Increased for better visibility
     backgroundColor: '#000000',
-    pointColor: 'cyan',
+    pointColor: (d: GlobePoint) => 'rgba(0, 255, 255, 0.8)', // More distinct color
     transitionDuration: 1000,
     defaultAltitude: 0.5,
 } as const;
 
 export const GlobeComponent: React.FC = () => {
-    // Use strict typing for the ref
-    const globeRef = useRef<React.MutableRefObject<GlobeMethods | undefined>>(null);
+    const globeRef = useRef<GlobeMethods | undefined>(undefined);
 
     const { sampleGroups, locations } = useData();
-    const { setSelectedRightItem, toggleRightSidebar, filters } = useUI();
-    console.log(sampleGroups);
+    const { setSelectedRightItem, filters } = useUI();
+
+    // Debugging statements
+    console.log('Sample Groups:', sampleGroups);
+    console.log('Locations:', locations);
+
     // Filter sample groups based on location and date filters
     const filteredSampleGroups = useMemo(() => {
         return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
             // Check location filter
-            if (filters.selectedLocations.length > 0 &&
-                !filters.selectedLocations.includes(group.loc_id || '')) {
+            if (
+                filters.selectedLocations.length > 0 &&
+                !filters.selectedLocations.includes(group.loc_id || '')
+            ) {
                 return false;
             }
 
@@ -61,62 +66,70 @@ export const GlobeComponent: React.FC = () => {
         });
     }, [sampleGroups, filters]);
 
+    // Debugging statement
+    console.log('Filtered Sample Groups:', filteredSampleGroups);
+
     // Transform filtered groups into globe points
     const pointsData = useMemo<GlobePoint[]>(() => {
         return filteredSampleGroups
-            .reduce<GlobePoint[]>((points, group) => {
+            .map(group => {
                 const location = locations.find(loc => loc.id === group.loc_id);
-
                 if (location?.lat != null && location?.long != null) {
-                    points.push({
+                    return {
                         lat: location.lat,
                         lng: location.long,
                         name: location.label,
                         id: location.id,
-                    });
+                    };
                 }
-
-                return points;
-            }, []);
+                return null;
+            })
+            .filter((point): point is GlobePoint => point !== null);
     }, [filteredSampleGroups, locations]);
 
+    // Debugging statement
+    console.log('Points Data:', pointsData);
+
     // Handle point click with proper typing
-    const handlePointClick = useCallback((
-        pointData: unknown,
-        _event: MouseEvent,
-        coords: GlobeClickCoords
-    ) => {
-        const point = pointData as GlobePoint;
-        const selectedLocation = locations.find(loc => loc.id === point.id);
+    const handlePointClick = useCallback(
+        (pointData: GlobePoint, _event: MouseEvent, coords: GlobeClickCoords) => {
+            const selectedLocation = locations.find(loc => loc.id === pointData.id);
 
-        if (!selectedLocation) return;
+            if (!selectedLocation) return;
 
-        setSelectedRightItem(selectedLocation);
-        toggleRightSidebar(false);
+            console.log('Point clicked:', selectedLocation);
+            setSelectedRightItem(selectedLocation); // This will also open the sidebar
 
-        const globeInstance = globeRef?.current?.current;
-        if (globeInstance) {
-            globeInstance.pointOfView(
-                {
-                    lat: selectedLocation.lat,
-                    lng: selectedLocation.long,
-                    altitude: GLOBE_CONFIG.defaultAltitude,
-                },
-                GLOBE_CONFIG.transitionDuration
-            );
-        }
-    }, [locations, setSelectedRightItem, toggleRightSidebar]);
+            if (globeRef.current) {
+                globeRef.current.pointOfView(
+                    {
+                        lat: selectedLocation.lat,
+                        lng: selectedLocation.long,
+                        altitude: GLOBE_CONFIG.defaultAltitude,
+                    },
+                    GLOBE_CONFIG.transitionDuration
+                );
+            }
+        },
+        [locations, setSelectedRightItem]
+    );
 
-    // Memoize dimensions to prevent unnecessary rerenders
-    const dimensions = useMemo(() => ({
-        width: window.innerWidth,
-        height: window.innerHeight
-    }), []);
-    console.log(pointsData);
+    // Handle window resizing
+    const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+    useEffect(() => {
+        const handleResize = () => {
+            setDimensions({ width: window.innerWidth, height: window.innerHeight });
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     return (
         <div className="globe-container">
             <Globe
-                ref={globeRef?.current}
+                ref={globeRef}
                 globeImageUrl={globeImage}
                 pointsData={pointsData}
                 onPointClick={handlePointClick}
@@ -136,4 +149,4 @@ export const GlobeComponent: React.FC = () => {
 // Use displayName for better debugging
 GlobeComponent.displayName = 'GlobeComponent';
 
-export default React.memo(GlobeComponent);
+export default GlobeComponent;

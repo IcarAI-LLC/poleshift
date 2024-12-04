@@ -1,97 +1,124 @@
 // src/lib/hooks/useAuth.ts
-import { useCallback } from 'react';
+
 import { useAuthStore } from '../stores/authStore';
+import { supabaseConnector } from '../powersync/SupabaseConnector';
+import {useCallback, useEffect} from 'react';
+import { fetchUserProfile, fetchOrganization } from '../services/userService'; // We'll create these services next
 
 export const useAuth = () => {
-    // Subscribe to specific pieces of state to trigger re-renders
     const user = useAuthStore((state) => state.user);
-    const userProfile = useAuthStore((state) => state.userProfile);
-    const organization = useAuthStore((state) => state.organization);
+    const userProfile = useAuthStore((state) => state.userProfile); // Access userProfile
+    const organization = useAuthStore((state) => state.organization); // Access organization
     const error = useAuthStore((state) => state.error);
     const loading = useAuthStore((state) => state.loading);
-    const initialized = useAuthStore((state) => state.initialized);
-    const connector = useAuthStore((state) => state.connector);
-
-    // Actions
-    const login = useAuthStore((state) => state.login);
-    const signUp = useAuthStore((state) => state.signUp);
-    const logout = useAuthStore((state) => state.logout);
-    const resetPassword = useAuthStore((state) => state.resetPassword);
-    const processLicenseKey = useAuthStore((state) => state.processLicenseKey);
-    const initializeAuth = useAuthStore((state) => state.initializeAuth);
     const setError = useAuthStore((state) => state.setError);
+    const setLoading = useAuthStore((state) => state.setLoading);
+    const setUser = useAuthStore((state) => state.setUser);
+    const setUserProfile = useAuthStore((state) => state.setUserProfile);
+    const setOrganization = useAuthStore((state) => state.setOrganization);
 
-    // Memoized handlers to prevent unnecessary re-renders
-    const handleLogin = useCallback(async (email: string, password: string) => {
+
+    // Helper function to load user profile and organization
+    const loadUserData = useCallback(async (userId: string) => {
         try {
-            return await login(email, password);
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Login failed');
-            throw error;
-        }
-    }, [login, setError]);
+            const profile = await fetchUserProfile(userId);
+            setUserProfile(profile);
 
-    const handleSignUp = useCallback(async (email: string, password: string, licenseKey: string) => {
+            if (profile?.organization_id) {
+                const org = await fetchOrganization(profile.organization_id);
+                setOrganization(org);
+            } else {
+                setOrganization(null);
+            }
+        } catch (err) {
+            console.error('Failed to load user data:', err);
+            setError('Failed to load user data');
+        }
+    }, [setUserProfile, setOrganization, setError]);
+
+    // Load user data on mount if user is already logged in
+    useEffect(() => {
+        const initialize = async () => {
+            if (user) {
+                await loadUserData(user.id);
+            }
+        };
+        initialize();
+    }, [user, loadUserData]);
+
+
+    // Authentication Actions
+    const login = useCallback(async (email: string, password: string) => {
         try {
-            await signUp(email, password, licenseKey);
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Sign up failed');
-            throw error;
-        }
-    }, [signUp, setError]);
+            setLoading(true);
+            await supabaseConnector.login(email, password);
 
-    const handleLogout = useCallback(async () => {
+            const loggedInUser = await supabaseConnector.currentSession?.user;
+            console.log(loggedInUser);
+            setUser(loggedInUser);
+            await loadUserData(loggedInUser.id); // Load additional user data
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Login failed');
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [setError, setLoading, setUser, loadUserData]);
+
+    const signUp = useCallback(async (email: string, password: string) => {
         try {
-            await logout();
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Logout failed');
-            throw error;
+            setLoading(true);
+            const newUser = await supabaseConnector.signUp(email, password);
+            setUser(newUser);
+            await loadUserData(newUser.id); // Load additional user data
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Sign up failed');
+            throw err;
+        } finally {
+            setLoading(false);
         }
-    }, [logout, setError]);
+    }, [setError, setLoading, setUser, loadUserData]);
 
-    const handleResetPassword = useCallback(async (email: string) => {
+    const logout = useCallback(async () => {
         try {
-            await resetPassword(email);
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Password reset failed');
-            throw error;
+            setLoading(true);
+            await supabaseConnector.logout();
+            setUser(null);
+            setUserProfile(null); // Clear userProfile
+            setOrganization(null); // Clear organization
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Logout failed');
+            throw err;
+        } finally {
+            setLoading(false);
         }
-    }, [resetPassword, setError]);
+    }, [setError, setLoading, setUser, setUserProfile, setOrganization]);
 
-    const handleProcessLicenseKey = useCallback(async (licenseKey: string) => {
+    const resetPassword = useCallback(async (email: string) => {
         try {
-            await processLicenseKey(licenseKey);
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'License key processing failed');
-            throw error;
+            setLoading(true);
+            await supabaseConnector.resetPassword(email);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Password reset failed');
+            throw err;
+        } finally {
+            setLoading(false);
         }
-    }, [processLicenseKey, setError]);
+    }, [setError, setLoading]);
 
-    // Utility functions
-    const isAuthenticated = Boolean(user && userProfile && connector);
-    const canAccessAdmin = userProfile?.user_tier === 'admin';
-    const hasValidLicense = Boolean(organization);
+    const isAuthenticated = Boolean(user);
 
     return {
-        // State
         user,
-        userProfile,
-        organization,
+        userProfile, // Expose userProfile
+        organization, // Expose organization
         error,
         loading,
-        initialized,
         isAuthenticated,
-        canAccessAdmin,
-        hasValidLicense,
-        connector,
-
-        // Actions
-        initializeAuth,
-        login: handleLogin,
-        signUp: handleSignUp,
-        logout: handleLogout,
-        resetPassword: handleResetPassword,
-        processLicenseKey: handleProcessLicenseKey,
+        login,
+        signUp,
+        logout,
+        resetPassword,
         setError,
     };
 };

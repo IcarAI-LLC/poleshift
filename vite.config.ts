@@ -2,12 +2,12 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
+
 const host = process.env.TAURI_DEV_HOST;
 
+// https://vitejs.dev/config/
 export default defineConfig(async () => ({
     plugins: [react(), wasm(), topLevelAwait()],
-    clearScreen: false,
-
     optimizeDeps: {
         // Don't optimize these packages as they contain web workers and WASM files.
         // https://github.com/vitejs/vite/issues/11672#issuecomment-1415820673
@@ -15,11 +15,11 @@ export default defineConfig(async () => ({
         include: ['@powersync/web > js-logger']
     },
 
-    worker: {
-        format: 'es',
-        plugins: () => []
-    },
-
+    // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
+    //
+    // 1. prevent vite from obscuring rust errors
+    clearScreen: false,
+    // 2. tauri expects a fixed port, fail if that port is not available
     server: {
         port: 1420,
         strictPort: true,
@@ -32,29 +32,9 @@ export default defineConfig(async () => ({
             }
             : undefined,
         watch: {
+            // 3. tell vite to ignore watching `src-tauri`
             ignored: ["**/src-tauri/**"],
+            watch: ["**/src/**"],
         },
     },
-
-    // Add public directory configuration
-    publicDir: 'public',
-
-    build: {
-        target: ['es2021', 'chrome100', 'safari13'],
-        minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
-        sourcemap: !!process.env.TAURI_DEBUG,
-        rollupOptions: {
-            output: {
-                format: 'es',
-                inlineDynamicImports: true
-            }
-        }
-    },
-
-    // Add resolve configuration
-    resolve: {
-        alias: {
-            '@powersync/web': '@powersync/web'
-        }
-    }
 }));

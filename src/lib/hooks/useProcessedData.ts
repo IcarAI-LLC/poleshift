@@ -52,6 +52,7 @@ export const useProcessedData = () => {
                     orgId,
                     uploadedRawPaths // Pass it here
                 );
+                console.log("Data processed successfully");
             } catch (error) {
                 setError(error instanceof Error ? error.message : 'Processing failed');
                 throw error;
