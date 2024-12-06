@@ -9,11 +9,9 @@ import {
   useData,
   useUI,
   useNetworkStatus,
-  useProcessedData,
   useStorage,
 } from '../lib/hooks';
 import type { SampleGroupMetadata } from '../lib/types';
-import type { DropboxConfigItem } from '../config/dropboxConfig';
 
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
@@ -25,18 +23,9 @@ import AccountActions from './Account/AccountActions';
 import SampleGroupMetadataComponent from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
-import UploadQueueStatus from './UploadQueueStatus'; // Import the new component
-
-interface DataProcessedParams {
-  insertData: {
-    sampleId: string;
-    configId: string;
-    timestamp: number;
-    status: string;
-  };
-  configItem: DropboxConfigItem;
-  processedData: any;
-}
+import UploadQueueStatus from './UploadQueueStatus';
+import MoveModal from "./LeftSidebar/MoveModal.tsx";
+import { useProcessedData } from '../lib/hooks/useProcessedData';
 
 const MainApp: React.FC = () => {
   // Hooks
@@ -48,74 +37,50 @@ const MainApp: React.FC = () => {
     errorMessage,
     setErrorMessage,
     leftSidebarContextMenu,
-    closeLeftSidebarContextMenu  // Changed from setLeftSidebarContextMenuState
+    closeLeftSidebarContextMenu
   } = useUI();
   const { isOnline } = useNetworkStatus();
-  const { fetchProcessedData } = useProcessedData();
   const storage = useStorage();
 
-  // Local state
-  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const [showOfflineWarning, setShowOfflineWarning] = useState(true);
-  const openButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Get current sample group based on selection
+  // Determine the currently selected sample group
   const sampleGroup = useMemo<SampleGroupMetadata | null>(() => {
     if (!selectedLeftItem || selectedLeftItem.type !== 'sampleGroup') return null;
     return sampleGroups[selectedLeftItem.id];
   }, [selectedLeftItem, sampleGroups]);
 
-  // Error handling
-  const displayedError = authError || dataError || errorMessage;
+  // Use processed data hook
+  const processedDataHook = useProcessedData({
+    sampleGroup: sampleGroup as SampleGroupMetadata, // safe even if null is passed
+    orgShortId: organization?.org_short_id || '',
+    orgId: organization?.id || '',
+    organization,
+    storage,
+  });
 
-  // Clear error message after timeout
+  // Local UI state
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [showOfflineWarning, setShowOfflineWarning] = useState(true);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Aggregate errors
+  const displayedError = authError || dataError || errorMessage || processedDataHook.error;
+
+  // Clear displayed errors after 5 seconds
   useEffect(() => {
     if (displayedError) {
       const timer = setTimeout(() => {
         setErrorMessage(null);
+        processedDataHook.setError(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [displayedError, setErrorMessage]);
+  }, [displayedError, setErrorMessage, processedDataHook]);
 
-  // Reset offline warning visibility when online status changes
+  // Update offline warning based on network status
   useEffect(() => {
     setShowOfflineWarning(!isOnline);
   }, [isOnline]);
 
-  const handleDataProcessed = useCallback(
-      async ({ insertData, processedData }: DataProcessedParams) => {
-        console.log("Handling data processed");
-        try {
-          // If there are any processed files to upload
-          if (processedData.files) {
-            const basePath = `${organization?.org_short_id}/${insertData.sampleId}`;
-            const uploadedProcessedPaths = await storage.uploadFiles(
-                processedData.files,
-                basePath,
-                'processed-data',
-                (progress) => {
-                  console.log('Processed files upload progress:', progress);
-                }
-            );
-
-            // Update processedData with uploaded processed paths
-            processedData.uploadedProcessedPaths = uploadedProcessedPaths;
-          }
-
-          if (sampleGroup) {
-            await fetchProcessedData(sampleGroup);
-          }
-        } catch (error) {
-          setErrorMessage(
-              error instanceof Error ? error.message : 'Failed to process data'
-          );
-        }
-      },
-      [sampleGroup, fetchProcessedData, storage, setErrorMessage, organization]
-  );
-
-// Then update handleDeleteSample to use leftSidebarContextMenu instead of contextMenu:
   const handleDeleteSample = useCallback(async () => {
     if (!leftSidebarContextMenu.itemId) {
       setErrorMessage('Could not determine which item to delete.');
@@ -124,7 +89,7 @@ const MainApp: React.FC = () => {
 
     try {
       await deleteNode(leftSidebarContextMenu.itemId);
-      closeLeftSidebarContextMenu();  // Changed from setLeftSidebarContextMenuState
+      closeLeftSidebarContextMenu();
     } catch (error) {
       setErrorMessage(
           error instanceof Error
@@ -135,12 +100,10 @@ const MainApp: React.FC = () => {
   }, [leftSidebarContextMenu, deleteNode, closeLeftSidebarContextMenu, setErrorMessage]);
 
   const handleApplyFilters = useCallback(() => {
-    // Filters have already been applied via setFilters in FilterMenu
     setIsFilterMenuOpen(false);
   }, []);
 
   const handleResetFilters = useCallback(() => {
-    // Reset is handled in FilterMenu component
     setIsFilterMenuOpen(false);
   }, []);
 
@@ -153,7 +116,7 @@ const MainApp: React.FC = () => {
     openButtonRef.current?.focus();
   }, []);
 
-  // Scroll lock effect
+  // Scroll lock effect when the filter menu is open
   useEffect(() => {
     document.body.style.overflow = isFilterMenuOpen ? 'hidden' : 'auto';
     return () => {
@@ -164,14 +127,11 @@ const MainApp: React.FC = () => {
   const renderContent = useCallback(() => {
     if (selectedLeftItem?.type === 'sampleGroup') {
       return (
-          <DropBoxes
-              onDataProcessed={handleDataProcessed}
-              onError={setErrorMessage}
-          />
+          <DropBoxes onError={setErrorMessage} />
       );
     }
     return <GlobeComponent />;
-  }, [selectedLeftItem?.type, handleDataProcessed, setErrorMessage]);
+  }, [selectedLeftItem?.type, setErrorMessage]);
 
   return (
       <div id="app">
@@ -210,8 +170,11 @@ const MainApp: React.FC = () => {
 
             {displayedError && (
                 <ErrorMessage
-                    message={displayedError}
-                    onClose={() => setErrorMessage(null)}
+                    message={displayedError.toString()}
+                    onClose={() => {
+                      setErrorMessage(null);
+                      processedDataHook.setError(null);
+                    }}
                     className="error-message"
                 />
             )}
@@ -225,8 +188,8 @@ const MainApp: React.FC = () => {
         {showAccountActions && <AccountActions />}
 
         <ContextMenu deleteItem={handleDeleteSample} />
-
-        <UploadQueueStatus /> {/* Add the Upload Queue Status component */}
+        <MoveModal />
+        <UploadQueueStatus />
       </div>
   );
 };

@@ -4,38 +4,65 @@ import { PowerSyncDatabase } from '@powersync/web';
 import { SupabaseConnector } from './SupabaseConnector';
 import { AppSchema } from './Schema';
 
-// Counter to track the number of instances created
+// Variables to track the instance creation
 let instanceCount = 0;
+let dbInstance: PowerSyncDatabase | null = null;
 
 /**
- * Factory function to create PowerSyncDatabase instances.
- * - The first instance will have useWebWorker set to false.
- * - Subsequent instances will have useWebWorker set to true.
+ * Returns the database instance.
+ *  - 1st call: Creates a non-web-worker instance and returns it.
+ *  - 2nd call: Creates a web-worker instance, replaces the first one, and returns it.
+ *  - Subsequent calls: Returns the web-worker instance (no new creation).
  */
-export const createDatabaseInstance = (): PowerSyncDatabase => {
-    const useWebWorker = instanceCount > 0; // false for first instance, true otherwise
-    const db = new PowerSyncDatabase({
-        schema: AppSchema,
-        database: {
-            dbFilename: 'powersync.db',
-        },
-        flags: {
-            useWebWorker: useWebWorker,
-        }
-    });
+export const getDatabaseInstance = (): PowerSyncDatabase => {
     instanceCount++;
-    console.log(`PowerSyncDatabase instance created with useWebWorker: ${useWebWorker}`);
-    return db;
+
+    if (instanceCount === 1) {
+        // First time: no web worker
+        dbInstance = new PowerSyncDatabase({
+            schema: AppSchema,
+            database: {
+                dbFilename: 'powersync.db',
+            },
+            flags: {
+                useWebWorker: false,
+            }
+        });
+        console.log('PowerSyncDatabase instance created (no web worker).');
+        return dbInstance;
+    }
+
+    if (instanceCount === 2) {
+        // Second time: create and use a web worker instance.
+        // Replace the old instance with the new one.
+        dbInstance = new PowerSyncDatabase({
+            schema: AppSchema,
+            database: {
+                dbFilename: 'powersync.db',
+            },
+            flags: {
+                useWebWorker: true,
+            }
+        });
+        console.log('PowerSyncDatabase instance created (with web worker). This instance is now primary.');
+        return dbInstance;
+    }
+
+    // For any subsequent calls, just return the web-worker instance
+    console.log('Returning existing web-worker instance.');
+    return dbInstance as PowerSyncDatabase;
 };
 
-// Create the first instance with useWebWorker: false
-export const db = createDatabaseInstance();
+// By default, we export the current instance. The first import of this file
+// will cause the first instance to be created (no web worker).
+export const db = getDatabaseInstance();
 
 /**
  * Sets up PowerSync with event listeners.
  */
 export const setupPowerSync = async () => {
     console.log("Setup Power Sync called");
+    // Always reference `db`, which will be the currently active instance.
     if (db.connected) {
         console.debug('PowerSync is already connected.');
         return;
@@ -46,7 +73,6 @@ export const setupPowerSync = async () => {
     console.log('Connector created');
 
     try {
-        // Connect the database with the Supabase connector
         //@ts-ignore
         await db.connect(connector);
     } catch (error) {
@@ -54,7 +80,7 @@ export const setupPowerSync = async () => {
         return;
     }
 
-    // Register event listeners using `registerListener`
+    // Register event listeners
     db.registerListener({
         onConfigure: () => {
             console.log('PowerSync configured');

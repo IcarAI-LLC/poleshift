@@ -1,6 +1,6 @@
 // src/lib/components/DropBoxes.tsx
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Box, SelectChangeEvent, Typography } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
@@ -9,7 +9,8 @@ import {
     useUI,
     useData,
     useProcessedData,
-    useAuth, useStorage
+    useAuth,
+    useStorage
 } from '../../lib/hooks';
 import type {
     SampleGroupMetadata,
@@ -27,17 +28,13 @@ import DataChart from '../DataChart';
 import DropBox from './DropBox';
 import NutrientAmmoniaView from '../NutrientAmmoniaView';
 import KrakenVisualization from '../KrakenVisualization/KrakenVisualization';
+
 interface ProcessedModalData {
     modalData: any;
     units?: Record<string, string>;
 }
 
 interface DropBoxesProps {
-    onDataProcessed: (params: {
-        insertData: any;
-        configItem: DropboxConfigItem;
-        processedData: any;
-    }) => void;
     onError: (message: string) => void;
 }
 
@@ -46,24 +43,11 @@ interface LocalModalState extends UIModalState {
     units?: Record<string, string>;
 }
 
-const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
+const DropBoxes: React.FC<DropBoxesProps> = ({ onError }) => {
     const { selectedLeftItem } = useUI();
     const { sampleGroups, getLocationById } = useData();
-    const { processData, fetchProcessedData, processedData, isProcessing } = useProcessedData();
     const { organization } = useAuth();
     const { uploadFiles } = useStorage();
-
-    const [localProcessedData, setLocalProcessedData] = useState<Record<string, any>>({});
-    const [modalState, setModalState] = useState<LocalModalState>({
-        isOpen: false,
-        title: '',
-        type: 'input',
-        modalInputs: {},
-    });
-
-    const getProgressKey = useCallback((sampleId: string, configId: string): string =>
-            `${sampleId}:${configId}`,
-        []);
 
     const { sampleGroup, sampleLocation } = useMemo<{
         sampleGroup: SampleGroupMetadata | null;
@@ -79,28 +63,31 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         };
     }, [selectedLeftItem, sampleGroups, getLocationById]);
 
-    useEffect(() => {
-        setLocalProcessedData(processedData);
-    }, [processedData]);
+    // Use a single instance of useProcessedData here
+    const {
+        processData,
+        processedData,
+        isProcessing,
+        getProgressState,
+        getUploadDownloadProgressState,
+        handleRawUploadAndProcess
+    } = useProcessedData({
+        sampleGroup,
+        orgShortId: organization?.org_short_id,
+        orgId: organization?.id,
+        organization,
+        storage: useStorage() // reusing the same hook for storage if needed
+    });
 
-    useEffect(() => {
-        if (sampleGroup) {
-            fetchProcessedData(sampleGroup);
-        }
-    }, [sampleGroup, fetchProcessedData]);
+    const [modalState, setModalState] = useState<LocalModalState>({
+        isOpen: false,
+        title: '',
+        type: 'input',
+        modalInputs: {},
+    });
 
-    const handleLocalDataProcessed = useCallback(
-        (result: any, configItem: DropboxConfigItem, processedData: any) => {
-            const key = getProgressKey(sampleGroup?.id || '', configItem.id);
-            setLocalProcessedData(prev => ({
-                ...prev,
-                [key]: processedData,
-            }));
-            onDataProcessed({ insertData: result, configItem, processedData });
-        },
-        [sampleGroup?.id, getProgressKey, onDataProcessed]
-    );
-
+    const getProgressKey = useCallback((sampleId: string, configId: string): string =>
+        `${sampleId}:${configId}`, []);
 
     const processModalData = async (
         dataItem: any,
@@ -109,7 +96,7 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         console.log("Modal data item:", dataItem);
         switch (configItem.id) {
             case 'ctd_data': {
-                dataItem = dataItem.data[0];
+                dataItem = dataItem.data.report;
                 const { processedData, variableUnits } = processCTDDataForModal(dataItem);
                 return {
                     modalData: processedData,
@@ -117,13 +104,13 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
                 };
             }
             case 'nutrient_ammonia':
-                dataItem = dataItem.data[0];
+                dataItem = dataItem.data.report;
                 return {
                     modalData: dataItem,
                 };
             case 'sequencing_data':
-                console.log("Sequence data", dataItem.data.report_content);
-                dataItem = dataItem.data.report_content;
+                console.log("Sequence data", dataItem.data.report.report_content);
+                dataItem = dataItem.data.report.report_content;
                 return {
                     modalData: processKrakenDataForModal(dataItem),
                 };
@@ -232,17 +219,14 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
                 }
             );
 
-            // 3. Call processData with the uploaded raw paths
+            // 3. Call processData without callbacks
             await processData(
                 configItem.processFunctionName,
                 sampleGroup,
                 modalInputs!,
                 [], // No local file paths
                 configItem,
-                handleLocalDataProcessed,
-                onError,
-                organization.org_short_id,
-                uploadedRawPaths // Pass the uploaded raw file paths
+                uploadedRawPaths
             );
 
             closeModal();
@@ -254,10 +238,10 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         modalState,
         sampleGroup,
         processData,
-        handleLocalDataProcessed,
         onError,
         closeModal,
         organization?.org_short_id,
+        organization?.id,
         uploadFiles,
     ]);
 
@@ -298,14 +282,19 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
                         <DropBox
                             configItem={configItem}
                             isProcessing={isProcessing(sampleId, configId)}
-                            hasData={!!localProcessedData[key]}
+                            hasData={!!processedData[key]}
                             openModal={openModal}
                             isLocked={false}
                             sampleGroup={sampleGroup}
-                            onDataProcessed={handleLocalDataProcessed}
                             onError={onError}
-                            uploadedDataItem={localProcessedData[key]}
+                            uploadedDataItem={processedData[key]}
                             openDataModal={openDataModal}
+
+                            // Pass down progress-related functions and state
+                            getProgressState={getProgressState}
+                            getUploadDownloadProgressState={getUploadDownloadProgressState}
+                            handleRawUploadAndProcess={handleRawUploadAndProcess}
+                            organization={organization}
                         />
                     </Box>
                 );
@@ -314,12 +303,15 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onDataProcessed, onError }) => {
         sampleGroup,
         boxStyles,
         isProcessing,
-        localProcessedData,
+        processedData,
         openModal,
-        handleLocalDataProcessed,
         onError,
         openDataModal,
         getProgressKey,
+        getProgressState,
+        getUploadDownloadProgressState,
+        handleRawUploadAndProcess,
+        organization
     ]);
 
     const renderModalContent = useCallback(() => {

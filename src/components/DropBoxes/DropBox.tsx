@@ -10,15 +10,12 @@ import {
     HourglassEmpty as HourglassEmptyIcon,
 } from '@mui/icons-material';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
-import type { SampleGroupMetadata } from '../../lib/types';
-import { useProcessedData } from '../../lib/hooks/useProcessedData';
+import type { SampleGroupMetadata, Organization } from '../../lib/types';
 import ProgressTracker from './ProgressTracker';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useAuth } from '../../lib/hooks';
-import { useStorage } from '../../lib/hooks';
-import { readFile } from '@tauri-apps/plugin-fs';
 import { useNetworkStatus } from '../../lib/hooks/useNetworkStatus';
 import { getAllQueuedUploads } from '../../lib/utils/uploadQueue';
 
@@ -29,10 +26,20 @@ interface DropBoxProps {
     isLocked: boolean;
     openModal: (title: string, configItem: DropboxConfigItem, uploadedFiles?: string[]) => void;
     sampleGroup: SampleGroupMetadata;
-    onDataProcessed: (result: any, configItem: DropboxConfigItem, processedData: any) => void;
     onError: (message: string) => void;
     uploadedDataItem: any;
     openDataModal: (title: string, dataItem: any, configItem: DropboxConfigItem) => void;
+    getProgressState: (sId: string, cId: string) => { progress: number; status: string; };
+    getUploadDownloadProgressState: (sId: string, cId: string) => { progress: number; status: string; };
+    handleRawUploadAndProcess: (
+        configItem: DropboxConfigItem,
+        group: SampleGroupMetadata,
+        filePaths: string[],
+        inputs: Record<string, any>,
+        onError: (message: string) => void,
+        isOffline: boolean
+    ) => Promise<void>;
+    organization: Organization | null;
 }
 
 const DropBox = memo(({
@@ -42,17 +49,17 @@ const DropBox = memo(({
                           isLocked,
                           openModal,
                           sampleGroup,
-                          onDataProcessed,
                           onError,
                           uploadedDataItem,
                           openDataModal,
+                          getProgressState,
+                          getUploadDownloadProgressState,
+                          handleRawUploadAndProcess,
+                          organization
                       }: DropBoxProps) => {
     const [dragActive, setDragActive] = useState(false);
-    const [_localHasData, setLocalHasData] = useState(hasData);
-    const { processData, getProgressState, getUploadDownloadProgressState } = useProcessedData();
+    const [isQueued, setIsQueued] = useState<boolean>(false);
     const dropRef = useRef<HTMLDivElement>(null);
-    const { organization } = useAuth();
-    const { uploadFiles } = useStorage();
     const { isOnline } = useNetworkStatus();
 
     const sampleId = sampleGroup.id;
@@ -61,35 +68,16 @@ const DropBox = memo(({
     const progressState = getProgressState(sampleId, configId);
     const uploadDownloadProgressState = getUploadDownloadProgressState(sampleId, configId);
 
-    const getFileName = (filePath: string): string => {
-        return filePath.split('/').pop()?.split('\\').pop() || filePath;
-    };
-
-    useEffect(() => {
-        setLocalHasData(hasData);
-    }, [hasData]);
-
-    const isUploadingDownloading = useMemo(
-        () => uploadDownloadProgressState.progress > 0 && uploadDownloadProgressState.progress < 100,
-        [uploadDownloadProgressState.progress]
-    );
-
-    // **Moved Hooks to Top Level**
-    const [isQueued, setIsQueued] = useState<boolean>(false);
-
     useEffect(() => {
         const checkIfQueued = async () => {
             const queuedUploads = await getAllQueuedUploads();
-            const isThisQueued = queuedUploads.some(upload => upload.path.startsWith(`${organization?.org_short_id}/${sampleGroup.id}`));
+            const isThisQueued = queuedUploads.some(upload =>
+                upload.path.startsWith(`${organization?.org_short_id}/${sampleGroup.id}`)
+            );
             setIsQueued(isThisQueued);
         };
         checkIfQueued();
     }, [organization, sampleGroup]);
-
-    const handleDataProcessedLocally = useCallback((result: any, configItem: DropboxConfigItem, processedData: any) => {
-        setLocalHasData(true);
-        onDataProcessed(result, configItem, processedData);
-    }, [onDataProcessed]);
 
     const handleFileSelect = useCallback(async () => {
         if (isLocked) {
@@ -97,6 +85,7 @@ const DropBox = memo(({
             return;
         }
 
+        // If this config requires modal input instead of a file upload
         if (configItem.isModalInput && !isProcessing) {
             openModal(configItem.label, configItem);
             return;
@@ -106,10 +95,12 @@ const DropBox = memo(({
             const selectedPaths = await open({
                 multiple: configItem.acceptsMultipleFiles ?? false,
                 directory: false,
-                filters: configItem.expectedFileTypes ? Object.entries(configItem.expectedFileTypes).map(([mime, extensions]) => ({
-                    name: mime,
-                    extensions: extensions.map(ext => ext.replace('.', '')),
-                })) : undefined,
+                filters: configItem.expectedFileTypes
+                    ? Object.entries(configItem.expectedFileTypes).map(([mime, extensions]) => ({
+                        name: mime,
+                        extensions: extensions.map(ext => ext.replace('.', '')),
+                    }))
+                    : undefined,
             }) as string | string[] | null;
 
             if (!selectedPaths) return;
@@ -126,62 +117,17 @@ const DropBox = memo(({
                 return;
             }
 
-            // Read files and create File objects
-            const files = await Promise.all(
-                filePaths.map(async (filePath) => {
-                    const fileContents = await readFile(filePath);
-                    const fileName = getFileName(filePath);
-                    return new File([new Uint8Array(fileContents)], fileName);
-                })
-            );
+            await handleRawUploadAndProcess(configItem, sampleGroup, filePaths, {}, (errorMessage) => {
+                onError(errorMessage);
+            }, !isOnline);
 
-            // Upload raw files to 'raw-data' bucket
-            const basePath = `${organization.org_short_id}/${sampleGroup.id}`;
-            const uploadedRawPaths = await uploadFiles(
-                files,
-                basePath,
-                'raw-data', // Specify 'raw-data' bucket
-                (progress) => {
-                    console.log('Raw files upload progress:', progress);
-                }
-            );
-
-            if (!isOnline) {
-                // Notify user that uploads are queued
-                onError('You are offline. Your files have been queued and will be uploaded when back online.');
-            }
-
-            // Now call processData with the local file paths
-            await processData(
-                configItem.processFunctionName,
-                sampleGroup,
-                {},
-                filePaths, // Local file paths for processing
-                configItem,
-                handleDataProcessedLocally,
-                onError,
-                organization.id,
-                uploadedRawPaths // Pass uploaded raw file paths
-            );
         } catch (error: any) {
             console.error('File selection error:', error);
             onError(error.message || 'Failed to select files');
         }
-    }, [
-        isLocked,
-        configItem,
-        isProcessing,
-        openModal,
-        onError,
-        processData,
-        sampleGroup,
-        organization,
-        handleDataProcessedLocally,
-        uploadFiles,
-        isOnline,
-    ]);
+    }, [isLocked, configItem, isProcessing, openModal, onError, handleRawUploadAndProcess, sampleGroup, organization, isOnline]);
 
-    // Custom Drag-and-Drop Handlers
+    // Drag-and-drop Handlers (unchanged)
     const handleDragEnter = useCallback((e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -203,24 +149,14 @@ const DropBox = memo(({
         setDragActive(false);
     }, [isLocked, configItem.isModalInput]);
 
-    const handleDrop = useCallback(async (e: DragEvent) => {
+    const handleDrop = useCallback((e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
         if (isLocked || configItem.isModalInput) return;
         setDragActive(false);
 
-        const files = e.dataTransfer?.files;
-        if (!files || files.length === 0) {
-            onError('No files were dropped.');
-            return;
-        }
-
-        try {
-            onError('Drag-and-drop file path retrieval is not supported. Please use the file selection dialog.');
-        } catch (error: any) {
-            console.error('Drop error:', error);
-            onError(error.message || 'Failed to process dropped files');
-        }
+        // Drag-and-drop file paths is not supported
+        onError('Drag-and-drop file path retrieval is not supported. Please use the file selection dialog.');
     }, [isLocked, configItem.isModalInput, onError]);
 
     useEffect(() => {
@@ -240,12 +176,14 @@ const DropBox = memo(({
         };
     }, [handleDragEnter, handleDragOver, handleDragLeave, handleDrop]);
 
-    const handleDataClick = useCallback(
-        (e: React.MouseEvent) => {
-            e.stopPropagation(); // Prevents the Box's onClick from firing
-            openDataModal(configItem.label, uploadedDataItem, configItem);
-        },
-        [configItem.label, uploadedDataItem, configItem, openDataModal]
+    const handleDataClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        openDataModal(configItem.label, uploadedDataItem, configItem);
+    }, [configItem.label, uploadedDataItem, configItem, openDataModal]);
+
+    const isUploadingDownloading = useMemo(
+        () => uploadDownloadProgressState.progress > 0 && uploadDownloadProgressState.progress < 100,
+        [uploadDownloadProgressState.progress]
     );
 
     const tooltipTitle = useMemo(() => {
@@ -260,24 +198,15 @@ const DropBox = memo(({
         }
         if (hasData) return 'Click on the magnifying glass to view data';
         return 'Click to select files or drag and drop them here';
-    }, [
-        isLocked,
-        configItem.isModalInput,
-        isProcessing,
-        progressState.status,
-        hasData,
-        isUploadingDownloading,
-        uploadDownloadProgressState.status,
-    ]);
+    }, [isLocked, configItem.isModalInput, isProcessing, progressState.status, hasData, isUploadingDownloading, uploadDownloadProgressState.status]);
 
     const IconComponent = useMemo(() => {
-        // **Removed Hooks from useMemo**
-
         if (isLocked) {
             return <LockIcon sx={{ fontSize: 32, color: 'text.disabled' }} />;
         }
 
         if (isProcessing) {
+            // While processing, show progress
             return (
                 <ProgressTracker
                     progress={progressState.progress}
@@ -289,6 +218,7 @@ const DropBox = memo(({
         }
 
         if (isUploadingDownloading) {
+            // While uploading/downloading, show that state
             return (
                 <ProgressTracker
                     progress={uploadDownloadProgressState.progress}
@@ -300,10 +230,12 @@ const DropBox = memo(({
         }
 
         if (isQueued) {
+            // If upload is queued
             return <HourglassEmptyIcon sx={{ color: 'warning.main', fontSize: 32 }} />;
         }
 
         if (hasData) {
+            // Once processing completes and data is available, show check and search icon
             return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
                     <CheckCircleIcon sx={{ color: 'success.main', fontSize: 32 }} />
@@ -321,6 +253,7 @@ const DropBox = memo(({
             );
         }
 
+        // Default state: show AddIcon
         return (
             <AddIcon
                 sx={{
@@ -332,16 +265,7 @@ const DropBox = memo(({
                 }}
             />
         );
-    }, [
-        isLocked,
-        isProcessing,
-        progressState,
-        isUploadingDownloading,
-        uploadDownloadProgressState,
-        hasData,
-        handleDataClick,
-        isQueued, // Added isQueued as a dependency
-    ]);
+    }, [isLocked, isProcessing, progressState, isUploadingDownloading, uploadDownloadProgressState, hasData, handleDataClick, isQueued]);
 
     const commonBoxStyles = {
         display: 'flex',

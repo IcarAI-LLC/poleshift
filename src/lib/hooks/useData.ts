@@ -1,63 +1,162 @@
 // src/lib/hooks/useData.ts
 
-import { useCallback, useEffect, useMemo } from 'react';
-import { useDataStore } from '../stores/dataStore';
-import type { FileNode, SampleGroupMetadata } from '../types';
+import { useCallback, useMemo } from 'react';
+import { useQuery } from '@powersync/react';
 import { db } from '../powersync/db';
+import type { FileNode, SampleGroupMetadata } from '../types';
+
+// Helper to build a record by ID from an array of rows
+function arrayToRecord<T extends { id: string }>(arr: T[]): Record<string, T> {
+    const record: Record<string, T> = {};
+    for (const item of arr) {
+        record[item.id] = item;
+    }
+    return record;
+}
 
 export const useData = () => {
+    // Fetch reactive data using useQuery
     const {
-        locations,
-        fileNodes,
-        sampleGroups,
-        sampleMetadata,
-        error,
-        loading,
-        fetchLocations,
-        fetchFileNodes,
-        fetchSampleGroups,
-        fetchSampleMetadata,
-        addFileNode,
-        updateFileNode,
-        deleteNode,
-        updateSampleGroup,
-        getLocationById,
-        setError,
-    } = useDataStore();
+        data: locations = [],
+        isLoading: locationsLoading,
+        error: locationsError
+    } = useQuery('SELECT * FROM sample_locations WHERE is_enabled = 1 ORDER BY label ASC');
 
-    // Initial data loading
-    useEffect(() => {
-        const loadInitialData = async () => {
-            try {
-                await Promise.all([
-                    fetchLocations(),
-                    fetchFileNodes(),
-                    fetchSampleGroups(),
-                    fetchSampleMetadata(),
-                ]);
-            } catch (error) {
-                setError(
-                    error instanceof Error ? error.message : 'Failed to load initial data'
-                );
-            }
-        };
+    const {
+        data: fileNodesArray = [],
+        isLoading: fileNodesLoading,
+        error: fileNodesError
+    } = useQuery('SELECT * FROM file_nodes ORDER BY created_at DESC');
 
-        loadInitialData();
-    }, [fetchLocations, fetchFileNodes, fetchSampleGroups, fetchSampleMetadata, setError]);
+    const {
+        data: sampleGroupsArray = [],
+        isLoading: sampleGroupsLoading,
+        error: sampleGroupsError
+    } = useQuery('SELECT * FROM sample_group_metadata ORDER BY created_at DESC');
 
-    // Create Sample Group
+    const {
+        data: sampleMetadataArray = [],
+        isLoading: sampleMetadataLoading,
+        error: sampleMetadataError
+    } = useQuery('SELECT * FROM sample_metadata ORDER BY created_at DESC');
+
+    // Convert arrays to records for easier lookups
+    const fileNodes = useMemo(() => arrayToRecord(fileNodesArray), [fileNodesArray]);
+    const sampleGroups = useMemo(() => arrayToRecord(sampleGroupsArray), [sampleGroupsArray]);
+    const sampleMetadata = useMemo(() => arrayToRecord(sampleMetadataArray), [sampleMetadataArray]);
+
+    // Determine if any queries are loading or have errors
+    const loading = locationsLoading || fileNodesLoading || sampleGroupsLoading || sampleMetadataLoading;
+    const error = locationsError || fileNodesError || sampleGroupsError || sampleMetadataError || null;
+
+    // CRUD operations using db.execute()
+    const setError = useCallback((err: string | null) => {
+        // With no external store, you may handle errors by logging or local state
+        // For now, we simply log.
+        if (err) {
+            console.error(err);
+        }
+    }, []);
+
+    const addFileNode = useCallback(async (node: FileNode) => {
+        try {
+            await db.execute(
+                `
+          INSERT INTO file_nodes
+          (id, org_id, parent_id, name, type, created_at, updated_at, version,
+           sample_group_id, droppable)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+                [
+                    node.id,
+                    node.org_id,
+                    node.parent_id === null ? null : node.parent_id,
+                    node.name,
+                    node.type,
+                    node.created_at,
+                    node.updated_at,
+                    node.version,
+                    node.sample_group_id,
+                    node.droppable ? 1 : 0,
+                ]
+            );
+        } catch (err: any) {
+            setError(err.message || 'Failed to add file node');
+            throw err;
+        }
+    }, [setError]);
+
+    const updateFileNode = useCallback(async (id: string, updates: Partial<FileNode>) => {
+        try {
+            const setClause = Object.keys(updates)
+                .map((key) => `${key} = ?`)
+                .join(', ');
+
+            const values = Object.values(updates).map((value) => {
+                if (value === null) return null;
+                if (typeof value === 'object' && value !== null) {
+                    return JSON.stringify(value);
+                }
+                return value;
+            });
+
+            await db.execute(
+                `
+          UPDATE file_nodes
+          SET ${setClause}
+          WHERE id = ?
+        `,
+                [...values, id]
+            );
+        } catch (err: any) {
+            setError(err.message || 'Failed to update file node');
+            throw err;
+        }
+    }, [setError]);
+
+    const deleteNode = useCallback(async (id: string) => {
+        try {
+            // For simplicity, just delete the node and rely on foreign keys or triggers as needed.
+            await db.execute('DELETE FROM file_nodes WHERE id = ?', [id]);
+        } catch (err: any) {
+            setError(err.message || 'Failed to delete node');
+            throw err;
+        }
+    }, [setError]);
+
+    const updateSampleGroup = useCallback(async (id: string, updates: Partial<SampleGroupMetadata>) => {
+        try {
+            const setClause = Object.keys(updates)
+                .map((key) => `${key} = ?`)
+                .join(', ');
+
+            const values = Object.values(updates);
+
+            await db.execute(
+                `
+          UPDATE sample_group_metadata
+          SET ${setClause}
+          WHERE id = ?
+        `,
+                [...values, id]
+            );
+        } catch (err: any) {
+            setError(err.message || 'Failed to update sample group');
+            throw err;
+        }
+    }, [setError]);
+
     const createSampleGroup = useCallback(
         async (sampleGroupData: SampleGroupMetadata, fileNodeData: FileNode) => {
             try {
-                // Insert new sample group into the database
                 await db.execute(
                     `
-                        INSERT INTO sample_group_metadata (
-                            id, created_at, org_id, user_id, human_readable_sample_id,
-                            collection_date, storage_folder, collection_datetime_utc,
-                            loc_id, latitude_recorded, longitude_recorded, notes, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    `,
+            INSERT INTO sample_group_metadata (
+              id, created_at, org_id, user_id, human_readable_sample_id,
+              collection_date, storage_folder, collection_datetime_utc,
+              loc_id, latitude_recorded, longitude_recorded, notes, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
                     [
                         sampleGroupData.id,
                         sampleGroupData.created_at,
@@ -75,45 +174,31 @@ export const useData = () => {
                     ]
                 );
 
-                // Add corresponding file node
                 await addFileNode(fileNodeData);
-
-                // Refresh sample groups and file nodes
-                await Promise.all([fetchSampleGroups(), fetchFileNodes()]);
-            } catch (error) {
-                setError(
-                    error instanceof Error ? error.message : 'Failed to create sample group'
-                );
-                throw error;
+            } catch (err: any) {
+                setError(err.message || 'Failed to create sample group');
+                throw err;
             }
         },
-        [addFileNode, fetchSampleGroups, fetchFileNodes, setError]
+        [addFileNode, setError]
     );
 
-    // Move Node Function
     const moveNode = useCallback(
         async (nodeId: string, newParentId: string | null) => {
             try {
                 await updateFileNode(nodeId, { parent_id: newParentId });
-                await fetchFileNodes(); // Refresh the file nodes to reflect changes
-            } catch (error) {
-                setError(
-                    error instanceof Error ? error.message : 'Failed to move the node'
-                );
-                throw error;
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to move the node');
+                throw err;
             }
         },
-        [updateFileNode, fetchFileNodes, setError]
+        [updateFileNode, setError]
     );
 
-    // Update File Tree
     const updateFileTree = useCallback(
         async (updatedTreeData: FileNode[]) => {
             try {
-                // Clear existing file_nodes in the database
                 await db.execute('DELETE FROM file_nodes');
-
-                // Function to recursively insert nodes
                 const insertNode = async (node: FileNode, parentId: string | null) => {
                     const {
                         id,
@@ -148,7 +233,6 @@ export const useData = () => {
                         ]
                     );
 
-                    // Recursively insert children
                     if (node.children && node.children.length > 0) {
                         for (const child of node.children) {
                             await insertNode(child, id);
@@ -156,99 +240,15 @@ export const useData = () => {
                     }
                 };
 
-                // Insert all nodes starting from the root
                 for (const node of updatedTreeData) {
                     await insertNode(node, null);
                 }
-
-                // Refresh file nodes
-                await fetchFileNodes();
-            } catch (error) {
-                setError(
-                    error instanceof Error ? error.message : 'Failed to update file tree'
-                );
-                throw error;
+            } catch (err: any) {
+                setError(err.message || 'Failed to update file tree');
+                throw err;
             }
         },
-        [fetchFileNodes, setError]
-    );
-
-    // Transform fileNodes into a tree structure
-    const fileTree = useMemo(() => {
-        const nodesById = { ...fileNodes };
-        const tree: FileNode[] = [];
-
-        // Initialize children arrays
-        for (const nodeId in nodesById) {
-            nodesById[nodeId].children = [];
-        }
-
-        // Build the tree
-        for (const nodeId in nodesById) {
-            const node = nodesById[nodeId];
-            if (node.parent_id) {
-                const parent = nodesById[node.parent_id];
-                if (parent) {
-                    parent.children?.push(node);
-                }
-            } else {
-                // Root nodes
-                tree.push(node);
-            }
-        }
-
-        return tree;
-    }, [fileNodes]);
-
-    // Enhanced file node operations
-    const handleAddFileNode = useCallback(
-        async (node: FileNode) => {
-            try {
-                await addFileNode(node);
-            } catch (error) {
-                setError(error instanceof Error ? error.message : 'Failed to add file node');
-                throw error;
-            }
-        },
-        [addFileNode, setError]
-    );
-
-    const handleUpdateFileNode = useCallback(
-        async (id: string, updates: Partial<FileNode>) => {
-            console.log(updates);
-            try {
-                await updateFileNode(id, updates);
-            } catch (error) {
-                setError(error instanceof Error ? error.message : 'Failed to update file node');
-                throw error;
-            }
-        },
-        [updateFileNode, setError]
-    );
-
-    const handleDeleteNode = useCallback(
-        async (id: string) => {
-            try {
-                await deleteNode(id);
-            } catch (error) {
-                setError(error instanceof Error ? error.message : 'Failed to delete node');
-                throw error;
-            }
-        },
-        [deleteNode, setError]
-    );
-
-    // Enhanced sample group operations
-    const handleUpdateSampleGroup = useCallback(
-        async (id: string, updates: Partial<SampleGroupMetadata>) => {
-            try {
-                await updateSampleGroup(id, updates);
-            } catch (error) {
-                setError(error instanceof Error ? error.message : 'Failed to update sample group');
-                throw error;
-            }
-        },
-        [updateSampleGroup, setError]
+        [setError]
     );
 
     // Utility functions
@@ -258,12 +258,15 @@ export const useData = () => {
 
     const getSampleGroupsByLocation = useCallback(
         (locationId: string) => {
-            return Object.values(sampleGroups).filter(
-                (group) => group.loc_id === locationId
-            );
+            return Object.values(sampleGroups).filter((group) => group.loc_id === locationId);
         },
         [sampleGroups]
     );
+
+    const getLocationById = useCallback((id: string | null) => {
+        if (!id) return null;
+        return locations.find((location) => location.id === id) || null;
+    }, [locations]);
 
     const getNodeChildren = useCallback(
         (nodeId: string): FileNode[] => {
@@ -287,6 +290,30 @@ export const useData = () => {
         [fileNodes]
     );
 
+    // Build file tree
+    const fileTree = useMemo(() => {
+        const nodesById = { ...fileNodes };
+        const tree: FileNode[] = [];
+
+        for (const nodeId in nodesById) {
+            nodesById[nodeId].children = [];
+        }
+
+        for (const nodeId in nodesById) {
+            const node = nodesById[nodeId];
+            if (node.parent_id) {
+                const parent = nodesById[node.parent_id];
+                if (parent) {
+                    parent.children?.push(node);
+                }
+            } else {
+                tree.push(node);
+            }
+        }
+
+        return tree;
+    }, [fileNodes]);
+
     return {
         // State
         locations,
@@ -297,20 +324,14 @@ export const useData = () => {
         loading,
         enabledLocations: getEnabledLocations(),
 
-        // Enhanced actions
-        addFileNode: handleAddFileNode,
-        updateFileNode: handleUpdateFileNode,
-        deleteNode: handleDeleteNode,
-        updateSampleGroup: handleUpdateSampleGroup,
+        // Actions
+        addFileNode,
+        updateFileNode,
+        deleteNode,
+        updateSampleGroup,
         createSampleGroup,
         updateFileTree,
-        moveNode, // Include moveNode
-
-        // Base actions
-        fetchLocations,
-        fetchFileNodes,
-        fetchSampleGroups,
-        fetchSampleMetadata,
+        moveNode,
         setError,
 
         // Utility functions

@@ -10,8 +10,9 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { DateTime } from 'luxon';
+import { useQuery } from '@powersync/react';
 
-import { useUI, useData, useProcessedData } from '../lib/hooks';
+import { useUI, useData } from '../lib/hooks';
 import type { SampleGroupMetadata } from '../lib/types';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
@@ -49,10 +50,9 @@ export const RightSidebar: React.FC = () => {
   } = useUI();
 
   const { sampleGroups } = useData();
-  const { processedData, fetchProcessedData } = useProcessedData();
   const [stats, setStats] = useState<DataStats>(initialDataStats);
 
-  // Memoized styles using theme
+  // Styles
   const styles = useMemo((): Record<string, SxProps<Theme>> => ({
     closeButton: {
       position: 'absolute',
@@ -83,7 +83,6 @@ export const RightSidebar: React.FC = () => {
     },
   }), []);
 
-  // Handle sidebar close
   const handleClose = useCallback(() => {
     setSelectedRightItem(null);
     toggleRightSidebar();
@@ -92,7 +91,6 @@ export const RightSidebar: React.FC = () => {
   // Filter samples based on location and date filters
   const samplesAtLocation = useMemo(() => {
     if (!selectedRightItem) return [];
-
     return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
       // Check location match
       if (group.loc_id !== selectedRightItem.id) return false;
@@ -106,11 +104,9 @@ export const RightSidebar: React.FC = () => {
       // Apply date filters
       if (group.collection_date) {
         const sampleDate = DateTime.fromISO(group.collection_date);
-
         if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
           return false;
         }
-
         if (filters.endDate && sampleDate > DateTime.fromISO(filters.endDate)) {
           return false;
         }
@@ -120,14 +116,50 @@ export const RightSidebar: React.FC = () => {
     });
   }, [selectedRightItem, sampleGroups, filters]);
 
-  // Fetch processed data for samples
-  useEffect(() => {
-    samplesAtLocation.forEach(sampleGroup => {
-      fetchProcessedData(sampleGroup);
-    });
-  }, [samplesAtLocation, fetchProcessedData]);
+  // Build a dynamic query for all sample IDs
+  const sampleIds = useMemo(() => samplesAtLocation.map(g => g.id), [samplesAtLocation]);
 
-  // Process CTD data
+  const processedDataQuery = useMemo(() => {
+    if (sampleIds.length === 0) {
+      // No samples means no query needed, return a dummy query that returns nothing
+      return {
+        sql: 'SELECT * FROM processed_data WHERE 1=0',
+        params: [],
+      };
+    }
+    const placeholders = sampleIds.map(() => '?').join(', ');
+    const sql = `
+      SELECT * FROM processed_data
+      WHERE sample_id IN (${placeholders}) AND status = 'completed'
+      ORDER BY timestamp DESC
+    `;
+    return { sql, params: sampleIds };
+  }, [sampleIds]);
+
+  const {
+    data: rawResults = [],
+    // Could also use isLoading, error for error handling if needed
+  } = useQuery(
+      processedDataQuery.sql,
+      processedDataQuery.params
+  );
+
+  // Parse processed data into a map keyed by `sample_id:config_id`
+  const processedData = useMemo(() => {
+    const dataMap: Record<string, any> = {};
+    for (const result of rawResults) {
+      const key = `${result.sample_id}:${result.config_id}`;
+      dataMap[key] = {
+        ...result,
+        data: result.data ? JSON.parse(result.data) : null,
+        metadata: result.metadata ? JSON.parse(result.metadata) : null,
+        raw_file_paths: result.raw_file_paths ? JSON.parse(result.raw_file_paths) : null,
+        processed_file_paths: result.processed_file_paths ? JSON.parse(result.processed_file_paths) : null
+      };
+    }
+    return dataMap;
+  }, [rawResults]);
+
   const processCTDData = useCallback((data: any) => {
     data = data.data;
     const channelMap: Record<string, string> = {};
@@ -164,7 +196,7 @@ export const RightSidebar: React.FC = () => {
     };
   }, []);
 
-  // Update statistics based on processed data
+  // Update statistics whenever dependencies change
   useEffect(() => {
     if (!selectedRightItem) {
       setStats(initialDataStats);
@@ -201,7 +233,7 @@ export const RightSidebar: React.FC = () => {
 
         // Process nutrient data
         const nutrientKey = `${sampleId}:nutrient_ammonia`;
-        const nutrientData = processedData[nutrientKey]?.data[0];
+        const nutrientData = processedData[nutrientKey]?.data?.[0];
         if (nutrientData?.ammonium_value != null) {
           const ammValue = nutrientData.ammonium_value;
           totalAmm += ammValue;
@@ -213,7 +245,6 @@ export const RightSidebar: React.FC = () => {
         // Process sequencing data
         const seqKey = `${sampleId}:sequencing_data`;
         if (processedData[seqKey]) {
-          console.log(processedData[seqKey]);
           try {
             const krakenData = processKrakenDataForModal(processedData[seqKey].data.report_content);
             krakenData.data?.forEach(rankData => {

@@ -1,129 +1,46 @@
-//src/lib/hooks/useNetworkStatus.ts
+// src/lib/hooks/useNetworkStatus.ts
 
-import { useCallback, useEffect, useMemo } from 'react';
-import useNetworkStore from '../stores/networkStore';
+import { useStatus } from '@powersync/react';
 import { DateTime } from 'luxon';
+import { useMemo } from 'react';
 
 export const useNetworkStatus = () => {
-    const {
-        isOnline,
-        isSyncing,
-        connectionStats,
-        error,
-        lastError,
-        reconnectAttempts,
-        initialize,
-        checkConnection,
-        startSync,
-        stopSync,
-        resetConnectionStats,
-        setError,
-        getLastSyncTime,
-        getSyncStatus
-    } = useNetworkStore();
+    const status = useStatus();
 
-    // Initialize network monitoring on mount
-    useEffect(() => {
-        initialize();
-    }, [initialize]);
+    // Derive states from the PowerSync status
+    const isOnline = status.connected;
+    const isSyncing = Boolean(status.dataFlowStatus?.uploading || status.dataFlowStatus?.downloading);
+    const lastSyncTime = status.lastSyncedAt;
 
-    // Enhanced sync handler
-    const handleStartSync = useCallback(async () => {
-        try {
-            if (!isOnline) {
-                await checkConnection();
-            }
-            await startSync();
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Sync failed');
-        }
-    }, [isOnline, checkConnection, startSync, setError]);
+    const lastSyncFormatted = useMemo(() => {
+        if (!lastSyncTime) return 'Never';
+        return DateTime.fromJSDate(lastSyncTime).toRelative();
+    }, [lastSyncTime]);
 
-    // Connection status utilities
-    const getConnectionStatus = useCallback(() => {
+    // Connection status interpretation
+    const connectionStatus = useMemo(() => {
         if (!isOnline) return 'offline';
         if (isSyncing) return 'syncing';
-        if (error) return 'error';
         return 'connected';
-    }, [isOnline, isSyncing, error]);
+    }, [isOnline, isSyncing]);
 
-    const getLastSyncTimeFormatted = useCallback(() => {
-        const lastSync = getLastSyncTime();
-        if (!lastSync) return 'Never';
-
-        return DateTime.fromJSDate(lastSync).toRelative();
-    }, [getLastSyncTime]);
-
-    // Computed values
-    const syncStats = useMemo(() => ({
-        successRate: connectionStats.syncAttempts > 0
-            ? ((connectionStats.syncAttempts - connectionStats.failedAttempts) /
-                connectionStats.syncAttempts * 100).toFixed(1)
-            : '100',
-        totalAttempts: connectionStats.syncAttempts,
-        failedAttempts: connectionStats.failedAttempts,
-        lastSyncFormatted: getLastSyncTimeFormatted()
-    }), [connectionStats, getLastSyncTimeFormatted]);
-
-    const connectionQuality = useMemo(() => {
-        if (!isOnline) return 'disconnected';
-        if (reconnectAttempts > 0) return 'unstable';
-        if (error) return 'error';
-        return 'good';
-    }, [isOnline, reconnectAttempts, error]);
-
-    // Auto-retry logic
-    useEffect(() => {
-        let retryTimeout: NodeJS.Timeout;
-
-        if (error && isOnline) {
-            retryTimeout = setTimeout(() => {
-                handleStartSync();
-            }, 30000); // Retry every 30 seconds if there's an error
-        }
-
-        return () => {
-            if (retryTimeout) {
-                clearTimeout(retryTimeout);
-            }
-        };
-    }, [error, isOnline, handleStartSync]);
+    // Since we no longer have an error field, return null or handle if needed
+    const error = null;
 
     return {
-        // Basic state
+        // Basic states
         isOnline,
         isSyncing,
         error,
-        lastError,
 
-        // Enhanced sync controls
-        startSync: handleStartSync,
-        stopSync,
-        resetConnectionStats,
+        // Derived statuses
+        connectionStatus,
+        lastSyncTime,
+        lastSyncFormatted,
 
-        // Status getters
-        connectionStatus: getConnectionStatus(),
-        connectionQuality,
-        lastSyncTime: getLastSyncTime(),
-        lastSyncFormatted: getLastSyncTimeFormatted(),
-        syncStats,
-
-        // Current sync status
-        currentSyncStatus: getSyncStatus(),
-
-        // Actions
-        checkConnection,
-        setError,
-
-        // Computed properties
-        hasError: Boolean(error),
-        isConnecting: reconnectAttempts > 0,
-        canSync: isOnline && !isSyncing,
-        needsSync: isOnline && !!error,
-
-        // Stats
-        totalReconnectAttempts: reconnectAttempts,
-        syncSuccessRate: syncStats.successRate
+        // Additional info
+        hasSynced: status.hasSynced,
+        needsSync: isOnline && !status.hasSynced,
     };
 };
 

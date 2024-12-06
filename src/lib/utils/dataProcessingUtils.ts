@@ -72,7 +72,7 @@ export const processKrakenDataForModal = (
             throw new Error('No data provided');
         }
 
-        const data = dataItem.data || dataItem;
+        const data = dataItem;
 
         // Handle string input (raw Kraken report)
         if (typeof data === 'string') {

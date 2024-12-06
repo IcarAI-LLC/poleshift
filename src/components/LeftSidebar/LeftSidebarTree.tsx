@@ -70,7 +70,9 @@ const CustomTreeItem = React.forwardRef(function CustomTreeItem(
                         <TreeItem2Icon status={status} />
                     </TreeItem2IconContainer>
                     <Box sx={{ flexGrow: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
-                        {isSampleGroup && <ScienceIcon />}
+                        {isSampleGroup && (
+                            <ScienceIcon sx={{ color: 'cyan' }} />
+                        )}
                         {isFolder && (status.expanded ? <FolderOpenIcon /> : <FolderIcon />)}
                         <TreeItem2Label {...getLabelProps()} />
                     </Box>
@@ -86,7 +88,6 @@ const LeftSidebarTree: React.FC = () => {
         selectedLeftItem,
         setSelectedLeftItem,
         leftSidebarContextMenu,
-        handleLeftSidebarContextMenu,
         closeLeftSidebarContextMenu,
         setErrorMessage,
     } = useUI();

@@ -12,10 +12,10 @@ import {
 } from '../utils/uploadQueue';
 import { v4 as uuidv4 } from 'uuid';
 import { useNetworkStatus } from './useNetworkStatus';
-import { useSnackbar } from 'notistack'; // Assuming you use notistack for notifications
+import { useSnackbar } from 'notistack';
 
 interface UploadProgress {
-    progress: number;
+    progress: number; // now represents % of files processed
     bytesUploaded: number;
     totalBytes: number;
 }
@@ -29,7 +29,7 @@ interface DownloadProgress {
 export const useStorage = () => {
     const connector = supabaseConnector;
     const { isOnline } = useNetworkStatus();
-    const { enqueueSnackbar } = useSnackbar(); // For notifications
+    const { enqueueSnackbar } = useSnackbar();
 
     const getStorageClient = useCallback(() => {
         if (!connector) {
@@ -43,24 +43,14 @@ export const useStorage = () => {
             file: File,
             path: string,
             bucket: string,
-            onProgress?: (progress: UploadProgress) => void
         ): Promise<string> => {
+            // Note: Removed the onUploadProgress from here as Supabase
+            // doesn't currently support it. We'll track progress by file count.
             try {
                 const storage = getStorageClient();
                 const { data, error } = await storage
                     .from(bucket)
-                    .upload(path, file, {
-                        //@ts-ignore
-                        onUploadProgress: ({ loaded, total }) => {
-                            if (onProgress && total) {
-                                onProgress({
-                                    progress: (loaded / total) * 100,
-                                    bytesUploaded: loaded,
-                                    totalBytes: total,
-                                });
-                            }
-                        },
-                    });
+                    .upload(path, file);
 
                 if (error) throw error;
                 if (!data) throw new Error('Upload failed');
@@ -91,12 +81,7 @@ export const useStorage = () => {
             }
 
             try {
-                //@ts-ignore
-                await uploadFile(file, path, bucket, (progress) => {
-                    //@ts-ignore
-                    updateQueueItem({ ...uploadTask, progress: progress.progress });
-                });
-
+                await uploadFile(file, path, bucket);
                 // On success, remove from queue
                 await removeFromQueue(id);
                 enqueueSnackbar(`Successfully uploaded "${file.name}".`, { variant: 'success' });
@@ -116,7 +101,7 @@ export const useStorage = () => {
                     // Exceeded retry attempts, notify the user
                     enqueueSnackbar(`Max retries exceeded for "${file.name}". Upload failed.`, { variant: 'error' });
                     console.error(`Max retries exceeded for ${file.name}. Upload failed.`);
-                    await removeFromQueue(id); // Optionally remove or keep for manual intervention
+                    await removeFromQueue(id);
                 }
             }
         }
@@ -155,9 +140,10 @@ export const useStorage = () => {
             onProgress?: (progress: UploadProgress) => void
         ): Promise<string[]> => {
             const paths: string[] = [];
-            let totalUploaded = 0;
-            const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+            let filesProcessed = 0;
+            const totalFiles = files.length;
 
+            console.debug(`Uploading ${files.length} files to ${bucket}...`);
             for (const file of files) {
                 const path = `${basePath}/${file.name}`;
 
@@ -167,22 +153,28 @@ export const useStorage = () => {
                     if (exists) {
                         enqueueSnackbar(`File "${file.name}" already exists. Skipping upload.`, { variant: 'info' });
                         paths.push(path);
+                        filesProcessed += 1;
+                        if (onProgress) {
+                            onProgress({
+                                progress: (filesProcessed / totalFiles) * 100,
+                                bytesUploaded: 0,
+                                totalBytes: 0,
+                            });
+                        }
                         continue;
                     }
 
                     try {
-                        const uploadedPath = await uploadFile(file, path, bucket, (progress) => {
-                            if (onProgress) {
-                                onProgress({
-                                    progress:
-                                        ((totalUploaded + progress.bytesUploaded) / totalSize) * 100,
-                                    bytesUploaded: totalUploaded + progress.bytesUploaded,
-                                    totalBytes: totalSize,
-                                });
-                            }
-                        });
-                        paths.push(uploadedPath);
-                        totalUploaded += file.size;
+                        await uploadFile(file, path, bucket);
+                        paths.push(path);
+                        filesProcessed += 1;
+                        if (onProgress) {
+                            onProgress({
+                                progress: (filesProcessed / totalFiles) * 100,
+                                bytesUploaded: 0,
+                                totalBytes: 0,
+                            });
+                        }
                     } catch (error) {
                         // If upload fails while online, queue the upload
                         console.error(`Failed to upload ${file.name} while online. Queuing...`);
@@ -197,7 +189,15 @@ export const useStorage = () => {
                         };
                         await addToQueue(uploadTask);
                         enqueueSnackbar(`Queued upload for "${file.name}".`, { variant: 'warning' });
-                        paths.push(path); // Optionally push the path or handle differently
+                        paths.push(path);
+                        filesProcessed += 1;
+                        if (onProgress) {
+                            onProgress({
+                                progress: (filesProcessed / totalFiles) * 100,
+                                bytesUploaded: 0,
+                                totalBytes: 0,
+                            });
+                        }
                     }
                 } else {
                     // Offline: Queue the upload
@@ -213,7 +213,15 @@ export const useStorage = () => {
                     };
                     await addToQueue(uploadTask);
                     enqueueSnackbar(`Queued upload for "${file.name}" (Offline).`, { variant: 'info' });
-                    paths.push(path); // Optionally push the path or handle differently
+                    paths.push(path);
+                    filesProcessed += 1;
+                    if (onProgress) {
+                        onProgress({
+                            progress: (filesProcessed / totalFiles) * 100,
+                            bytesUploaded: 0,
+                            totalBytes: 0,
+                        });
+                    }
                 }
             }
 
