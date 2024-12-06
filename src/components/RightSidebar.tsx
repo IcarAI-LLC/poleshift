@@ -86,7 +86,7 @@ export const RightSidebar: React.FC = () => {
   // Handle sidebar close
   const handleClose = useCallback(() => {
     setSelectedRightItem(null);
-    toggleRightSidebar(true);
+    toggleRightSidebar();
   }, [setSelectedRightItem, toggleRightSidebar]);
 
   // Filter samples based on location and date filters

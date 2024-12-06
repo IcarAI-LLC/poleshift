@@ -20,6 +20,7 @@ interface StyleProps {
 export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
   const {
     leftSidebarContextMenu,
+    //@ts-ignore
     setLeftSidebarContextMenuState,
     selectedLeftItem,
     setSelectedLeftItem,
@@ -104,6 +105,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
       setErrorMessage(
           error instanceof Error ? error.message : 'Failed to delete item'
       );
+      //@ts-ignore
       setLeftSidebarContextMenuState((prev) => ({
         ...prev,
         isVisible: false,

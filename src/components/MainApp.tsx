@@ -12,7 +12,7 @@ import {
   useProcessedData,
   useStorage,
 } from '../lib/hooks';
-import type { FileNode, SampleGroupMetadata } from '../lib/types';
+import type { SampleGroupMetadata } from '../lib/types';
 import type { DropboxConfigItem } from '../config/dropboxConfig';
 
 import LeftSidebar from './LeftSidebar/LeftSidebar';
@@ -47,7 +47,6 @@ const MainApp: React.FC = () => {
     showAccountActions,
     errorMessage,
     setErrorMessage,
-    setFilters,
     leftSidebarContextMenu,
     closeLeftSidebarContextMenu  // Changed from setLeftSidebarContextMenuState
   } = useUI();
@@ -85,12 +84,12 @@ const MainApp: React.FC = () => {
   }, [isOnline]);
 
   const handleDataProcessed = useCallback(
-      async ({ insertData, configItem, processedData }: DataProcessedParams) => {
+      async ({ insertData, processedData }: DataProcessedParams) => {
         console.log("Handling data processed");
         try {
           // If there are any processed files to upload
           if (processedData.files) {
-            const basePath = `${organization.org_short_id}/${insertData.sampleId}`;
+            const basePath = `${organization?.org_short_id}/${insertData.sampleId}`;
             const uploadedProcessedPaths = await storage.uploadFiles(
                 processedData.files,
                 basePath,

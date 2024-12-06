@@ -8,6 +8,8 @@ export interface UploadTask {
     path: string;
     bucket: string;
     retries: number;
+    status: string;
+    progress: number;
 }
 
 interface UploadQueueDB extends DBSchema {

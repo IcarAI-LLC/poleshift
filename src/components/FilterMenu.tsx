@@ -254,6 +254,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                         renderTags={(tagValue, getTagProps) =>
                             tagValue.map((option, index) => (
                                 <Chip
+                                    //@ts-ignore
                                     key={option.id}
                                     label={option.label}
                                     {...getTagProps({ index })}

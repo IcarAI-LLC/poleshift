@@ -24,12 +24,15 @@ const LeftSidebarTree: React.FC = () => {
 
     const contextMenuRef = useRef<HTMLDivElement>(null);
 
-    const { fileTree, updateFileTree, isSyncing, deleteNode } = useData();
+    const { fileTree, updateFileTree, deleteNode } = useData();
 
+    //TODO implement file move
     const handleMove = useCallback(
         async ({
                    dragIds,
+                   //@ts-ignore
                    parentId,
+                   //@ts-ignore
                    index,
                }: {
             dragIds: string[];
@@ -43,6 +46,7 @@ const LeftSidebarTree: React.FC = () => {
                 // Your existing move logic here...
 
                 // Update the file tree
+                //@ts-ignore
                 await updateFileTree(finalTreeData);
             } catch (error) {
                 console.error('Error during drag and drop:', error);
@@ -88,14 +92,6 @@ const LeftSidebarTree: React.FC = () => {
         };
     }, [leftSidebarContextMenu.isVisible, closeLeftSidebarContextMenu]);
 
-    const disableDrag = useCallback(() => isSyncing, [isSyncing]);
-
-    const disableDrop = useCallback(
-        (args: { parentNode: NodeApi<FileNode> | null }) =>
-            args.parentNode?.data.type === 'sampleGroup' || isSyncing,
-        [isSyncing]
-    );
-
     const onSelect = useCallback(
         (nodes: NodeApi<FileNode>[]) => {
             if (nodes.length > 0) {
@@ -134,7 +130,6 @@ const LeftSidebarTree: React.FC = () => {
                 isSelected ? 'tree-node--selected' : '',
                 isFolder ? 'tree-node--folder' : '',
                 isSampleGroup ? 'tree-node--sampleGroup' : '',
-                isSyncing ? 'tree-node--disabled' : '',
             ]
                 .filter(Boolean)
                 .join(' ');
@@ -182,8 +177,6 @@ const LeftSidebarTree: React.FC = () => {
                 onMove={handleMove}
                 onSelect={onSelect}
                 selection={selectedLeftItem?.id}
-                disableDrag={disableDrag}
-                disableDrop={disableDrop}
                 rowHeight={36}
                 indent={24}
                 renderCursor={(props: CursorProps) => <CustomCursor {...props} />}

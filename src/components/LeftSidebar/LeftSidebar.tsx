@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
 import { useAuth } from '../../lib/hooks';
+import { useNetworkStatus } from "../../lib/hooks";
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleLocation } from '../../lib/types';
 import { DateTime } from 'luxon';
@@ -40,7 +41,7 @@ interface LeftSidebarProps {
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
   const theme = useTheme();
   const { sampleGroups, updateFileTree, fileTree, createSampleGroup } = useData();
-  const { isSyncing, locations } = useData();
+  const { locations } = useData();
   const { organization, user } = useAuth();
   const {
     isLeftSidebarCollapsed,
@@ -49,6 +50,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     setShowAccountActions,
     setSelectedLeftItem, // Destructure setSelectedLeftItem
   } = useUI();
+  const { isSyncing } = useNetworkStatus()
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     title: '',

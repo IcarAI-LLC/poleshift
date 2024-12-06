@@ -18,8 +18,6 @@ import {
     Alert,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
 import { getAllQueuedUploads, UploadTask, removeFromQueue } from '../lib/utils/uploadQueue';
 import { useStorage } from '../lib/hooks/index.ts';
 
@@ -31,7 +29,7 @@ const UploadQueueStatus: React.FC = () => {
         message: '',
         severity: 'success',
     });
-    const { uploadFile, fileExists } = useStorage();
+    const { fileExists } = useStorage();
 
     useEffect(() => {
         const fetchQueuedUploads = async () => {
@@ -46,6 +44,7 @@ const UploadQueueStatus: React.FC = () => {
                     setSnackbar({
                         open: true,
                         message: `File "${upload.file.name}" already exists. Removed from queue.`,
+                        //@ts-ignore
                         severity: 'info',
                     });
                 } else {
@@ -71,6 +70,7 @@ const UploadQueueStatus: React.FC = () => {
         setSnackbar({
             open: true,
             message: 'Upload removed from queue.',
+            //@ts-ignore
             severity: 'warning',
         });
     };

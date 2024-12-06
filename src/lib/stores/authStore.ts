@@ -1,7 +1,6 @@
 // src/lib/stores/authStore.ts
 
 import { create } from 'zustand';
-import { SupabaseConnector } from '../powersync/SupabaseConnector';
 import type { User, UserProfile, Organization } from '../types';
 
 interface AuthState {

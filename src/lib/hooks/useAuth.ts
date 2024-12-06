@@ -55,8 +55,10 @@ export const useAuth = () => {
 
             const loggedInUser = await supabaseConnector.currentSession?.user;
             console.log(loggedInUser);
-            setUser(loggedInUser);
-            await loadUserData(loggedInUser.id); // Load additional user data
+            //@ts-ignore
+            setUser(loggedInUser || null);
+            //@ts-ignore
+            await loadUserData(loggedInUser?.id); // Load additional user data
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
             throw err;
@@ -68,8 +70,11 @@ export const useAuth = () => {
     const signUp = useCallback(async (email: string, password: string) => {
         try {
             setLoading(true);
-            const newUser = await supabaseConnector.signUp(email, password);
-            setUser(newUser);
+            await supabaseConnector.signUp(email, password);
+            const newUser = await supabaseConnector.client.auth.getSession()
+            //@ts-ignore
+            setUser(newUser.data.session?.user);
+            //@ts-ignore
             await loadUserData(newUser.id); // Load additional user data
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sign up failed');

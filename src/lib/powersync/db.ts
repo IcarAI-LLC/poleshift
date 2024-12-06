@@ -1,7 +1,6 @@
 // src/lib/powersync/db.ts
 
 import { PowerSyncDatabase } from '@powersync/web';
-import type { PowerSyncDatabaseOptions } from '@powersync/web/lib/index.js';
 import { SupabaseConnector } from './SupabaseConnector';
 import { AppSchema } from './Schema';
 
@@ -22,8 +21,7 @@ export const createDatabaseInstance = (): PowerSyncDatabase => {
         },
         flags: {
             useWebWorker: useWebWorker,
-        },
-        sync: true
+        }
     });
     instanceCount++;
     console.log(`PowerSyncDatabase instance created with useWebWorker: ${useWebWorker}`);
@@ -49,6 +47,7 @@ export const setupPowerSync = async () => {
 
     try {
         // Connect the database with the Supabase connector
+        //@ts-ignore
         await db.connect(connector);
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);

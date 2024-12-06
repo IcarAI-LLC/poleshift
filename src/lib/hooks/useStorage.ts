@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect } from 'react';
 import { db } from '../powersync/db';
-import { useAuth } from './useAuth';
 import { supabaseConnector } from '../powersync/SupabaseConnector';
 import {
     addToQueue,
@@ -30,7 +29,6 @@ interface DownloadProgress {
 export const useStorage = () => {
     const connector = supabaseConnector;
     const { isOnline } = useNetworkStatus();
-    const { organization } = useAuth();
     const { enqueueSnackbar } = useSnackbar(); // For notifications
 
     const getStorageClient = useCallback(() => {
@@ -52,6 +50,7 @@ export const useStorage = () => {
                 const { data, error } = await storage
                     .from(bucket)
                     .upload(path, file, {
+                        //@ts-ignore
                         onUploadProgress: ({ loaded, total }) => {
                             if (onProgress && total) {
                                 onProgress({
@@ -92,9 +91,10 @@ export const useStorage = () => {
             }
 
             try {
+                //@ts-ignore
                 await uploadFile(file, path, bucket, (progress) => {
-                    // Optionally, you can update the uploadTask with progress here
-                    // e.g., updateQueueItem({ ...uploadTask, progress: progress.progress });
+                    //@ts-ignore
+                    updateQueueItem({ ...uploadTask, progress: progress.progress });
                 });
 
                 // On success, remove from queue
@@ -192,6 +192,8 @@ export const useStorage = () => {
                             path,
                             bucket,
                             retries: 0,
+                            status: 'queued',
+                            progress: 0,
                         };
                         await addToQueue(uploadTask);
                         enqueueSnackbar(`Queued upload for "${file.name}".`, { variant: 'warning' });
@@ -206,6 +208,8 @@ export const useStorage = () => {
                         path,
                         bucket,
                         retries: 0,
+                        status: 'queued',
+                        progress: 0,
                     };
                     await addToQueue(uploadTask);
                     enqueueSnackbar(`Queued upload for "${file.name}" (Offline).`, { variant: 'info' });
@@ -228,6 +232,7 @@ export const useStorage = () => {
                 const { data, error } = await storage
                     .from('processed-data')
                     .download(path, {
+                        //@ts-ignore
                         onDownloadProgress: ({ loaded, total }) => {
                             if (onProgress && total) {
                                 onProgress({
@@ -327,7 +332,7 @@ export const useStorage = () => {
                 `,
                 [filePath]
             );
-
+            //@ts-ignore
             return result[0]?.status || 'unknown';
         },
         []

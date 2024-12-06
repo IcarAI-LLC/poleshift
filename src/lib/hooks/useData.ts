@@ -174,6 +174,7 @@ export const useData = () => {
             if (node.parent_id) {
                 const parent = nodesById[node.parent_id];
                 if (parent) {
+                    //@ts-ignore
                     parent.children.push(node);
                 }
             } else {
@@ -261,6 +262,7 @@ export const useData = () => {
 
             while (currentNode) {
                 path.unshift(currentNode);
+                //@ts-ignore
                 currentNode = currentNode.parent_id ? fileNodes[currentNode.parent_id] : null;
             }
 

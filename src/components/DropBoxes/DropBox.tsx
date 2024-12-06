@@ -8,7 +8,6 @@ import {
     Lock as LockIcon,
     Search as SearchOutlinedIcon,
     HourglassEmpty as HourglassEmptyIcon,
-    Error as ErrorIcon,
 } from '@mui/icons-material';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleGroupMetadata } from '../../lib/types';

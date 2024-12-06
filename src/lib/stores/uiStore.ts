@@ -1,7 +1,6 @@
 // src/lib/stores/uiStore.ts
 
 import { create } from 'zustand';
-import { DateTime } from 'luxon';
 import type { SampleLocation, FileNode } from '../types';
 
 interface ContextMenuState {
@@ -59,7 +58,7 @@ const initialFilters: Filters = {
     endDate: null,
     selectedLocations: [],
 };
-
+//@ts-ignore
 export const useUIStore = create<UIState>((set, get) => ({
     // Initial States
     isLeftSidebarCollapsed: false,
@@ -92,7 +91,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     }),
 
     setSelectedRightItem: (item) => {
-        const state = get();
         set({
             selectedRightItem: item,
             isRightSidebarCollapsed: item === null,

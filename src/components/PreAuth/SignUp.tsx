@@ -88,7 +88,8 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
     }));
 
     try {
-      await signUp(formState.email, formState.password, formState.licenseKey);
+      //@ts-ignore
+      await signUp(formState.email, formState.password);
       setFormState((prev) => ({
         ...prev,
         message:

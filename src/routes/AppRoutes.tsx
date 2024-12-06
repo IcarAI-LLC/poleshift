@@ -9,7 +9,7 @@ import ResetPassword from '../components/PreAuth/ResetPassword';
 import MainApp from '../components/MainApp';
 
 const AppRoutes: React.FC = () => {
-  const { isAuthenticated, loading: authLoading, error: authError } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [currentView, setCurrentView] = useState<PreAuthView>('login');
 
   if (authLoading) {

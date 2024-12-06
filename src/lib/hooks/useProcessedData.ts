@@ -50,6 +50,7 @@ export const useProcessedData = () => {
                     onSuccess,
                     onError,
                     orgId,
+                    //@ts-ignore
                     uploadedRawPaths // Pass it here
                 );
                 console.log("Data processed successfully");
