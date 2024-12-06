@@ -7,7 +7,6 @@ import {
     CheckCircle as CheckCircleIcon,
     Lock as LockIcon,
     Search as SearchOutlinedIcon,
-    HourglassEmpty as HourglassEmptyIcon,
 } from '@mui/icons-material';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import type { SampleGroupMetadata, Organization } from '../../lib/types';
@@ -15,9 +14,8 @@ import ProgressTracker from './ProgressTracker';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useAuth } from '../../lib/hooks';
 import { useNetworkStatus } from '../../lib/hooks/useNetworkStatus';
-import { getAllQueuedUploads } from '../../lib/utils/uploadQueue';
+// Removed unused import: getAllQueuedUploads
 
 interface DropBoxProps {
     configItem: DropboxConfigItem;
@@ -58,7 +56,7 @@ const DropBox = memo(({
                           organization
                       }: DropBoxProps) => {
     const [dragActive, setDragActive] = useState(false);
-    const [isQueued, setIsQueued] = useState<boolean>(false);
+    // Removed isQueued state
     const dropRef = useRef<HTMLDivElement>(null);
     const { isOnline } = useNetworkStatus();
 
@@ -68,16 +66,7 @@ const DropBox = memo(({
     const progressState = getProgressState(sampleId, configId);
     const uploadDownloadProgressState = getUploadDownloadProgressState(sampleId, configId);
 
-    useEffect(() => {
-        const checkIfQueued = async () => {
-            const queuedUploads = await getAllQueuedUploads();
-            const isThisQueued = queuedUploads.some(upload =>
-                upload.path.startsWith(`${organization?.org_short_id}/${sampleGroup.id}`)
-            );
-            setIsQueued(isThisQueued);
-        };
-        checkIfQueued();
-    }, [organization, sampleGroup]);
+    // Removed useEffect for isQueued
 
     const handleFileSelect = useCallback(async () => {
         if (isLocked) {
@@ -229,11 +218,6 @@ const DropBox = memo(({
             );
         }
 
-        if (isQueued) {
-            // If upload is queued
-            return <HourglassEmptyIcon sx={{ color: 'warning.main', fontSize: 32 }} />;
-        }
-
         if (hasData) {
             // Once processing completes and data is available, show check and search icon
             return (
@@ -259,13 +243,13 @@ const DropBox = memo(({
                 sx={{
                     fontSize: 32,
                     color: 'text.primary',
-                    opacity: isProcessing || isUploadingDownloading || isQueued ? 0.5 : 1,
-                    pointerEvents: isProcessing || isUploadingDownloading || isQueued ? 'none' : 'auto',
+                    opacity: isProcessing || isUploadingDownloading ? 0.5 : 1, // Removed isQueued
+                    pointerEvents: isProcessing || isUploadingDownloading ? 'none' : 'auto', // Removed isQueued
                     transition: 'opacity 0.3s',
                 }}
             />
         );
-    }, [isLocked, isProcessing, progressState, isUploadingDownloading, uploadDownloadProgressState, hasData, handleDataClick, isQueued]);
+    }, [isLocked, isProcessing, progressState, isUploadingDownloading, uploadDownloadProgressState, hasData, handleDataClick]);
 
     const commonBoxStyles = {
         display: 'flex',
@@ -288,7 +272,7 @@ const DropBox = memo(({
         cursor: isLocked ? 'not-allowed' : 'pointer',
         backgroundColor: isLocked ? 'grey.800' : dragActive ? 'primary.light' : 'background.paper',
         transition: 'all 0.3s ease',
-        opacity: isProcessing || isLocked ? 0.6 : 1,
+        opacity: isProcessing || isLocked ? 0.6 : 1, // Removed isQueued
         '&:hover': {
             borderColor: isLocked ? 'grey.800' : 'primary.main',
             backgroundColor: isLocked ? 'grey.800' : 'action.hover',

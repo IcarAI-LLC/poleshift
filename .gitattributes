@@ -1,1 +1,2 @@
 src-tauri/resources/krakenuniq-database/kudb.tar.gz filter=lfs diff=lfs merge=lfs -text
+src-tauri/resources/krakenuniq-database/kudb.tar.xz filter=lfs diff=lfs merge=lfs -text

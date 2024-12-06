@@ -29,10 +29,12 @@
     "externalBin": [
       "resources/krakenuniq-bin/krakenuniq",
       "resources/krakenuniq-bin/classify",
-      "resources/krakenuniq-bin/krakenlib.pm"
+      "resources/krakenuniq-bin/krakenlib.pm",
+      "resources/krakenuniq-bin/classifyExact"
+
     ],
     "resources": [
-      "resources/krakenuniq-database/kudb.tar.gz"
+      "resources/krakenuniq-database/kudb.tar.xz"
     ],
     "icon": [
       "icons/32x32.png",

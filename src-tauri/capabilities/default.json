@@ -11,6 +11,13 @@
     "store:default",
     "dialog:default",
     "dialog:allow-open",
-    "fs:default"
+    "fs:default",
+    "core:resources:allow-close",
+    "fs:read-app-specific-dirs-recursive",
+    "fs:allow-app-write",
+    "core:path:allow-resolve",
+    "core:path:allow-join",
+    "core:path:allow-dirname",
+    "core:path:allow-extname"
   ]
 }

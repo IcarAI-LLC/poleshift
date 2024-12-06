@@ -116,8 +116,22 @@ export const useData = () => {
 
     const deleteNode = useCallback(async (id: string) => {
         try {
-            // For simplicity, just delete the node and rely on foreign keys or triggers as needed.
-            await db.execute('DELETE FROM file_nodes WHERE id = ?', [id]);
+            // First, retrieve the node's sample_group_id, if any
+            const nodeResult = await db.get('SELECT sample_group_id FROM file_nodes WHERE id = ?', [id]);
+            console.debug('nodeResult', nodeResult);
+            // @ts-ignore
+            const sampleGroupId = nodeResult.sample_group_id;
+            // If there's a sample_group_id associated with the node, delete the corresponding sample group
+            if (sampleGroupId) {
+                console.debug('Deleting sample group', sampleGroupId);
+                db.execute('DELETE FROM sample_group_metadata WHERE id = ?', [sampleGroupId]);
+            }
+
+            console.debug('sampleGroupId', sampleGroupId);
+            // Delete the file node
+            db.execute('DELETE FROM file_nodes WHERE id = ?', [id]);
+
+
         } catch (err: any) {
             setError(err.message || 'Failed to delete node');
             throw err;

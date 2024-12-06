@@ -161,16 +161,16 @@ export const RightSidebar: React.FC = () => {
   }, [rawResults]);
 
   const processCTDData = useCallback((data: any) => {
-    data = data.data;
+    console.debug('Processing CTD data:', data);
     const channelMap: Record<string, string> = {};
-    data[0].channels.forEach((channel: any) => {
+    data.channels.forEach((channel: any) => {
       channelMap[channel.long_name] = `channel${String(channel.channel_id).padStart(2, '0')}`;
     });
 
     let tempSum = 0, tempCount = 0;
     let salSum = 0, salCount = 0;
 
-    data[0].data.forEach((point: any) => {
+    data.data.forEach((point: any) => {
       const depth = point[channelMap['Depth']];
       if (depth != null && depth <= 2) {
         if (channelMap['Temperature']) {
@@ -218,7 +218,7 @@ export const RightSidebar: React.FC = () => {
         // Process CTD data
         const ctdKey = `${sampleId}:ctd_data`;
         if (processedData[ctdKey]) {
-          const processed = processCTDData(processedData[ctdKey]);
+          const processed = processCTDData(processedData[ctdKey]?.data?.report);
           if (processed) {
             if (processed.temperature !== null) {
               tempSum += processed.temperature;
@@ -233,7 +233,7 @@ export const RightSidebar: React.FC = () => {
 
         // Process nutrient data
         const nutrientKey = `${sampleId}:nutrient_ammonia`;
-        const nutrientData = processedData[nutrientKey]?.data?.[0];
+        const nutrientData = processedData[nutrientKey]?.data?.report;
         if (nutrientData?.ammonium_value != null) {
           const ammValue = nutrientData.ammonium_value;
           totalAmm += ammValue;
@@ -246,7 +246,7 @@ export const RightSidebar: React.FC = () => {
         const seqKey = `${sampleId}:sequencing_data`;
         if (processedData[seqKey]) {
           try {
-            const krakenData = processKrakenDataForModal(processedData[seqKey].data.report_content);
+            const krakenData = processKrakenDataForModal(processedData[seqKey]?.data?.report?.report_content);
             krakenData.data?.forEach(rankData => {
               const rank = rankData.rankBase.toUpperCase();
               if (rank === 'SPECIES' || rank === 'GENUS') {

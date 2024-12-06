@@ -1,5 +1,3 @@
-// src/components/KrakenVisualization.tsx
-
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   AppBar,
@@ -9,12 +7,16 @@ import {
   Typography,
   Button,
   Box,
-  Grid,
   Dialog,
   IconButton,
+  Snackbar,
+  Alert,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2'; // Correct import for Grid2
 import CloseIcon from '@mui/icons-material/Close';
 import { Download } from '@mui/icons-material';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 import SummaryCard from './SummaryCard';
 import DataTable from './DataTable';
@@ -84,6 +86,11 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
     key: 'percentage',
     direction: SortDirection.DESC,
   });
+  const [exportStatus, setExportStatus] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({open: false, message: '', severity: 'success'});
 
   const summaryStats = useMemo(() => {
     if (!data?.hierarchy) {
@@ -96,19 +103,24 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       };
     }
 
-    const rootNode = data.hierarchy.find((node) => node.depth === 0);
-    const classifiedReads = rootNode?.reads || 0;
-    const unclassifiedReads = data.unclassifiedReads || 0;
+    // Count reads from nodes that aren't NO RANK as classified
+    const classifiedReads = data.hierarchy
+        .filter(node => node.rank.toUpperCase() !== 'NO RANK')
+        .reduce((sum, node) => sum + node.reads, 0);
+
+    // Sum reads from NO RANK nodes as unclassified
+    const noRankReads = data.hierarchy
+        .filter(node => node.rank.toUpperCase() === 'NO RANK')
+        .reduce((sum, node) => sum + node.reads, 0);
+
+    const unclassifiedReads = noRankReads + (data.unclassifiedReads || 0);
     const totalReads = classifiedReads + unclassifiedReads;
+    const classificationRate = totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
 
-    const classificationRate =
-        totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
-
-    const uniqueTaxa =
-        data.data?.reduce(
-            (sum, rankData) => sum + (rankData.plotData?.length || 0),
-            0
-        ) || 0;
+    // Count unique taxa excluding NO RANK entries
+    const uniqueTaxa = data.data
+        ?.filter(rankData => rankData.rankBase.toUpperCase() !== 'NO RANK')
+        .reduce((sum, rankData) => sum + (rankData.plotData?.length || 0), 0) || 0;
 
     return {
       totalReads,
@@ -122,46 +134,79 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
   const availableRanks = useMemo(() => {
     if (!data?.data) return [];
 
-    return data.data.map((rankData) => ({
-      value: rankData.rankBase,
-      label: rankData.rankName,
-    }));
+    return data.data
+        .filter(rankData => rankData.rankBase.toUpperCase() !== 'NO RANK')
+        .map((rankData) => ({
+          value: rankData.rankBase,
+          label: rankData.rankName,
+        }));
   }, [data]);
 
   const filteredData = useMemo(() => {
     if (!data?.data) return [];
 
+    const filteredRankData = data.data
+        .filter(d => d.rankBase.toUpperCase() !== 'NO RANK');
+
     const rankData =
         selectedRank === 'all'
-            ? data.data.flatMap((d) => d.plotData || [])
-            : data.data.find((d) => d.rankBase === selectedRank)?.plotData || [];
+            ? filteredRankData.flatMap((d) => d.plotData || [])
+            : filteredRankData.find((d) => d.rankBase === selectedRank)?.plotData || [];
 
     return rankData.filter((item) =>
         item.taxon?.toLowerCase().includes(searchTerm.toLowerCase() || '')
     );
   }, [data, searchTerm, selectedRank, sortConfig]);
 
-  const handleExport = useCallback(() => {
-    if (!data) return;
+  const handleExport = useCallback(async () => {
+    try {
+      if (!data) {
+        throw new Error('No data available for export');
+      }
 
-    const exportData = {
-      summary: summaryStats,
-      taxonomy: data.data,
-      hierarchy: data.hierarchy,
-    };
+      const exportData = {
+        summary: summaryStats,
+        taxonomy: data.data.filter(d => d.rankBase.toUpperCase() !== 'NO RANK'),
+        hierarchy: data.hierarchy.filter(node => node.rank.toUpperCase() !== 'NO RANK'),
+        metadata: {
+          exportDate: new Date().toISOString(),
+          totalReads: summaryStats.totalReads,
+          classificationRate: summaryStats.classificationRate
+        }
+      };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'kraken-analysis.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      // Open save dialog
+      const filePath = await save({
+        filters: [{
+          name: 'JSON',
+          extensions: ['json']
+        }],
+        defaultPath: `kraken-analysis-${new Date().toISOString().split('T')[0]}.json`
+      });
+
+      if (filePath) {
+        // Write the file
+        await writeTextFile(filePath, JSON.stringify(exportData, null, 2));
+
+        setExportStatus({
+          open: true,
+          message: 'Analysis data exported successfully',
+          severity: 'success'
+        });
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      setExportStatus({
+        open: true,
+        message: `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
+    }
   }, [data, summaryStats]);
+
+  const handleCloseSnackbar = useCallback(() => {
+    setExportStatus(prev => ({...prev, open: false}));
+  }, []);
 
   const handleTabChange = useCallback((_: any, newValue: number) => {
     setActiveTab(newValue);
@@ -203,21 +248,22 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
 
   return (
       <Dialog open={open} onClose={onClose} fullScreen>
-        <AppBar position="static" color="primary" sx={{ position: 'relative' }}>
+        <AppBar position="static" color="primary" sx={{position: 'relative'}}>
           <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            <Typography variant="h6" sx={{flexGrow: 1}}>
               Taxonomic Classification Analysis
             </Typography>
             <Button
                 variant="outlined"
-                startIcon={<Download />}
+                startIcon={<Download/>}
                 onClick={handleExport}
-                sx={{ mr: 2, color: '#fff', borderColor: '#fff' }}
+                disabled={!data}
+                sx={{mr: 2, color: '#fff', borderColor: '#fff'}}
             >
               Export Data
             </Button>
             <IconButton edge="end" color="inherit" onClick={onClose} aria-label="close">
-              <CloseIcon />
+              <CloseIcon/>
             </IconButton>
           </Toolbar>
           <Tabs
@@ -227,10 +273,10 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
               indicatorColor="secondary"
               variant="scrollable"
           >
-            <Tab label="Summary" />
-            <Tab label="Taxonomy Distribution" />
-            <Tab label="Taxonomy Hierarchy" />
-            <Tab label="Taxonomy Starburst" /> {/* New Tab */}
+            <Tab label="Summary"/>
+            <Tab label="Taxonomy Distribution"/>
+            <Tab label="Taxonomy Hierarchy"/>
+            <Tab label="Taxonomy Starburst"/>
           </Tabs>
         </AppBar>
 
@@ -238,29 +284,27 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
           {activeTab === 0 && (
               <div>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{xs: 12, md: 3}}>
                     <SummaryCard
                         title="Total Reads"
                         value={formatNumber(summaryStats.totalReads)}
                     />
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{xs: 12, md: 3}}>
                     <SummaryCard
                         title="Classified"
                         value={formatNumber(summaryStats.classifiedReads)}
                         subtitle={formatPercentage(summaryStats.classificationRate)}
                     />
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{xs: 12, md: 3}}>
                     <SummaryCard
                         title="Unclassified"
                         value={formatNumber(summaryStats.unclassifiedReads)}
-                        subtitle={formatPercentage(
-                            100 - summaryStats.classificationRate
-                        )}
+                        subtitle={formatPercentage(100 - summaryStats.classificationRate)}
                     />
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{xs: 12, md: 3}}>
                     <SummaryCard
                         title="Unique Taxa"
                         value={formatNumber(summaryStats.uniqueTaxa)}
@@ -269,13 +313,15 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
                 </Grid>
 
                 {data.data?.length > 0 ? (
-                    data.data.map((rankData) => (
-                        <DistributionChart
-                            key={rankData.rankBase}
-                            data={rankData.plotData || []}
-                            title={`${rankData.rankName} Distribution`}
-                        />
-                    ))
+                    data.data
+                        .filter(rankData => rankData.rankBase.toUpperCase() !== 'NO RANK')
+                        .map((rankData) => (
+                            <DistributionChart
+                                key={rankData.rankBase}
+                                data={rankData.plotData || []}
+                                title={`${rankData.rankName} Distribution`}
+                            />
+                        ))
                 ) : (
                     <Typography>No data available</Typography>
                 )}
@@ -285,19 +331,19 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
           {activeTab === 1 && (
               <div>
                 <Grid container spacing={2} alignItems="flex-end">
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}>
                     <SearchInput
                         value={searchTerm}
                         onChange={setSearchTerm}
                         placeholder="Search by taxonomy name..."
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}>
                     <FilterSelect
                         value={selectedRank}
                         onChange={setSelectedRank}
                         options={[
-                          { value: 'all', label: 'All Ranks' },
+                          {value: 'all', label: 'All Ranks'},
                           ...availableRanks,
                         ]}
                         label="Rank"
@@ -308,7 +354,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
                     data={filteredData}
                     columns={taxonomyColumns}
                     onSort={(key, direction) =>
-                        setSortConfig({ key, direction: direction as SortDirection })
+                        setSortConfig({key, direction: direction as SortDirection})
                     }
                 />
               </div>
@@ -316,15 +362,34 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
 
           {activeTab === 2 && data.hierarchy && (
               <div>
-                <HierarchyTree nodes={data.hierarchy} />
+                <HierarchyTree
+                    nodes={data.hierarchy.filter(node => node.rank.toUpperCase() !== 'NO RANK')}
+                />
               </div>
           )}
           {activeTab === 3 && data.hierarchy && (
               <div>
-                <TaxonomyStarburst nodes={data.hierarchy} />
+                <TaxonomyStarburst
+                    nodes={data.hierarchy.filter(node => node.rank.toUpperCase() !== 'NO RANK')}
+                />
               </div>
           )}
         </Box>
+
+        <Snackbar
+            open={exportStatus.open}
+            autoHideDuration={6000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{vertical: 'bottom', horizontal: 'center'}}
+        >
+          <Alert
+              onClose={handleCloseSnackbar}
+              severity={exportStatus.severity}
+              variant="filled"
+          >
+            {exportStatus.message}
+          </Alert>
+        </Snackbar>
       </Dialog>
   );
 };
