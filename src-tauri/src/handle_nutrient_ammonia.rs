@@ -1,8 +1,9 @@
+use crate::poleshift_common::utils::{
+    emit_progress, FileMeta, FilesResponse, PoleshiftError, StandardResponse,
+};
 use serde::Serialize;
-use tauri::{Window};
-use tokio::fs;
+use tauri::Window;
 use uuid::Uuid;
-use crate::poleshift_common::utils::{StandardResponse, PoleshiftError, FileMeta, emit_progress, FilesResponse};
 
 // Nutrient Ammonia Handler
 #[derive(Serialize)]
@@ -23,7 +24,9 @@ pub async fn handle_nutrient_ammonia(
     let ammonia_value_str = modal_inputs
         .get("ammoniaValue")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| PoleshiftError::DataError("ammoniaValue is missing or not a string".into()))?;
+        .ok_or_else(|| {
+            PoleshiftError::DataError("ammoniaValue is missing or not a string".into())
+        })?;
 
     let ammonia_value: f64 = ammonia_value_str
         .parse()
@@ -48,7 +51,8 @@ pub async fn handle_nutrient_ammonia(
     tokio::fs::write(
         &temp_report_file_path,
         serde_json::to_string_pretty(&report)?,
-    ).await?;
+    )
+    .await?;
 
     emit_progress(&window, 100, "Complete")?;
 

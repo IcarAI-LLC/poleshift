@@ -26,6 +26,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "externalBin": [
       "resources/krakenuniq-bin/krakenuniq",
       "resources/krakenuniq-bin/classify",
@@ -43,5 +44,15 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://cdn.crabnebula.app/update/icarai/poleshift-tauri/{{target}}-{{arch}}/{{current_version}}"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlCRUQ2NTdENUQyQjdFQTkKUldTcGZpdGRmV1h0bTBmeEZyb3BzUWwrdUp2L3MvSG0yRUo5ZEE1aWllYVkyalkyTkRxSTd4dUoK"
+    }
   }
 }

@@ -41,12 +41,69 @@ export const useAuth = () => {
         initialize();
     }, [user, loadUserData]);
 
+    // Poll for userProfile if user is logged in but userProfile is not yet set.
+    // We wait up to 20 seconds, polling every 2 seconds.
+    useEffect(() => {
+        if (!user || userProfile) return;
+
+        const POLL_INTERVAL_MS = 2000;
+        const WAIT_TIME_MS = 20000;
+
+        let timeoutId: NodeJS.Timeout | null = null;
+        let intervalId: NodeJS.Timeout | null = null;
+        let didTimeout = false;
+
+        const pollUserProfile = async () => {
+            if (didTimeout || !user) return;
+            try {
+                const profile = await fetchUserProfile(user.id);
+                if (profile) {
+                    setUserProfile(profile);
+                    if (profile.organization_id) {
+                        const org = await fetchOrganization(profile.organization_id);
+                        setOrganization(org);
+                    } else {
+                        setOrganization(null);
+                    }
+
+                    // If we found the profile, stop polling
+                    if (intervalId) clearInterval(intervalId);
+                    if (timeoutId) clearTimeout(timeoutId);
+                }
+            } catch (err) {
+                console.error('Failed to load user data:', err);
+                setError('Failed to load user data');
+            }
+        };
+
+        // Start a 20-second timer
+        timeoutId = setTimeout(() => {
+            didTimeout = true;
+            if (intervalId) clearInterval(intervalId);
+        }, WAIT_TIME_MS);
+
+        // Poll every 2 seconds
+        intervalId = setInterval(() => {
+            pollUserProfile();
+        }, POLL_INTERVAL_MS);
+
+        // Attempt an immediate poll
+        pollUserProfile();
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+            if (timeoutId) clearTimeout(timeoutId);
+        };
+    }, [user, userProfile, setUserProfile, setOrganization, setError]);
+
     const login = useCallback(async (email: string, password: string) => {
         try {
             setLoading(true);
             await supabaseConnector.login(email, password);
             const loggedInUser = supabaseConnector.currentSession?.user;
             setUser(loggedInUser || null);
+
+            // Attempt initial load of user data
             if (loggedInUser) {
                 await loadUserData(loggedInUser.id);
             }
@@ -62,7 +119,7 @@ export const useAuth = () => {
         try {
             setLoading(true);
             await supabaseConnector.signUp(email, password);
-            // Do not login immediately, user must confirm their email first.
+            // After sign-up, user must confirm their email before logging in, so we don't loadUserData yet.
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sign up failed');
             throw err;

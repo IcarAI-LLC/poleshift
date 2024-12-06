@@ -1,5 +1,5 @@
 // src/App.tsx
-import React from 'react';
+import React, {useEffect} from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { ThemeProvider } from '@mui/material/styles';
@@ -9,8 +9,12 @@ import { theme } from './theme';
 import AppRoutes from './routes/AppRoutes';
 import './App.css';
 import { db, setupPowerSync } from './lib/powersync/db';
+import { checkForAppUpdates } from './updater';
 
 function App() {
+    useEffect(() => {
+        checkForAppUpdates();
+    }, []);
     const [initialized, setInitialized] = React.useState(false);
 
     React.useEffect(() => {

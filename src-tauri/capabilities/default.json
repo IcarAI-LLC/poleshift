@@ -18,6 +18,8 @@
     "core:path:allow-resolve",
     "core:path:allow-join",
     "core:path:allow-dirname",
-    "core:path:allow-extname"
+    "core:path:allow-extname",
+    "core:menu:allow-popup",
+    "updater:default"
   ]
 }
