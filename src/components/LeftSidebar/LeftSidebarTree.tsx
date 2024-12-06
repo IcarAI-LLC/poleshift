@@ -1,16 +1,85 @@
-// src/components/LeftSidebarTree.tsx
-
 import React, { useCallback, useRef, useEffect } from 'react';
-import { Tree, NodeApi, CursorProps } from 'react-arborist';
+import Box from '@mui/material/Box';
 import {
     Folder as FolderIcon,
     FolderOpen as FolderOpenIcon,
     Science as ScienceIcon,
 } from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
+import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
+import { useTreeItem2, UseTreeItem2Parameters } from '@mui/x-tree-view/useTreeItem2';
+import {
+    TreeItem2Content,
+    TreeItem2IconContainer,
+    TreeItem2GroupTransition,
+    TreeItem2Label,
+    TreeItem2Root,
+} from '@mui/x-tree-view/TreeItem2';
+import { TreeItem2Icon } from '@mui/x-tree-view/TreeItem2Icon';
+import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider';
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
-import CustomCursor from './CustomCursor';
 import type { FileNode } from '../../lib/types';
+
+const CustomTreeItemContent = styled(TreeItem2Content)(({ theme }) => ({
+    padding: theme.spacing(0.5, 1),
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+}));
+
+interface CustomTreeItemProps
+    extends Omit<UseTreeItem2Parameters, 'rootRef'>,
+        Omit<React.HTMLAttributes<HTMLLIElement>, 'onFocus'> {}
+
+const CustomTreeItem = React.forwardRef(function CustomTreeItem(
+    props: CustomTreeItemProps,
+    ref: React.Ref<HTMLLIElement>,
+) {
+    const { id, itemId, label, disabled, children, ...other } = props;
+
+    const {
+        getRootProps,
+        getContentProps,
+        getIconContainerProps,
+        getLabelProps,
+        getGroupTransitionProps,
+        status,
+        publicAPI,
+    } = useTreeItem2({ id, itemId, children, label, disabled, rootRef: ref });
+
+    const item = publicAPI.getItem(itemId) as FileNode;
+    const isFolder = item.type === 'folder';
+    const isSampleGroup = item.type === 'sampleGroup';
+
+    const { handleLeftSidebarContextMenu } = useUI();
+
+    return (
+        <TreeItem2Provider itemId={itemId}>
+            <TreeItem2Root
+                {...getRootProps({
+                    ...other,
+                    onContextMenu: (e) => {
+                        e.preventDefault();
+                        handleLeftSidebarContextMenu(e, item.id);
+                    },
+                })}
+            >
+                <CustomTreeItemContent {...getContentProps()}>
+                    <TreeItem2IconContainer {...getIconContainerProps()}>
+                        <TreeItem2Icon status={status} />
+                    </TreeItem2IconContainer>
+                    <Box sx={{ flexGrow: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+                        {isSampleGroup && <ScienceIcon />}
+                        {isFolder && (status.expanded ? <FolderOpenIcon /> : <FolderIcon />)}
+                        <TreeItem2Label {...getLabelProps()} />
+                    </Box>
+                </CustomTreeItemContent>
+                {children && <TreeItem2GroupTransition {...getGroupTransitionProps()} />}
+            </TreeItem2Root>
+        </TreeItem2Provider>
+    );
+});
 
 const LeftSidebarTree: React.FC = () => {
     const {
@@ -22,59 +91,11 @@ const LeftSidebarTree: React.FC = () => {
         setErrorMessage,
     } = useUI();
 
+    const { fileTree, deleteNode } = useData();
     const contextMenuRef = useRef<HTMLDivElement>(null);
 
-    const { fileTree, updateFileTree, deleteNode } = useData();
-
-    //TODO implement file move
-    const handleMove = useCallback(
-        async ({
-                   dragIds,
-                   //@ts-ignore
-                   parentId,
-                   //@ts-ignore
-                   index,
-               }: {
-            dragIds: string[];
-            parentId: string | null;
-            index: number;
-        }) => {
-            try {
-                const dragId = dragIds[0];
-                if (!dragId) return;
-
-                // Your existing move logic here...
-
-                // Update the file tree
-                //@ts-ignore
-                await updateFileTree(finalTreeData);
-            } catch (error) {
-                console.error('Error during drag and drop:', error);
-                setErrorMessage('An error occurred while moving items.');
-            }
-        },
-        [fileTree, updateFileTree, setErrorMessage]
-    );
-
-    const handleDeleteSample = useCallback(async () => {
-        if (!leftSidebarContextMenu.itemId) {
-            setErrorMessage('Could not determine which item to delete.');
-            return;
-        }
-        try {
-            await deleteNode(leftSidebarContextMenu.itemId);
-            closeLeftSidebarContextMenu();
-        } catch (error: any) {
-            setErrorMessage(
-                error.message || 'An error occurred while deleting the item.'
-            );
-        }
-    }, [
-        leftSidebarContextMenu,
-        deleteNode,
-        closeLeftSidebarContextMenu,
-        setErrorMessage,
-    ]);
+    const getItemId = useCallback((item: FileNode) => item.id, []);
+    const getItemLabel = useCallback((item: FileNode) => item.name, []);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -92,77 +113,54 @@ const LeftSidebarTree: React.FC = () => {
         };
     }, [leftSidebarContextMenu.isVisible, closeLeftSidebarContextMenu]);
 
-    const onSelect = useCallback(
-        (nodes: NodeApi<FileNode>[]) => {
-            if (nodes.length > 0) {
-                setSelectedLeftItem(nodes[0].data);
-            } else {
-                setSelectedLeftItem(null);
+    const handleDeleteSample = useCallback(async () => {
+        if (!leftSidebarContextMenu.itemId) {
+            setErrorMessage('Could not determine which item to delete.');
+            return;
+        }
+        try {
+            await deleteNode(leftSidebarContextMenu.itemId);
+            closeLeftSidebarContextMenu();
+            if (selectedLeftItem?.id === leftSidebarContextMenu.itemId) {
+                setSelectedLeftItem(undefined);
             }
-        },
-        [setSelectedLeftItem]
-    );
+        } catch (error: any) {
+            setErrorMessage(error.message || 'An error occurred while deleting the item.');
+        }
+    }, [
+        leftSidebarContextMenu.itemId,
+        deleteNode,
+        closeLeftSidebarContextMenu,
+        setErrorMessage,
+        selectedLeftItem,
+        setSelectedLeftItem
+    ]);
 
-    const Node = React.memo(
-        ({
-             node,
-             style,
-             dragHandle,
-         }: {
-            node: NodeApi<FileNode>;
-            style: React.CSSProperties;
-            dragHandle?: (el: HTMLDivElement | null) => void;
-        }) => {
-            const isSelected = selectedLeftItem && selectedLeftItem.id === node.id;
-            const isFolder = node.data.type === 'folder';
-            const isSampleGroup = node.data.type === 'sampleGroup';
+    const handleSelect = useCallback(
+        (_event: React.SyntheticEvent, itemId: string | null) => {
+            if (!itemId) {
+                setSelectedLeftItem(undefined);
+                return;
+            }
 
-            const handleClick = (e: React.MouseEvent) => {
-                node.handleClick(e);
-                setSelectedLeftItem(node.data);
-                if (isFolder) {
-                    node.toggle();
+            const findNodeById = (nodes: FileNode[]): FileNode | undefined => {
+                for (const node of nodes) {
+                    if (node.id === itemId) return node;
+                    if (node.children) {
+                        const found = findNodeById(node.children);
+                        if (found) return found;
+                    }
                 }
+                return undefined;
             };
 
-            const nodeClassNames = [
-                'tree-node',
-                isSelected ? 'tree-node--selected' : '',
-                isFolder ? 'tree-node--folder' : '',
-                isSampleGroup ? 'tree-node--sampleGroup' : '',
-            ]
-                .filter(Boolean)
-                .join(' ');
-
-            return (
-                <div
-                    ref={dragHandle}
-                    className={nodeClassNames}
-                    style={style}
-                    onClick={handleClick}
-                    onContextMenu={(e) => handleLeftSidebarContextMenu(e, node.data.id)}
-                >
-                    <div className="tree-node__icon">
-                        {isFolder ? (
-                            node.isOpen ? (
-                                <FolderOpenIcon />
-                            ) : (
-                                <FolderIcon />
-                            )
-                        ) : isSampleGroup ? (
-                            <ScienceIcon />
-                        ) : null}
-                    </div>
-                    <div className="tree-node__text">{node.data.name}</div>
-                </div>
-            );
+            const selectedNode = findNodeById(fileTree || []);
+            setSelectedLeftItem(selectedNode);
         },
-        (prevProps, nextProps) =>
-            prevProps.node.data === nextProps.node.data &&
-            prevProps.style === nextProps.style
+        [fileTree, setSelectedLeftItem]
     );
 
-    if (!fileTree?.length) {
+    if (!fileTree || fileTree.length === 0) {
         return (
             <div className="sidebar__content sidebar__content--empty">
                 No items to display
@@ -172,17 +170,17 @@ const LeftSidebarTree: React.FC = () => {
 
     return (
         <div className="sidebar__content">
-            <Tree
-                data={fileTree}
-                onMove={handleMove}
-                onSelect={onSelect}
-                selection={selectedLeftItem?.id}
-                rowHeight={36}
-                indent={24}
-                renderCursor={(props: CursorProps) => <CustomCursor {...props} />}
-            >
-                {Node}
-            </Tree>
+            <Box sx={{ minHeight: 352, minWidth: 250 }}>
+                <RichTreeView<FileNode>
+                    items={fileTree}
+                    slots={{ item: CustomTreeItem }}
+                    getItemId={getItemId}
+                    getItemLabel={getItemLabel}
+                    selectedItems={selectedLeftItem?.id || null}
+                    onSelectedItemsChange={handleSelect}
+                    aria-label="file system navigator"
+                />
+            </Box>
 
             {leftSidebarContextMenu.isVisible && (
                 <div
@@ -192,13 +190,12 @@ const LeftSidebarTree: React.FC = () => {
                         top: leftSidebarContextMenu.y,
                         left: leftSidebarContextMenu.x,
                         position: 'absolute',
-                        zIndex: 1000, // Ensure the menu appears above other elements
+                        zIndex: 1000,
                     }}
                 >
                     <div className="context-menu-item" onClick={handleDeleteSample}>
                         Delete Sample
                     </div>
-                    {/* Add more context menu items here if needed */}
                 </div>
             )}
         </div>

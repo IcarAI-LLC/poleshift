@@ -52,12 +52,12 @@ export const useData = () => {
                 // Insert new sample group into the database
                 await db.execute(
                     `
-          INSERT INTO sample_group_metadata (
-            id, created_at, org_id, user_id, human_readable_sample_id,
-            collection_date, storage_folder, collection_datetime_utc,
-            loc_id, latitude_recorded, longitude_recorded, notes, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `,
+                        INSERT INTO sample_group_metadata (
+                            id, created_at, org_id, user_id, human_readable_sample_id,
+                            collection_date, storage_folder, collection_datetime_utc,
+                            loc_id, latitude_recorded, longitude_recorded, notes, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `,
                     [
                         sampleGroupData.id,
                         sampleGroupData.created_at,
@@ -90,6 +90,22 @@ export const useData = () => {
         [addFileNode, fetchSampleGroups, fetchFileNodes, setError]
     );
 
+    // Move Node Function
+    const moveNode = useCallback(
+        async (nodeId: string, newParentId: string | null) => {
+            try {
+                await updateFileNode(nodeId, { parent_id: newParentId });
+                await fetchFileNodes(); // Refresh the file nodes to reflect changes
+            } catch (error) {
+                setError(
+                    error instanceof Error ? error.message : 'Failed to move the node'
+                );
+                throw error;
+            }
+        },
+        [updateFileNode, fetchFileNodes, setError]
+    );
+
     // Update File Tree
     const updateFileTree = useCallback(
         async (updatedTreeData: FileNode[]) => {
@@ -109,15 +125,14 @@ export const useData = () => {
                         version,
                         sample_group_id,
                         droppable,
-                        children,
                     } = node;
 
                     await db.execute(
                         `
-            INSERT INTO file_nodes (
-              id, org_id, parent_id, name, type, created_at, updated_at,
-              version, sample_group_id, droppable
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              INSERT INTO file_nodes (
+                id, org_id, parent_id, name, type, created_at, updated_at,
+                version, sample_group_id, droppable
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
                         [
                             id,
@@ -134,8 +149,8 @@ export const useData = () => {
                     );
 
                     // Recursively insert children
-                    if (children && children.length > 0) {
-                        for (const child of children) {
+                    if (node.children && node.children.length > 0) {
+                        for (const child of node.children) {
                             await insertNode(child, id);
                         }
                     }
@@ -174,8 +189,7 @@ export const useData = () => {
             if (node.parent_id) {
                 const parent = nodesById[node.parent_id];
                 if (parent) {
-                    //@ts-ignore
-                    parent.children.push(node);
+                    parent.children?.push(node);
                 }
             } else {
                 // Root nodes
@@ -201,6 +215,7 @@ export const useData = () => {
 
     const handleUpdateFileNode = useCallback(
         async (id: string, updates: Partial<FileNode>) => {
+            console.log(updates);
             try {
                 await updateFileNode(id, updates);
             } catch (error) {
@@ -243,7 +258,9 @@ export const useData = () => {
 
     const getSampleGroupsByLocation = useCallback(
         (locationId: string) => {
-            return Object.values(sampleGroups).filter((group) => group.loc_id === locationId);
+            return Object.values(sampleGroups).filter(
+                (group) => group.loc_id === locationId
+            );
         },
         [sampleGroups]
     );
@@ -262,8 +279,7 @@ export const useData = () => {
 
             while (currentNode) {
                 path.unshift(currentNode);
-                //@ts-ignore
-                currentNode = currentNode.parent_id ? fileNodes[currentNode.parent_id] : null;
+                currentNode = currentNode.parent_id ? fileNodes[currentNode.parent_id] : undefined;
             }
 
             return path;
@@ -288,6 +304,7 @@ export const useData = () => {
         updateSampleGroup: handleUpdateSampleGroup,
         createSampleGroup,
         updateFileTree,
+        moveNode, // Include moveNode
 
         // Base actions
         fetchLocations,

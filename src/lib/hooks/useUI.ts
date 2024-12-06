@@ -24,6 +24,9 @@ export const useUI = () => {
         setErrorMessage,
         setFilters,
         resetFilters,
+        moveModalItemId,
+        showMoveModal,
+        hideMoveModal,
     } = useUIStore();
 
     // Enhanced sidebar handlers
@@ -37,7 +40,7 @@ export const useUI = () => {
 
     // Selection handlers with type safety
     const handleSelectLeftItem = useCallback(
-        (item: FileNode | null) => {
+        (item: FileNode | undefined) => {
             setSelectedLeftItem(item);
         },
         [setSelectedLeftItem]
@@ -125,6 +128,10 @@ export const useUI = () => {
         // Utility getters
         hasSelectedItem: Boolean(selectedLeftItem || selectedRightItem),
         isLeftSidebarContextMenuOpen: leftSidebarContextMenu.isVisible,
+
+        moveModalItemId,
+        setShowMoveModal: showMoveModal,
+        setHideMoveModal: hideMoveModal,
     };
 };
 

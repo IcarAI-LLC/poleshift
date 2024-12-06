@@ -90,6 +90,40 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
     },
 
+// src/lib/stores/dataStore.ts
+
+    updateFileNode: async (id: string, updates: Partial<FileNode>) => {
+        console.log('Updating file node', id, updates);
+        try {
+            const setClause = Object.keys(updates)
+                .map((key) => `${key} = ?`)
+                .join(', ');
+
+            const values = Object.values(updates).map((value) => {
+                if (value === null) {
+                    return null; // Keep null as null
+                }
+                if (typeof value === 'object' && value !== null) {
+                    return JSON.stringify(value);
+                }
+                return value;
+            });
+            await db.execute(
+                `
+                    UPDATE file_nodes
+                    SET ${setClause}
+                    WHERE id = ?
+                `,
+                [...values, id]
+            );
+
+            await get().fetchFileNodes();
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Failed to update file node' });
+            throw error;
+        }
+    },
+
     addFileNode: async (node: FileNode) => {
         try {
             const {
@@ -115,7 +149,7 @@ export const useDataStore = create<DataState>((set, get) => ({
                 [
                     id,
                     org_id,
-                    parent_id,
+                    parent_id === null ? null : parent_id, // ensure null is passed as null
                     name,
                     type,
                     created_at,
@@ -133,31 +167,6 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
     },
 
-    updateFileNode: async (id: string, updates: Partial<FileNode>) => {
-        try {
-            const setClause = Object.keys(updates)
-                .map((key) => `${key} = ?`)
-                .join(', ');
-
-            const values = Object.values(updates).map((value) =>
-                typeof value === 'object' ? JSON.stringify(value) : value
-            );
-
-            await db.execute(
-                `
-                    UPDATE file_nodes
-                    SET ${setClause}
-                    WHERE id = ?
-                `,
-                [...values, id]
-            );
-
-            await get().fetchFileNodes();
-        } catch (error) {
-            set({ error: error instanceof Error ? error.message : 'Failed to update file node' });
-            throw error;
-        }
-    },
 
     // In dataStore.ts, enhance the deleteNode function:
     deleteNode: async (id: string) => {

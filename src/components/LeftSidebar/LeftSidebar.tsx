@@ -392,7 +392,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
   // Define the reset selection handler
   const handleResetSelection = useCallback(() => {
-    setSelectedLeftItem(null);
+    setSelectedLeftItem(undefined);
   }, [setSelectedLeftItem]);
 
   return (

@@ -19,7 +19,7 @@ interface Filters {
 interface UIState {
     // Left Sidebar State
     isLeftSidebarCollapsed: boolean;
-    selectedLeftItem: FileNode | null;
+    selectedLeftItem: FileNode | undefined;
 
     // Right Sidebar State
     isRightSidebarCollapsed: boolean;
@@ -40,7 +40,7 @@ interface UIState {
     // Actions
     toggleLeftSidebar: (collapsed?: boolean) => void;
     toggleRightSidebar: (collapsed?: boolean) => void;
-    setSelectedLeftItem: (item: FileNode | null) => void;
+    setSelectedLeftItem: (item: FileNode | undefined) => void;
     setSelectedRightItem: (item: SampleLocation | null) => void;
 
     // Context Menu Actions for Left Sidebar
@@ -51,6 +51,11 @@ interface UIState {
     setErrorMessage: (message: string | null) => void;
     setFilters: (filters: Partial<Filters>) => void;
     resetFilters: () => void;
+
+    // For Move Modal
+    moveModalItemId: string | null;
+    showMoveModal: (itemId: string | null) => void;
+    hideMoveModal: () => void;
 }
 
 const initialFilters: Filters = {
@@ -63,7 +68,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     // Initial States
     isLeftSidebarCollapsed: false,
     isRightSidebarCollapsed: true,
-    selectedLeftItem: null,
+    selectedLeftItem: undefined,
     selectedRightItem: null,
     leftSidebarContextMenu: {
         isVisible: false,
@@ -74,6 +79,9 @@ export const useUIStore = create<UIState>((set, get) => ({
     showAccountActions: false,
     errorMessage: null,
     filters: initialFilters,
+    moveModalItemId: null,
+    showMoveModal: (itemId: string | null) => set({ moveModalItemId: itemId }),
+    hideMoveModal: () => set({ moveModalItemId: null }),
 
     // Actions
     toggleLeftSidebar: (collapsed) => set((state) => ({
@@ -87,7 +95,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     })),
 
     setSelectedLeftItem: (item) => set({
-        selectedLeftItem: item,
+        selectedLeftItem: item || undefined,
     }),
 
     setSelectedRightItem: (item) => {

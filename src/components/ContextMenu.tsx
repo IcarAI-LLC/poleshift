@@ -1,10 +1,11 @@
 // src/components/ContextMenu.tsx
 
 import React, { useEffect, useCallback, useMemo } from 'react';
-import { useUI, useAuth } from '../lib/hooks';
+import { useUI, useAuth, useData } from '../lib/hooks';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { Box, List, ListItem } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
 
 interface ContextMenuProps {
   deleteItem: (id: string) => Promise<void>;
@@ -26,6 +27,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
     setSelectedLeftItem,
     closeLeftSidebarContextMenu,
     setErrorMessage,
+    setShowMoveModal, // We'll add this to manage showing the move modal
   } = useUI();
 
   const { userProfile } = useAuth();
@@ -66,7 +68,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
           },
         },
         icon: {
-          color: 'error.main',
+          color: 'text.primary',
           fontSize: '1.25rem',
         },
       }),
@@ -98,7 +100,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
 
       // Clear selected item if it was deleted
       if (selectedLeftItem?.id === itemId) {
-        setSelectedLeftItem(null);
+        setSelectedLeftItem(undefined);
       }
     } catch (error) {
       console.error('Error deleting item:', error);
@@ -122,6 +124,14 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
     setLeftSidebarContextMenuState,
     closeLeftSidebarContextMenu,
   ]);
+
+  // Handle "Move to Folder" action
+  const handleMoveToFolder = useCallback(() => {
+    if (!itemId) return;
+    // Show a modal that allows the user to select a folder
+    setShowMoveModal(itemId);
+    closeLeftSidebarContextMenu();
+  }, [itemId, closeLeftSidebarContextMenu, setShowMoveModal]);
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
@@ -148,10 +158,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
       >
         <List sx={styles.list}>
           {userProfile?.user_tier === 'admin' && (
-              <ListItem role="menuitem" onClick={handleDelete} sx={styles.listItem}>
-                <DeleteIcon sx={styles.icon} />
-                Delete
-              </ListItem>
+              <>
+                <ListItem role="menuitem" onClick={handleDelete} sx={styles.listItem}>
+                  <DeleteIcon sx={{ ...styles.icon, color: 'error.main' }} />
+                  Delete
+                </ListItem>
+                <ListItem role="menuitem" onClick={handleMoveToFolder} sx={styles.listItem}>
+                  <DriveFileMoveIcon sx={styles.icon} />
+                  Move to Folder
+                </ListItem>
+              </>
           )}
         </List>
       </Box>
