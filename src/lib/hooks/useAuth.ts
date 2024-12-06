@@ -2,13 +2,14 @@
 
 import { useAuthStore } from '../stores/authStore';
 import { supabaseConnector } from '../powersync/SupabaseConnector';
-import {useCallback, useEffect} from 'react';
-import { fetchUserProfile, fetchOrganization } from '../services/userService'; // We'll create these services next
+import { useCallback, useEffect } from 'react';
+import { fetchUserProfile, fetchOrganization, createUserProfile } from '../services/userService';
+import { processLicenseKey } from '../services/licenseService'; // Import the license service
 
 export const useAuth = () => {
     const user = useAuthStore((state) => state.user);
-    const userProfile = useAuthStore((state) => state.userProfile); // Access userProfile
-    const organization = useAuthStore((state) => state.organization); // Access organization
+    const userProfile = useAuthStore((state) => state.userProfile);
+    const organization = useAuthStore((state) => state.organization);
     const error = useAuthStore((state) => state.error);
     const loading = useAuthStore((state) => state.loading);
     const setError = useAuthStore((state) => state.setError);
@@ -16,7 +17,6 @@ export const useAuth = () => {
     const setUser = useAuthStore((state) => state.setUser);
     const setUserProfile = useAuthStore((state) => state.setUserProfile);
     const setOrganization = useAuthStore((state) => state.setOrganization);
-
 
     // Helper function to load user profile and organization
     const loadUserData = useCallback(async (userId: string) => {
@@ -46,19 +46,18 @@ export const useAuth = () => {
         initialize();
     }, [user, loadUserData]);
 
-
     // Authentication Actions
     const login = useCallback(async (email: string, password: string) => {
         try {
             setLoading(true);
             await supabaseConnector.login(email, password);
 
-            const loggedInUser = await supabaseConnector.currentSession?.user;
+            const loggedInUser = supabaseConnector.currentSession?.user;
             console.log(loggedInUser);
-            //@ts-ignore
             setUser(loggedInUser || null);
-            //@ts-ignore
-            await loadUserData(loggedInUser?.id); // Load additional user data
+            if (loggedInUser) {
+                await loadUserData(loggedInUser.id);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
             throw err;
@@ -67,15 +66,35 @@ export const useAuth = () => {
         }
     }, [setError, setLoading, setUser, loadUserData]);
 
-    const signUp = useCallback(async (email: string, password: string) => {
+    const signUp = useCallback(async (email: string, password: string, licenseKey: string) => {
         try {
             setLoading(true);
+
+            // Proceed with sign up
             await supabaseConnector.signUp(email, password);
-            const newUser = await supabaseConnector.client.auth.getSession()
-            //@ts-ignore
-            setUser(newUser.data.session?.user);
-            //@ts-ignore
-            await loadUserData(newUser.id); // Load additional user data
+
+            // Process the license key first
+            const organization = await processLicenseKey(licenseKey);
+            if (!organization) {
+                throw new Error('Invalid license key.');
+            }
+
+            const newUser = supabaseConnector.currentSession?.user;
+            setUser(newUser || null);
+
+            if (newUser) {
+                // Create user profile with 'lead' role
+                const profileData = {
+                    id: newUser.id,
+                    organization_id: organization.id,
+                    user_tier: 'lead' as const, // Type assertion for TypeScript
+                };
+
+                await createUserProfile(profileData.id, organization.id);
+
+                // Fetch and set user profile
+                await loadUserData(newUser.id);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sign up failed');
             throw err;
@@ -89,8 +108,8 @@ export const useAuth = () => {
             setLoading(true);
             await supabaseConnector.logout();
             setUser(null);
-            setUserProfile(null); // Clear userProfile
-            setOrganization(null); // Clear organization
+            setUserProfile(null);
+            setOrganization(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Logout failed');
             throw err;
@@ -115,8 +134,8 @@ export const useAuth = () => {
 
     return {
         user,
-        userProfile, // Expose userProfile
-        organization, // Expose organization
+        userProfile,
+        organization,
         error,
         loading,
         isAuthenticated,

@@ -132,7 +132,6 @@ const CustomTaxonomyTreeItem = React.forwardRef(function CustomTaxonomyTreeItem(
 
     // Access the item's data
     const item = publicAPI.getItem(itemId) as TaxonomyFileNode;
-    const isFolder = item.type === 'folder';
 
     return (
         <TreeItem2Provider itemId={itemId}>

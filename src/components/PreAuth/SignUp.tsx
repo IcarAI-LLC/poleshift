@@ -1,4 +1,5 @@
 // components/PreAuth/SignUp.tsx
+
 import React, { useState, useMemo } from 'react';
 import {
   Box,
@@ -25,7 +26,7 @@ interface SignUpProps {
   onNavigate: (view: PreAuthView) => void;
 }
 
-export const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
+const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
   const { signUp } = useAuth();
   const [formState, setFormState] = useState<SignUpFormState>({
     email: '',
@@ -72,6 +73,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // Validate form fields
     if (!formState.email || !formState.password || !formState.licenseKey) {
       setFormState((prev) => ({
         ...prev,
@@ -88,13 +90,18 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
     }));
 
     try {
-      //@ts-ignore
-      await signUp(formState.email, formState.password);
+      // Call signUp with email, password, and licenseKey
+      await signUp(formState.email, formState.password, formState.licenseKey);
+
       setFormState((prev) => ({
         ...prev,
         message:
             'Sign-up successful! Please check your email to confirm your account before logging in.',
         isLoading: false,
+        // Optionally, you can clear the form fields after successful sign-up
+        email: '',
+        password: '',
+        licenseKey: '',
       }));
     } catch (err) {
       console.error('Sign-up error:', err);
@@ -139,6 +146,10 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               onChange={handleInputChange('email')}
               required
               disabled={!!formState.message || formState.isLoading}
+              autoComplete="email"
+              inputProps={{
+                'aria-label': 'Email',
+              }}
           />
 
           <TextField
@@ -151,6 +162,10 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               onChange={handleInputChange('password')}
               required
               disabled={!!formState.message || formState.isLoading}
+              autoComplete="new-password"
+              inputProps={{
+                'aria-label': 'Password',
+              }}
           />
 
           <TextField
@@ -163,6 +178,9 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               onChange={handleInputChange('licenseKey')}
               required
               disabled={!!formState.message || formState.isLoading}
+              inputProps={{
+                'aria-label': 'License Key',
+              }}
           />
 
           <Button

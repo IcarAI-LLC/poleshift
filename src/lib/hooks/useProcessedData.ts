@@ -7,7 +7,6 @@ import type { Organization, SampleGroupMetadata } from '../types';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { v4 as uuidv4 } from 'uuid';
 import { useStorage } from './useStorage';
 import { readFile } from '@tauri-apps/plugin-fs'; // For reading local files selected by user
 
@@ -127,7 +126,6 @@ export const useProcessedData = ({
 
     const saveProcessedData = useCallback(
         async (
-            id: string,
             sampleId: string,
             configId: string,
             processFunctionName: string,
@@ -260,9 +258,7 @@ export const useProcessedData = ({
                 const sampleOrgId = group.org_id || orgId || '';
                 const sampleOrgShortId = orgShortId || organization?.org_short_id || '';
 
-                const id = uuidv4();
                 await saveProcessedData(
-                    id,
                     group.id,
                     configItem.id,
                     configItem.processFunctionName,

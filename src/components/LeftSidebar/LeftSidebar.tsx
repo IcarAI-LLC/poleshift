@@ -24,7 +24,6 @@ import { DateTime } from 'luxon';
 import Modal from '../Modal';
 import AccountButton from './AccountButton';
 import LeftSidebarTree from './LeftSidebarTree';
-import MoveModal from "./MoveModal.tsx";
 
 interface ModalState {
   isOpen: boolean;

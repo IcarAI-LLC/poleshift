@@ -1,4 +1,5 @@
 // components/PreAuth/Login.tsx
+
 import React, { useState } from 'react';
 import {
   Box,
@@ -19,7 +20,7 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
-  const { loading, error: authError } = useAuth();
+  const { loading, error: authError, login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -31,17 +32,8 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
     }
 
     try {
-      //TODO fix license key handling
-      //@ts-ignore
-      const { storedLicenseKey } = null;
-
-      if (storedLicenseKey) {
-        //@ts-ignore
-        await processLicenseKey(storedLicenseKey).catch((error) => {
-          console.error('License key processing error:', error);
-          // Continue even if license processing fails
-        });
-      }
+      // Proceed with login using the useAuth hook
+      await login(email, password);
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : 'Login failed');
     }

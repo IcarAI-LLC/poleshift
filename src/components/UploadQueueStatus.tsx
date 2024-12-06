@@ -1,31 +1,14 @@
-// src/lib/components/UploadQueueStatus.tsx
-
-import React, { useEffect, useState, useRef } from 'react';
-import {
-    Box,
-    Typography,
-    List,
-    ListItem,
-    ListItemText,
-    LinearProgress,
-    IconButton,
-    Tooltip,
-    Card,
-    CardHeader,
-    CardContent,
-    Divider,
-    Snackbar,
-    Alert,
-    Badge,
-} from '@mui/material';
+import { useEffect, useState, useRef } from 'react';
+import { Box, Typography, List, ListItem, ListItemText, LinearProgress, IconButton, Tooltip, Card, CardHeader, CardContent, Divider, Snackbar, Alert, Badge } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getAllQueuedUploads, UploadTask, removeFromQueue } from '../lib/utils/uploadQueue';
-import { useStorage } from '../lib/hooks/index.ts';
+import { useStorage } from '../lib/hooks';
 
-const UploadQueueStatus: React.FC = () => {
+const UploadQueueStatus = () => {
     const [queuedUploads, setQueuedUploads] = useState<UploadTask[]>([]);
-    const [isVisible, setIsVisible] = useState<boolean>(false);
-    const [isManuallyClosed, setIsManuallyClosed] = useState<boolean>(false);
+    const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const [snackbar, setSnackbar] = useState<{
         open: boolean;
         message: string;
@@ -35,16 +18,14 @@ const UploadQueueStatus: React.FC = () => {
         message: '',
         severity: 'success',
     });
-    const [newUploads, setNewUploads] = useState<number>(0);
     const { fileExists } = useStorage();
-    const previousQueueRef = useRef<UploadTask[]>([]); // To track previous queue for detecting new uploads
+    const previousQueueRef = useRef<UploadTask[]>([]);
 
     useEffect(() => {
         const fetchQueuedUploads = async () => {
             const uploads = await getAllQueuedUploads();
-
-            // Check if files already exist and remove them from the queue
             const updatedUploads: UploadTask[] = [];
+
             for (const upload of uploads) {
                 const exists = await fileExists(upload.path);
                 if (exists) {
@@ -59,29 +40,19 @@ const UploadQueueStatus: React.FC = () => {
                 }
             }
 
-            // Detect new uploads
-            const previousIds = previousQueueRef.current.map(u => u.id);
-            const currentIds = updatedUploads.map(u => u.id);
-            const newUploadCount = currentIds.filter(id => !previousIds.includes(id)).length;
-            if (newUploadCount > 0 && isManuallyClosed) {
-                setNewUploads(prev => prev + newUploadCount);
-            }
-
             previousQueueRef.current = updatedUploads;
-
             setQueuedUploads(updatedUploads);
-            if (!isManuallyClosed) {
-                setIsVisible(updatedUploads.length > 0);
+
+            // Auto-expand when new uploads are added
+            if (updatedUploads.length > previousQueueRef.current.length) {
+                setIsExpanded(true);
             }
         };
 
         fetchQueuedUploads();
-
-        // Set up an interval to poll for queue updates every 5 seconds
         const interval = setInterval(fetchQueuedUploads, 5000);
-
         return () => clearInterval(interval);
-    }, [fileExists, isManuallyClosed]);
+    }, [fileExists]);
 
     const handleRemove = async (id: string) => {
         await removeFromQueue(id);
@@ -97,160 +68,131 @@ const UploadQueueStatus: React.FC = () => {
         setSnackbar(prev => ({ ...prev, open: false }));
     };
 
-    const handleCloseQueue = () => {
-        setIsVisible(false);
-        setIsManuallyClosed(true);
-        setNewUploads(0); // Reset new uploads count
+    const toggleExpanded = () => {
+        setIsExpanded(!isExpanded);
     };
-
-    const handleOpenQueue = () => {
-        setIsVisible(true);
-        setIsManuallyClosed(false);
-        setNewUploads(0); // Reset new uploads count
-    };
-
-    if (!isVisible && newUploads === 0) return null;
 
     return (
         <>
-            <Box sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 1300 }}>
-                <Badge
-                    badgeContent={newUploads}
-                    color="secondary"
-                    invisible={newUploads === 0}
-                    overlap="rectangular"
-                    anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+            <Box sx={{
+                position: 'fixed',
+                bottom: 16,
+                right: 16,
+                zIndex: 1300,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end'
+            }}>
+                <Card
+                    sx={{
+                        width: 350,
+                        transition: 'all 0.3s ease-in-out',
+                        maxHeight: isExpanded ? '500px' : '64px',
+                        overflow: 'hidden'
+                    }}
+                    elevation={4}
                 >
-                    <Card
-                        sx={{
-                            width: 350,
-                            boxShadow: 6,
-                            transition: 'transform 0.3s ease-in-out',
-                            transform: isVisible ? 'translateY(0)' : 'translateY(100%)',
-                        }}
-                        elevation={4}
-                    >
-                        <CardHeader
-                            title="Upload Queue"
-                            action={
-                                isVisible ? (
-                                    <Tooltip title="Close">
-                                        <IconButton onClick={handleCloseQueue}>
-                                            <CloseIcon />
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : (
-                                    newUploads > 0 && (
-                                        <Tooltip title="View New Uploads">
-                                            <IconButton onClick={handleOpenQueue}>
-                                                <Badge badgeContent={newUploads} color="secondary">
-                                                    <CloseIcon /> {/* Consider a different icon for "open" */}
-                                                </Badge>
-                                            </IconButton>
-                                        </Tooltip>
-                                    )
-                                )
-                            }
-                            sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}
-                        />
-                        <Divider />
-                        <CardContent
-                            sx={{
-                                maxHeight: '400px', // Set a max height
-                                overflowY: 'auto', // Enable vertical scrolling
-                                padding: 1,
-                            }}
-                        >
-                            {queuedUploads.length === 0 ? (
-                                <Typography variant="body2" color="text.secondary" align="center">
-                                    No uploads in the queue.
+                    <CardHeader
+                        title={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="h6" component="div">
+                                    Upload Queue
                                 </Typography>
-                            ) : (
-                                <List>
-                                    {queuedUploads.map(upload => (
-                                        <ListItem
-                                            key={upload.id}
-                                            alignItems="flex-start"
-                                            sx={{
-                                                flexDirection: 'column',
-                                                alignItems: 'stretch',
-                                                paddingY: 1,
-                                            }}
-                                        >
-                                            <Box
-                                                sx={{
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center',
-                                                    width: '100%',
-                                                }}
-                                            >
-                                                <ListItemText
-                                                    primary={
-                                                        <Typography variant="subtitle1" fontWeight="bold">
-                                                            {upload.file.name}
-                                                        </Typography>
-                                                    }
-                                                    secondary={`Path: ${upload.path}`}
-                                                />
-                                                <Tooltip title="Remove">
-                                                    <IconButton
-                                                        edge="end"
-                                                        size="small"
-                                                        onClick={() => handleRemove(upload.id)}
-                                                    >
-                                                        <CloseIcon />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </Box>
-                                            <Box sx={{ width: '100%', mt: 1 }}>
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={upload.progress || 0}
-                                                    sx={{ height: 8, borderRadius: 4 }}
-                                                />
-                                                <Box
-                                                    sx={{
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        mt: 0.5,
-                                                    }}
-                                                >
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {upload.progress
-                                                            ? `${upload.progress.toFixed(0)}%`
-                                                            : 'Queued'}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {upload.status}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            )}
-                        </CardContent>
-                        {!isVisible && newUploads > 0 && (
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    padding: 1,
-                                    backgroundColor: 'grey.100',
-                                }}
-                            >
-                                <Typography variant="body2" color="text.secondary">
-                                    {newUploads} new upload{newUploads > 1 ? 's' : ''} added.
-                                </Typography>
-                                <IconButton onClick={handleOpenQueue} size="small" sx={{ ml: 1 }}>
-                                    <CloseIcon />
-                                </IconButton>
+                                {queuedUploads.length > 0 && (
+                                    <Badge
+                                        badgeContent={queuedUploads.length}
+                                        color="secondary"
+                                        sx={{ ml: 1 }}
+                                    />
+                                )}
                             </Box>
+                        }
+                        action={
+                            <Tooltip title={isExpanded ? "Minimize" : "Expand"}>
+                                <IconButton onClick={toggleExpanded}>
+                                    {isExpanded ? <ExpandMoreIcon /> : <ExpandLessIcon />}
+                                </IconButton>
+                            </Tooltip>
+                        }
+                        sx={{
+                            bgcolor: 'primary.main',
+                            color: 'primary.contrastText',
+                            py: 1
+                        }}
+                    />
+                    <Divider />
+                    <CardContent
+                        sx={{
+                            maxHeight: '400px',
+                            overflowY: 'auto',
+                            padding: 1,
+                            display: isExpanded ? 'block' : 'none'
+                        }}
+                    >
+                        {queuedUploads.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary" align="center">
+                                No uploads in the queue.
+                            </Typography>
+                        ) : (
+                            <List>
+                                {queuedUploads.map(upload => (
+                                    <ListItem
+                                        key={upload.id}
+                                        sx={{
+                                            flexDirection: 'column',
+                                            alignItems: 'stretch',
+                                            paddingY: 1
+                                        }}
+                                    >
+                                        <Box sx={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            width: '100%'
+                                        }}>
+                                            <ListItemText
+                                                primary={
+                                                    <Typography variant="subtitle1" fontWeight="bold">
+                                                        {upload.file.name}
+                                                    </Typography>
+                                                }
+                                                secondary={`Path: ${upload.path}`}
+                                            />
+                                            <Tooltip title="Remove">
+                                                <IconButton
+                                                    edge="end"
+                                                    size="small"
+                                                    onClick={() => handleRemove(upload.id)}
+                                                >
+                                                    <CloseIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Box>
+                                        <Box sx={{ width: '100%', mt: 1 }}>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={upload.progress || 0}
+                                                sx={{ height: 8, borderRadius: 4 }}
+                                            />
+                                            <Box sx={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                mt: 0.5
+                                            }}>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {upload.progress ? `${upload.progress.toFixed(0)}%` : 'Queued'}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {upload.status}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </ListItem>
+                                ))}
+                            </List>
                         )}
-                    </Card>
-                </Badge>
+                    </CardContent>
+                </Card>
             </Box>
             <Snackbar
                 open={snackbar.open}
@@ -264,7 +206,6 @@ const UploadQueueStatus: React.FC = () => {
             </Snackbar>
         </>
     );
-
 };
 
 export default UploadQueueStatus;
