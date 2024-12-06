@@ -56,7 +56,6 @@ jobs:
       - name: build Tauri app for Windows, Linux
         if: matrix.os != 'macos-latest'
         run: |
-          export NODE_OPTIONS="--max_old_space_size=4096"
           npm ci
           npm run tauri build
         env:
@@ -66,9 +65,7 @@ jobs:
       - name: Install x86_64-apple-darwin for mac and build Tauri binaries
         if: matrix.os == 'macos-latest'
         run: |
-          rustup target add x86_64-apple-darwin
           npm ci
-          npm run tauri build -- --target x86_64-apple-darwin
           npm run tauri build -- --target aarch64-apple-darwin
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
