@@ -56,6 +56,7 @@ jobs:
       - name: build Tauri app for Windows, Linux
         if: matrix.os != 'macos-latest'
         run: |
+          export NODE_OPTIONS="--max_old_space_size=4096"
           npm ci
           npm run tauri build
         env:
