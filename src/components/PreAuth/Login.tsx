@@ -1,6 +1,4 @@
-// components/PreAuth/Login.tsx
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -14,10 +12,12 @@ import type { PreAuthView } from '../../lib/types';
 
 interface LoginProps {
   onNavigate: (view: PreAuthView) => void;
+  prefillEmail?: string;
+  message?: string;
 }
 
-const Login: React.FC<LoginProps> = ({ onNavigate }) => {
-  const [email, setEmail] = useState('');
+const Login: React.FC<LoginProps> = ({ onNavigate, prefillEmail = '', message }) => {
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const { loading, error: authError, login } = useAuth();
@@ -32,7 +32,6 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
     }
 
     try {
-      // Proceed with login using the useAuth hook
       await login(email, password);
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : 'Login failed');
@@ -66,6 +65,12 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           <Typography variant="h5" component="h1" gutterBottom align="center">
             Login
           </Typography>
+
+          {message && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {message}
+              </Alert>
+          )}
 
           {displayError && (
               <Alert severity="error" sx={{ mb: 2 }}>
@@ -130,11 +135,7 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           <Box textAlign="center" mt={1}>
             <Typography variant="body2">
               Don't have an account?{' '}
-              <Button
-                  variant="text"
-                  onClick={() => onNavigate('signup')}
-                  disabled={loading}
-              >
+              <Button variant="text" onClick={() => onNavigate('signup')} disabled={loading}>
                 Sign Up
               </Button>
             </Typography>

@@ -1,5 +1,3 @@
-// components/PreAuth/SignUp.tsx
-
 import React, { useState, useMemo } from 'react';
 import {
   Box,
@@ -16,14 +14,16 @@ import type { PreAuthView } from '../../lib/types';
 interface SignUpFormState {
   email: string;
   password: string;
-  licenseKey: string;
   message: string | null;
   error: string | null;
   isLoading: boolean;
 }
 
 interface SignUpProps {
-  onNavigate: (view: PreAuthView) => void;
+  onNavigate: (
+      view: PreAuthView,
+      data?: { email?: string; message?: string }
+  ) => void;
 }
 
 const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
@@ -31,7 +31,6 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
   const [formState, setFormState] = useState<SignUpFormState>({
     email: '',
     password: '',
-    licenseKey: '',
     message: null,
     error: null,
     isLoading: false,
@@ -73,11 +72,10 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Validate form fields
-    if (!formState.email || !formState.password || !formState.licenseKey) {
+    if (!formState.email || !formState.password) {
       setFormState((prev) => ({
         ...prev,
-        error: 'All fields are required.',
+        error: 'Email and password are required.',
       }));
       return;
     }
@@ -90,25 +88,19 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
     }));
 
     try {
-      // Call signUp with email, password, and licenseKey
-      await signUp(formState.email, formState.password, formState.licenseKey);
+      await signUp(formState.email, formState.password);
 
-      setFormState((prev) => ({
-        ...prev,
+      // After sign-up, navigate to login with prefilled email and a helpful message
+      onNavigate('login', {
+        email: formState.email,
         message:
             'Sign-up successful! Please check your email to confirm your account before logging in.',
-        isLoading: false,
-        // Optionally, you can clear the form fields after successful sign-up
-        email: '',
-        password: '',
-        licenseKey: '',
-      }));
+      });
     } catch (err) {
       console.error('Sign-up error:', err);
       setFormState((prev) => ({
         ...prev,
-        error:
-            err instanceof Error ? err.message : 'An unexpected error occurred',
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
         isLoading: false,
       }));
     }
@@ -127,15 +119,6 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               </Alert>
           )}
 
-          {formState.message && (
-              <Alert severity="success" sx={{ mb: 2 }}>
-                {formState.message}{' '}
-                <Button variant="text" onClick={() => onNavigate('login')}>
-                  Log in here
-                </Button>
-              </Alert>
-          )}
-
           <TextField
               label="Email"
               variant="outlined"
@@ -145,7 +128,7 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               value={formState.email}
               onChange={handleInputChange('email')}
               required
-              disabled={!!formState.message || formState.isLoading}
+              disabled={formState.isLoading}
               autoComplete="email"
               inputProps={{
                 'aria-label': 'Email',
@@ -161,25 +144,10 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               value={formState.password}
               onChange={handleInputChange('password')}
               required
-              disabled={!!formState.message || formState.isLoading}
+              disabled={formState.isLoading}
               autoComplete="new-password"
               inputProps={{
                 'aria-label': 'Password',
-              }}
-          />
-
-          <TextField
-              label="License Key"
-              variant="outlined"
-              type="text"
-              fullWidth
-              margin="normal"
-              value={formState.licenseKey}
-              onChange={handleInputChange('licenseKey')}
-              required
-              disabled={!!formState.message || formState.isLoading}
-              inputProps={{
-                'aria-label': 'License Key',
               }}
           />
 
@@ -189,26 +157,24 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               color="primary"
               fullWidth
               sx={styles.button}
-              disabled={!!formState.message || formState.isLoading}
+              disabled={formState.isLoading}
               startIcon={formState.isLoading ? <CircularProgress size={20} /> : null}
           >
             {formState.isLoading ? 'Signing Up...' : 'Sign Up'}
           </Button>
 
-          {!formState.message && (
-              <Box textAlign="center" mt={2}>
-                <Typography variant="body2">
-                  Already have an account?{' '}
-                  <Button
-                      variant="text"
-                      onClick={() => onNavigate('login')}
-                      disabled={formState.isLoading}
-                  >
-                    Log In
-                  </Button>
-                </Typography>
-              </Box>
-          )}
+          <Box textAlign="center" mt={2}>
+            <Typography variant="body2">
+              Already have an account?{' '}
+              <Button
+                  variant="text"
+                  onClick={() => onNavigate('login')}
+                  disabled={formState.isLoading}
+              >
+                Log In
+              </Button>
+            </Typography>
+          </Box>
         </Box>
       </Box>
   );

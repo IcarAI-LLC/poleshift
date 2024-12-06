@@ -1,10 +1,7 @@
-// src/lib/hooks/useAuth.ts
-
 import { useAuthStore } from '../stores/authStore';
 import { supabaseConnector } from '../powersync/SupabaseConnector';
 import { useCallback, useEffect } from 'react';
-import { fetchUserProfile, fetchOrganization, createUserProfile } from '../services/userService';
-import { processLicenseKey } from '../services/licenseService'; // Import the license service
+import { fetchUserProfile, fetchOrganization } from '../services/userService';
 
 export const useAuth = () => {
     const user = useAuthStore((state) => state.user);
@@ -18,7 +15,6 @@ export const useAuth = () => {
     const setUserProfile = useAuthStore((state) => state.setUserProfile);
     const setOrganization = useAuthStore((state) => state.setOrganization);
 
-    // Helper function to load user profile and organization
     const loadUserData = useCallback(async (userId: string) => {
         try {
             const profile = await fetchUserProfile(userId);
@@ -36,7 +32,6 @@ export const useAuth = () => {
         }
     }, [setUserProfile, setOrganization, setError]);
 
-    // Load user data on mount if user is already logged in
     useEffect(() => {
         const initialize = async () => {
             if (user) {
@@ -46,14 +41,11 @@ export const useAuth = () => {
         initialize();
     }, [user, loadUserData]);
 
-    // Authentication Actions
     const login = useCallback(async (email: string, password: string) => {
         try {
             setLoading(true);
             await supabaseConnector.login(email, password);
-
             const loggedInUser = supabaseConnector.currentSession?.user;
-            console.log(loggedInUser);
             setUser(loggedInUser || null);
             if (loggedInUser) {
                 await loadUserData(loggedInUser.id);
@@ -66,42 +58,42 @@ export const useAuth = () => {
         }
     }, [setError, setLoading, setUser, loadUserData]);
 
-    const signUp = useCallback(async (email: string, password: string, licenseKey: string) => {
+    const signUp = useCallback(async (email: string, password: string) => {
         try {
             setLoading(true);
-
-            // Proceed with sign up
             await supabaseConnector.signUp(email, password);
-
-            // Process the license key first
-            const organization = await processLicenseKey(licenseKey);
-            if (!organization) {
-                throw new Error('Invalid license key.');
-            }
-
-            const newUser = supabaseConnector.currentSession?.user;
-            setUser(newUser || null);
-
-            if (newUser) {
-                // Create user profile with 'lead' role
-                const profileData = {
-                    id: newUser.id,
-                    organization_id: organization.id,
-                    user_tier: 'lead' as const, // Type assertion for TypeScript
-                };
-
-                await createUserProfile(profileData.id, organization.id);
-
-                // Fetch and set user profile
-                await loadUserData(newUser.id);
-            }
+            // Do not login immediately, user must confirm their email first.
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sign up failed');
             throw err;
         } finally {
             setLoading(false);
         }
-    }, [setError, setLoading, setUser, loadUserData]);
+    }, [setError, setLoading]);
+
+    const activateLicense = useCallback(async (licenseKey: string) => {
+        if (!user) {
+            throw new Error('No user is logged in');
+        }
+        try {
+            setLoading(true);
+            const response = await supabaseConnector.client.functions.invoke("signUpWithLicense", {
+                body: { userId: user.id, licenseKey },
+            });
+
+            if (response.error) {
+                throw new Error(response.error.message || 'License activation failed');
+            }
+
+            // After successful license activation, reload user data
+            await loadUserData(user.id);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'License activation failed');
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [user, setError, setLoading, loadUserData]);
 
     const logout = useCallback(async () => {
         try {
@@ -143,6 +135,7 @@ export const useAuth = () => {
         signUp,
         logout,
         resetPassword,
+        activateLicense,
         setError,
     };
 };

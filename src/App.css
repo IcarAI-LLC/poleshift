@@ -138,12 +138,13 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 200; /* Lower than sidebar and controls */
   background-color: #000000;
+  pointer-events: none; /* Prevents blocking clicks */
 }
 
-.globe-container > canvas {
-  width: 100% !important;
-  height: 100% !important;
+.globe-container canvas {
+  pointer-events: auto; /* Globe interaction still works */
 }
 
 /* ===================================== */
@@ -160,7 +161,7 @@ body {
   transition: width var(--transition-medium);
   overflow: hidden;
   position: relative;
-  z-index: 0;
+  z-index: 10000;
 }
 
 .left-sidebar.collapsed {
