@@ -30,12 +30,14 @@
     "externalBin": [
       "resources/krakenuniq-bin/krakenuniq",
       "resources/krakenuniq-bin/classify",
-      "resources/krakenuniq-bin/krakenlib.pm",
       "resources/krakenuniq-bin/classifyExact"
 
     ],
     "resources": [
-      "resources/krakenuniq-database/kudb.tar.gz"
+      "resources/database.idx",
+      "resources/database.kdb",
+      "resources/taxDB",
+      "resources/database.kdb.counts"
     ],
     "icon": [
       "icons/32x32.png",
