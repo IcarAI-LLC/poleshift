@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -11,7 +10,7 @@ const main = async () => {
     // If you have asynchronous steps, resolve them here
 
     return defineConfig({
-        plugins: [react(), wasm(), topLevelAwait(), nodePolyfills()],
+        plugins: [react(), wasm(), topLevelAwait()],
         optimizeDeps: {
             exclude: ['@journeyapps/wa-sqlite', '@powersync/web'],
             include: ['@powersync/web > js-logger']

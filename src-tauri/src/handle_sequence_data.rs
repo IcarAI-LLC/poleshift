@@ -1,14 +1,14 @@
+use std::io::{Read, Result as IoResult};
 use std::path::PathBuf;
-
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime, Window};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use uuid::Uuid;
 
 use std::fs::File;
+use flate2::read::GzDecoder;
 use tar::Archive;
-use xz2::read::XzDecoder;
 
 use crate::poleshift_common::utils::{
     emit_progress, FileMeta, FilesResponse, PoleshiftError, StandardResponse,
@@ -21,25 +21,68 @@ pub struct KrakenReport {
     pub status: String,
 }
 
+struct ProgressReader<Inner: Read, RT: Runtime> {
+    inner: Inner,
+    window: Window<RT>,
+    total_size: u64,
+    bytes_read: u64,
+    last_emitted_percent: u8,
+}
+
+impl<Inner: Read, RT: Runtime> ProgressReader<Inner, RT> {
+    fn new(inner: Inner, window: Window<RT>, total_size: u64) -> Self {
+        Self {
+            inner,
+            window,
+            total_size,
+            bytes_read: 0,
+            last_emitted_percent: 0,
+        }
+    }
+}
+
+impl<Inner: Read, RT: Runtime> Read for ProgressReader<Inner, RT> {
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+        let n = self.inner.read(buf)?;
+        if n == 0 {
+            return Ok(0);
+        }
+
+        self.bytes_read += n as u64;
+        if self.total_size > 0 {
+            let percent = ((self.bytes_read as f64 / self.total_size as f64) * 100.0).floor() as u8;
+            // Emit progress every 5% increments as an example
+            if percent >= self.last_emitted_percent + 5 && percent <= 95 {
+                let msg = format!("Extracting database... {}%", percent);
+                if let Err(e) = crate::poleshift_common::utils::emit_progress(&self.window, percent, &msg) {
+                    println!("Failed to emit progress: {}", e);
+                }
+                self.last_emitted_percent = percent;
+            }
+        }
+
+        Ok(n)
+    }
+}
+
 #[tauri::command]
 pub async fn handle_sequence_data<R: Runtime>(
     app_handle: AppHandle<R>,
     file_paths: Vec<String>,
 ) -> Result<StandardResponse<KrakenReport>, PoleshiftError> {
-    println!(
-        "handle_sequence_data called with file_paths: {:?}",
-        file_paths
-    );
+    println!("handle_sequence_data called with file_paths: {:?}", file_paths);
 
     if file_paths.is_empty() {
         println!("No files provided.");
         return Err(PoleshiftError::NoFiles);
     }
 
-    let window = app_handle.get_window("main").ok_or_else(|| {
-        println!("Window 'main' not found.");
-        PoleshiftError::WindowNotFound
-    })?;
+    let window = app_handle
+        .get_window("main")
+        .ok_or_else(|| {
+            println!("Window 'main' not found.");
+            PoleshiftError::WindowNotFound
+        })?;
 
     emit_progress(&window, 0, "Initializing...")?;
     println!("Progress emitted: 0%, 'Initializing...'");
@@ -56,10 +99,10 @@ pub async fn handle_sequence_data<R: Runtime>(
     println!("Resource directory resolved: {:?}", resource_dir);
 
     let kudb_dir = resource_dir.join("kudb");
-    let kudb_tar_xz = resource_dir.join("kudb.tar.xz"); // changed from kudb.tar.gz to kudb.tar.xz
+    let kudb_tar_gz = resource_dir.join("kudb.tar.gz");
 
     println!("kudb_dir: {:?}", kudb_dir);
-    println!("kudb_tar_xz: {:?}", kudb_tar_xz);
+    println!("kudb_tar_gz: {:?}", kudb_tar_gz);
     println!("Current working directory: {:?}", std::env::current_dir());
     println!("Executable directory: {:?}", std::env::current_exe());
 
@@ -67,27 +110,32 @@ pub async fn handle_sequence_data<R: Runtime>(
     if !kudb_dir.exists() {
         println!(
             "kudb directory does not exist, attempting to extract from '{}'",
-            kudb_tar_xz.display()
+            kudb_tar_gz.display()
         );
 
-        if !kudb_tar_xz.exists() {
-            println!("kudb.tar.xz not found at: {}", kudb_tar_xz.display());
+        if !kudb_tar_gz.exists() {
+            println!("kudb.tar.gz not found at: {}", kudb_tar_gz.display());
+            return Err(PoleshiftError::DatabaseNotFound(
+                kudb_tar_gz.to_string_lossy().to_string(),
+            ));
         }
 
-        // Attempt synchronous extraction
-        println!("Opening tar.xz file...");
-        let tar_xz = File::open(&kudb_tar_xz).map_err(|e| {
-            println!("Error opening {:?}: {}", kudb_tar_xz, e);
+        println!("Opening tar.gz file...");
+        let tar_gz = File::open(&kudb_tar_gz).map_err(|e| {
+            println!("Error opening {:?}: {}", kudb_tar_gz, e);
             PoleshiftError::Other(e.to_string())
         })?;
-        println!("tar.xz file opened successfully.");
+        println!("tar.gz file opened successfully.");
 
-        println!("Creating XzDecoder...");
-        let xz = XzDecoder::new(tar_xz);
-        println!("XzDecoder created.");
+        // Get total file size for progress calculation
+        let total_size = tar_gz.metadata().map(|m| m.len()).unwrap_or(0);
 
-        println!("Creating TAR archive from xz...");
-        let mut archive = Archive::new(xz);
+        println!("Creating GzDecoder...");
+        let gz = GzDecoder::new(tar_gz);
+        println!("GzDecoder created.");
+
+        println!("Creating TAR archive with progress tracking...");
+        let mut archive = Archive::new(ProgressReader::new(gz, window.clone(), total_size));
         println!("TAR archive created. Starting unpack...");
 
         // Try extracting
@@ -100,6 +148,10 @@ pub async fn handle_sequence_data<R: Runtime>(
                 return Err(PoleshiftError::Other(format!("Extraction failed: {}", e)));
             }
         }
+
+        // Once unpacking finishes, let's mark progress 100% for extraction phase
+        emit_progress(&window, 40, "Extraction complete")?;
+        println!("Extraction complete. Progress: 40%");
     } else {
         println!("kudb directory already exists, skipping extraction.");
     }
@@ -120,13 +172,13 @@ pub async fn handle_sequence_data<R: Runtime>(
         PoleshiftError::PathResolution(e.to_string())
     })?;
 
-    println!("Desktop directory: {:?}", data_dir);
+    println!("Temp directory resolved to: {:?}", data_dir);
 
     let report_filename = format!("kraken_report_{}.txt", Uuid::new_v4());
     let report_file_path = data_dir.join(&report_filename);
     println!("Report file will be created at: {:?}", report_file_path);
 
-    // Temporary directory creation, file copying
+    // Temporary directory creation and file copying
     let temp_dir = app_handle.path().temp_dir().map_err(|e| {
         println!("Failed to resolve temp directory: {}", e);
         PoleshiftError::PathResolution(e.to_string())
@@ -165,8 +217,8 @@ pub async fn handle_sequence_data<R: Runtime>(
         temp_file_paths.push(temp_file_path);
     }
 
-    emit_progress(&window, 20, "Running KrakenUniq...")?;
-    println!("Progress emitted: 20%, 'Running KrakenUniq...'");
+    emit_progress(&window, 50, "Running KrakenUniq...")?;
+    println!("Progress emitted: 50%, 'Running KrakenUniq...'");
 
     let window_clone = window.clone();
     println!("Spawning sidecar 'krakenuniq'...");

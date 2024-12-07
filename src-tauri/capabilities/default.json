@@ -20,6 +20,12 @@
     "core:path:allow-dirname",
     "core:path:allow-extname",
     "core:menu:allow-popup",
-    "updater:default"
+    "updater:default",
+    "fs:allow-create",
+    "fs:allow-seek",
+    "fs:allow-size",
+    "fs:allow-mkdir",
+    "fs:allow-resource-write-recursive",
+    "fs:allow-resource-read-recursive"
   ]
 }
