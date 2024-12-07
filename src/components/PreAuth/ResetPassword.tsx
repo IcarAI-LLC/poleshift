@@ -1,6 +1,5 @@
-// src/renderer/components/PreAuth/ResetPassword.tsx
-
-import React, { useState } from 'react';
+// components/PreAuth/ResetPassword.tsx
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -9,121 +8,146 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import supabase from '../../utils/supabaseClient';
+import type { SxProps, Theme } from '@mui/material/styles';
+import { useAuth } from '../../lib/hooks';
+import type { PreAuthView } from '../../lib/types';
 
 interface ResetPasswordProps {
-  onNavigate: (view: 'login') => void; // Added onNavigate prop
+  onNavigate: (view: PreAuthView) => void;
 }
 
+interface FormState {
+  email: string;
+  message: string | null;
+  error: string | null;
+  isLoading: boolean;
+}
+
+const styles = {
+  container: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100vh',
+    bgcolor: 'background.default',
+    color: 'text.primary',
+    p: 2,
+  } as SxProps<Theme>,
+  form: {
+    width: '100%',
+    maxWidth: 400,
+    p: 4,
+    bgcolor: 'background.paper',
+    borderRadius: 2,
+    boxShadow: 3,
+  } as SxProps<Theme>,
+  button: {
+    mt: 2,
+    mb: 1,
+  } as SxProps<Theme>,
+};
+
 const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
-  const [email, setEmail] = useState<string>('');
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { resetPassword } = useAuth();
+  const [formState, setFormState] = useState<FormState>({
+    email: '',
+    message: null,
+    error: null,
+    isLoading: false,
+  });
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setMessage(null);
-    setIsLoading(true);
+  const handleSubmit = useCallback(
+      async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
 
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/update-password`,
-      });
+        setFormState((prev) => ({
+          ...prev,
+          error: null,
+          message: null,
+          isLoading: true,
+        }));
 
-      if (error) {
-        setError(error.message);
-        setMessage(null);
-      } else {
-        setMessage('Password reset email sent. Check your inbox.');
-        setError(null);
-      }
-    } catch (err: any) {
-      console.error('Reset Password error:', err);
-      setError('An unexpected error occurred. Please try again.');
-      setMessage(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        try {
+          await resetPassword(formState.email);
+          setFormState((prev) => ({
+            ...prev,
+            message: 'Password reset email sent. Check your inbox.',
+            isLoading: false,
+          }));
+        } catch (err) {
+          console.error('Reset Password error:', err);
+          setFormState((prev) => ({
+            ...prev,
+            error:
+                err instanceof Error ? err.message : 'An unexpected error occurred',
+            isLoading: false,
+          }));
+        }
+      },
+      [formState.email, resetPassword]
+  );
+
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormState((prev) => ({ ...prev, email: e.target.value }));
+  }, []);
 
   return (
-    <Box
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      minHeight="100vh"
-      bgcolor="background.default"
-      color="text.primary"
-      padding={2}
-    >
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          width: '100%',
-          maxWidth: 400,
-          p: 4,
-          bgcolor: 'background.paper',
-          borderRadius: 2,
-          boxShadow: 3,
-        }}
-      >
-        <Typography variant="h5" component="h1" gutterBottom align="center">
-          Reset Password
-        </Typography>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {message && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {message}
-          </Alert>
-        )}
-
-        <TextField
-          label="Email"
-          variant="outlined"
-          type="email"
-          fullWidth
-          margin="normal"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          disabled={isLoading || !!message}
-        />
-
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          fullWidth
-          sx={{ mt: 2, mb: 1 }}
-          disabled={isLoading || !!message}
-          startIcon={isLoading && <CircularProgress size={20} />}
-        >
-          {isLoading ? 'Sending...' : 'Reset Password'}
-        </Button>
-
-        <Box textAlign="center" mt={2}>
-          <Typography variant="body2">
-            Remember your password?{' '}
-            <Button
-              variant="text"
-              onClick={() => onNavigate('login')}
-              disabled={isLoading}
-            >
-              Log In
-            </Button>
+      <Box sx={styles.container}>
+        <Box component="form" onSubmit={handleSubmit} sx={styles.form}>
+          <Typography variant="h5" component="h1" gutterBottom align="center">
+            Reset Password
           </Typography>
+
+          {formState.error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {formState.error}
+              </Alert>
+          )}
+
+          {formState.message && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {formState.message}
+              </Alert>
+          )}
+
+          <TextField
+              label="Email"
+              variant="outlined"
+              type="email"
+              fullWidth
+              margin="normal"
+              value={formState.email}
+              onChange={handleEmailChange}
+              required
+              disabled={formState.isLoading || !!formState.message}
+          />
+
+          <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              fullWidth
+              sx={styles.button}
+              disabled={formState.isLoading || !!formState.message}
+              startIcon={formState.isLoading ? <CircularProgress size={20} /> : null}
+          >
+            {formState.isLoading ? 'Sending...' : 'Reset Password'}
+          </Button>
+
+          <Box textAlign="center" mt={2}>
+            <Typography variant="body2">
+              Remember your password?{' '}
+              <Button
+                  variant="text"
+                  onClick={() => onNavigate('login')}
+                  disabled={formState.isLoading}
+              >
+                Log In
+              </Button>
+            </Typography>
+          </Box>
         </Box>
       </Box>
-    </Box>
   );
 };
 

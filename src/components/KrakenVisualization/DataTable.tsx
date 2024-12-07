@@ -8,7 +8,6 @@ import {
   TableRow,
   Paper,
   TableSortLabel,
-  Box,
 } from '@mui/material';
 
 interface Column {

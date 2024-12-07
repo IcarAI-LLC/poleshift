@@ -83,8 +83,8 @@ const theme = createTheme(baseTheme, {
           },
         },
         input: {
-          padding: '16.5px 14px', // Update padding to align text vertically in the center
-          lineHeight: 1.5, // Adjust line height to improve text positioning
+          padding: '16.5px 14px',
+          lineHeight: 1.5,
           '&::placeholder': {
             color: baseTheme.palette.text.secondary,
             opacity: 0.7,
@@ -101,9 +101,9 @@ const theme = createTheme(baseTheme, {
           },
         },
         outlined: {
-          transform: 'translate(14px, 16px) scale(1)', // Adjust label position
+          transform: 'translate(14px, 16px) scale(1)',
           '&.MuiInputLabel-shrink': {
-            transform: 'translate(14px, -6px) scale(0.75)', // Adjust shrunk label position
+            transform: 'translate(14px, -6px) scale(0.75)',
           },
         },
       },
@@ -112,13 +112,13 @@ const theme = createTheme(baseTheme, {
       styleOverrides: {
         root: {
           backgroundColor: '#1a1a1a',
-          padding: '24px', // Increased padding
+          padding: '24px',
           '& .MuiFormControl-root': {
-            marginBottom: '20px', // Add bottom margin to form controls
+            marginBottom: '20px',
             marginTop: '20px',
           },
           '& .MuiFormControl-root:last-child': {
-            marginBottom: '20px', // Less margin on last form control
+            marginBottom: '20px',
           },
         },
       },
@@ -126,7 +126,7 @@ const theme = createTheme(baseTheme, {
     MuiSelect: {
       styleOverrides: {
         select: {
-          padding: '14px', // Match input padding
+          padding: '14px',
         },
         icon: {
           color: baseTheme.palette.text.primary,
@@ -180,11 +180,10 @@ const theme = createTheme(baseTheme, {
       styleOverrides: {
         root: {
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          padding: '16px 24px', // Increased padding
+          padding: '16px 24px',
         },
       },
     },
-    // MUI X Components Overrides
     MuiPickersDay: {
       styleOverrides: {
         root: {

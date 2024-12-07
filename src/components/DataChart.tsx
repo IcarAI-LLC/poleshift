@@ -1,6 +1,6 @@
 // src/renderer/components/DataChart.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ScatterChart,
   Scatter,
@@ -11,26 +11,28 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Box, FormControlLabel, Checkbox } from '@mui/material';
-
+import { Box, FormControlLabel, Checkbox, Typography } from '@mui/material';
+import {ProcessedCTDData} from "../lib/utils/processCTDDataForModal.ts";
 interface DataChartProps {
-  data: any[];
-  units: Record<string, string>;
+  data: ProcessedCTDData['processedData'];
+  units: ProcessedCTDData['variableUnits'];
 }
 
 const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
   const [selectedVariables, setSelectedVariables] = useState<string[]>([]);
-
-  // Get variable names from the data, excluding 'depth'
-  const variableOptions = Object.keys(data[0] || {}).filter(
-    (key) => key !== 'depth',
-  );
+  console.log("data", data);
+  console.log("units", units);
+  // Memoize variable options to avoid unnecessary recalculations
+  const variableOptions = useMemo(() => {
+    if (data.length === 0) return [];
+    return Object.keys(data[0]).filter((key) => key !== 'depth');
+  }, [data]);
 
   const handleToggle = (variableName: string) => {
     setSelectedVariables((prev) =>
-      prev.includes(variableName)
-        ? prev.filter((v) => v !== variableName)
-        : [...prev, variableName],
+        prev.includes(variableName)
+            ? prev.filter((v) => v !== variableName)
+            : [...prev, variableName],
     );
   };
 
@@ -45,70 +47,77 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
     '#FF8042',
   ];
 
-  return (
-    <Box>
-      {/* Render toggles */}
-      <Box display="flex" flexWrap="wrap" mb={2}>
-        {variableOptions.map((variableName) => (
-          <FormControlLabel
-            key={variableName}
-            control={
-              <Checkbox
-                checked={selectedVariables.includes(variableName)}
-                onChange={() => handleToggle(variableName)}
-                name={variableName}
-              />
-            }
-            label={variableName}
-          />
-        ))}
-      </Box>
+  if (data.length === 0) {
+    return <Typography>No data available to display.</Typography>;
+  }
 
-      <ResponsiveContainer width="100%" height={500}>
-        <ScatterChart
-          margin={{
-            top: 20,
-            right: 20,
-            bottom: 40,
-            left: 20,
-          }}
-        >
-          <CartesianGrid />
-          <XAxis
-            type="number"
-            dataKey="value"
-            name="Value"
-            domain={['auto', 'auto']}
-          />
-          <YAxis
-            type="number"
-            dataKey="depth"
-            name="Depth"
-            reversed // Depth increasing downward
-            label={{ value: 'Depth (m)', angle: -90, position: 'insideLeft' }}
-            domain={['auto', 'auto']}
-          />
-          <Tooltip
-            cursor={{ strokeDasharray: '3 3' }}
-            formatter={(value, name) => [`${value}`, `${name}`]}
-          />
-          <Legend />
-          {selectedVariables.map((variableName, index) => (
-            <Scatter
-              key={variableName}
-              name={`${variableName} (${units[variableName] || ''})`}
-              data={data.map((item) => ({
-                depth: item.depth,
-                value: item[variableName],
-              }))}
-              fill={colorArray[index % colorArray.length]}
-              line
-              lineType="joint"
-            />
+  return (
+      <Box>
+        {/* Render toggles */}
+        <Box display="flex" flexWrap="wrap" mb={2}>
+          {variableOptions.map((variableName) => (
+              <FormControlLabel
+                  key={variableName}
+                  control={
+                    <Checkbox
+                        checked={selectedVariables.includes(variableName)}
+                        onChange={() => handleToggle(variableName)}
+                        name={variableName}
+                        color="primary"
+                    />
+                  }
+                  label={`${variableName} (${units[variableName] || 'N/A'})`}
+              />
           ))}
-        </ScatterChart>
-      </ResponsiveContainer>
-    </Box>
+        </Box>
+
+        <ResponsiveContainer width="100%" height={500}>
+          <ScatterChart
+              margin={{
+                top: 20,
+                right: 20,
+                bottom: 40,
+                left: 60,
+              }}
+          >
+            <CartesianGrid />
+            <XAxis
+                type="number"
+                dataKey="value"
+                name="Value"
+                domain={['auto', 'auto']}
+                label={{ value: 'Variable Value', position: 'insideBottom', offset: -10 }}
+            />
+            <YAxis
+                type="number"
+                dataKey="depth"
+                name="Depth"
+                reversed // Depth increasing downward
+                label={{ value: 'Depth (m)', angle: -90, position: 'insideLeft' }}
+                domain={['auto', 'auto']}
+            />
+            <Tooltip
+                cursor={{ strokeDasharray: '3 3' }}
+                formatter={(value: number, name: string) => [`${value}`, name]}
+                labelFormatter={(label) => `Depth: ${label} m`}
+            />
+            <Legend />
+            {selectedVariables.map((variableName, index) => (
+                <Scatter
+                    key={variableName}
+                    name={`${variableName} (${units[variableName] || 'N/A'})`}
+                    data={data.map((item) => ({
+                      depth: item.depth,
+                      value: item[variableName],
+                    })).filter(point => !isNaN(point.value))}
+                    fill={colorArray[index % colorArray.length]}
+                    line
+                    lineType="joint"
+                />
+            ))}
+          </ScatterChart>
+        </ResponsiveContainer>
+      </Box>
   );
 };
 

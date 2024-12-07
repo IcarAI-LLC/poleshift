@@ -12,13 +12,6 @@ interface ProgressTrackerProps {
 
 const ProgressTracker: React.FC<ProgressTrackerProps> = memo(
   ({ progress, status, showPercentage = false, type }) => {
-    // Memoize the progress label to prevent unnecessary re-renders
-    const progressLabel = useMemo(() => {
-      if (showPercentage) {
-        return `${Math.round(progress)}%`;
-      }
-      return '';
-    }, [progress, showPercentage]);
 
     // Memoize the color based on type
     const progressColor = useMemo(() => {

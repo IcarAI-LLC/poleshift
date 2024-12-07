@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+/src/assets/globe.jpg
+/test-files/
+/static_kraken_ubuntu_x64/
+/.supabase/

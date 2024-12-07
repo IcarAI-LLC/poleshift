@@ -1,34 +1,42 @@
 // src/App.tsx
-
+import React, {useEffect} from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { ThemeProvider } from '@mui/material/styles';
-import { AuthProvider } from './contexts/AuthContext';
-import { DataProvider } from './contexts/DataContext';
-import { UIProvider } from './contexts/UIContext';
-import { ProcessedDataProvider } from './contexts/ProcessedDataContext.tsx';
-import AppRoutes from './routes/AppRoutes';
-import { theme } from './theme.ts';
+import { PowerSyncContext } from '@powersync/react';
 
+import { theme } from './theme';
+import AppRoutes from './routes/AppRoutes';
 import './App.css';
+import { db, setupPowerSync } from './lib/powersync/db';
+import { checkForAppUpdates } from './updater';
 
 function App() {
-  return (
-    <AuthProvider>
-      <UIProvider>
-        <LocalizationProvider dateAdapter={AdapterLuxon}>
-          <ThemeProvider theme={theme}>
-            {/* Removed Router */}
-            <DataProvider>
-              <ProcessedDataProvider>
-                <AppRoutes />
-              </ProcessedDataProvider>
-            </DataProvider>
-          </ThemeProvider>
-        </LocalizationProvider>
-      </UIProvider>
-    </AuthProvider>
-  );
+    useEffect(() => {
+        checkForAppUpdates();
+    }, []);
+    const [initialized, setInitialized] = React.useState(false);
+
+    React.useEffect(() => {
+        (async () => {
+            await setupPowerSync(); // Connect to PowerSync
+            setInitialized(true);
+        })();
+    }, []);
+
+    if (!initialized) {
+        return <div>Initializing PowerSync...</div>;
+    }
+
+    return (
+        <PowerSyncContext.Provider value={db}>
+            <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <ThemeProvider theme={theme}>
+                    <AppRoutes />
+                </ThemeProvider>
+            </LocalizationProvider>
+        </PowerSyncContext.Provider>
+    );
 }
 
 export default App;

@@ -3,42 +3,42 @@
 export interface ModalField {
   name: string;
   label?: string;
-  type: 'text' | 'textarea' | 'select' | 'number' | 'date'; // Added 'date' type
-  options?: string[]; // Only applicable for 'select' type
+  type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'time' | 'timezone';
+  options?: any;
   tooltip?: string;
+  required?: boolean;
 }
 
 export interface DropboxConfigItem {
-  id: string; // Unique identifier, now using dataType
+  id: string;
   label: string;
-  dataType: string; // The type of data
+  dataType: string;
   expectedFileTypes: Record<string, string[]> | null;
   isEnabled: boolean;
   isModalInput: boolean;
   processFunctionName: string;
   requiredSubscriptionLevel?: number;
   modalFields: ModalField[];
-  acceptsMultipleFiles?: boolean; // Optional, default is false
+  acceptsMultipleFiles?: boolean;
   tooltip?: string;
 }
 
 const dropboxConfig: DropboxConfigItem[] = [
   {
-    id: 'nutrient_ammonia', // Using dataType as id
+    id: 'nutrient_ammonia',
     label: 'Nutrient Ammonia',
     dataType: 'nutrient_ammonia',
     expectedFileTypes: null,
     isEnabled: true,
     isModalInput: true,
-    processFunctionName: 'handleNutrientAmmoniaInput',
+    processFunctionName: 'handle_nutrient_ammonia',
     requiredSubscriptionLevel: 1,
     modalFields: [
       {
         name: 'ammoniaValue',
         type: 'number',
         label: 'Ammonia Value',
-        tooltip:
-          'Please input the Ammonia value, this will be converted to Ammonium.',
+        tooltip: 'Please input the Ammonia value, this will be converted to Ammonium.',
       },
     ],
   },
@@ -50,24 +50,23 @@ const dropboxConfig: DropboxConfigItem[] = [
     expectedFileTypes: { 'application/octet-stream': ['.rsk'] },
     isEnabled: true,
     isModalInput: false,
-    processFunctionName: 'handleCTDDataUpload',
+    processFunctionName: 'handle_ctd_data_upload',
     requiredSubscriptionLevel: 1,
-    modalFields: [], // No modal inputs needed for CTD data
+    modalFields: [],
   },
 
   {
-    id: 'sequencing_data', // New entry for sequencing data
+    id: 'sequencing_data',
     label: 'Sequencing Data',
     dataType: 'sequencing_data',
     expectedFileTypes: {
-      'application/gzip': ['.fastq.gz', '.fq.gz', '.fasta.gz', '.fa.gz'],
-      'text/plain': ['.fastq', '.fq', '.fasta', '.fa'],
+      'text/plain': ['.fastq', '.fq', '.fasta', '.fa', '.gz']
     },
     isEnabled: true,
     isModalInput: false,
-    processFunctionName: 'handleSequencingData',
-    requiredSubscriptionLevel: 1, // Adjust subscription level as needed
-    modalFields: [], // No modal inputs needed for sequencing data
+    processFunctionName: 'handle_sequence_data',
+    requiredSubscriptionLevel: 1,
+    modalFields: [],
     acceptsMultipleFiles: true,
   },
 ];

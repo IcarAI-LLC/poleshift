@@ -1,6 +1,4 @@
-// src/components/SampleGroupMetadata.tsx
-
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { format, parse } from 'date-fns';
@@ -12,56 +10,145 @@ import {
   AccordionSummary,
   AccordionDetails,
   TextField,
+  Card,
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { SampleGroup } from '../utils/sampleGroupUtils';
-import supabase from '../utils/supabaseClient';
-import { DataContext } from '../contexts/DataContext';
-import LocationFields from './LocationFields';
-import {
-  addPendingOperation,
-  addOrUpdateSampleGroup,
-} from '../utils/offlineStorage';
+import type { SxProps, Theme } from '@mui/material/styles';
 
-interface SampleGroupMetadataProps {
-  sampleGroup: SampleGroup;
+import { useData, useUI } from '../lib/hooks';
+import type { SampleGroupMetadata as TSampleGroupMetadata } from '../lib/types';
+import LocationFields from './LocationFields';
+
+// Styles interface for better type safety
+interface StyleProps {
+  metadataItemStyles: SxProps<Theme>;
+  labelStyles: SxProps<Theme>;
+  valueStyles: SxProps<Theme>;
+  darkFieldStyles: SxProps<Theme>;
+  accordionStyles: SxProps<Theme>;
+  containerStyles: SxProps<Theme>;
+  summaryStyles: SxProps<Theme>;
 }
 
-const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
-  sampleGroup,
-}) => {
-  const { locations, setSampleGroupData } = useContext(DataContext);
+export const SampleGroupMetadata: React.FC = () => {
   const theme = useTheme();
+  const { locations, updateSampleGroup, sampleGroups } = useData();
+  const { selectedLeftItem } = useUI();
 
-  // Initialize state directly from props
-  const [collectionTimeUTC, setCollectionTimeUTC] = useState<string>(
-    sampleGroup.collection_datetime_utc
-      ? new Date(sampleGroup.collection_datetime_utc)
-          .toISOString()
-          .split('T')[1]
-          .substring(0, 8)
-      : '',
-  );
-  const [notes, setNotes] = useState<string>(sampleGroup.notes || '');
+  // Local state
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [localState, setLocalState] = useState({
+    collectionTimeUTC: '',
+    notes: '',
+  });
 
-  // Remove useEffect to prevent overwriting local state
+  // Get current sample group
+  const sampleGroup = selectedLeftItem
+      ? sampleGroups[selectedLeftItem.id]
+      : null as unknown as TSampleGroupMetadata;
 
-  const location = sampleGroup
-    ? locations.find((loc) => loc.id === sampleGroup.loc_id)
-    : null;
+  const location = sampleGroup?.loc_id
+      ? locations.find(loc => loc.id === sampleGroup.loc_id)
+      : null;
 
-  const handleCollectionTimeUpdate = async (timeString: string) => {
-    console.log('handleCollectionTimeUpdate called with:', timeString); // Debug log
+  // Styles with enhanced overflow handling
+  const styles: StyleProps = {
+    containerStyles: {
+      backgroundColor: 'background.paper',
+      borderRadius: 2,
+      boxShadow: 'var(--shadow-sm)',
+      m: 2,
+      maxHeight: 'calc(100vh - 180px)', // Increased space for container
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      position: 'relative', // Added for proper positioning
+    },
+    accordionStyles: {
+      '&:before': {
+        display: 'none',
+      },
+      boxShadow: 'none',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden', // Prevent accordion overflow
+    },
+    summaryStyles: {
+      borderBottom: `1px solid ${theme.palette.divider}`,
+      '&.Mui-expanded': {
+        minHeight: '48px',
+      },
+      flexShrink: 0, // Prevent summary from shrinking
+    },
+    metadataItemStyles: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      p: 1.5,
+      borderBottom: `1px solid ${theme.palette.divider}`,
+      '&:last-child': {
+        borderBottom: 'none',
+      },
+    },
+    labelStyles: {
+      width: '180px',
+      flexShrink: 0,
+      color: 'text.secondary',
+      fontSize: 'var(--font-size-medium)',
+    },
+    valueStyles: {
+      flex: 1,
+      color: 'text.primary',
+      fontSize: 'var(--font-size-medium)',
+    },
+    darkFieldStyles: {
+      '& .MuiOutlinedInput-root': {
+        backgroundColor: 'rgba(18, 18, 18, 0.7)',
+        '& fieldset': {
+          borderColor: 'divider',
+        },
+        '&:hover fieldset': {
+          borderColor: 'primary.main',
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: 'primary.main',
+        },
+      },
+      '& .MuiInputLabel-root': {
+        color: 'text.primary',
+      },
+      '& .MuiInputBase-input': {
+        color: 'text.primary',
+        fontSize: 'var(--font-size-medium)',
+      },
+      '& .MuiSvgIcon-root': {
+        color: 'text.primary',
+      },
+    },
+  };
 
-    if (!sampleGroup.id) {
-      console.error('Sample group ID is undefined');
-      return;
+  // Update local state when sample group changes
+  useEffect(() => {
+    if (sampleGroup) {
+      setLocalState({
+        collectionTimeUTC: sampleGroup.collection_datetime_utc
+            ? new Date(sampleGroup.collection_datetime_utc)
+                .toISOString()
+                .split('T')[1]
+                .substring(0, 8)
+            : '',
+        notes: sampleGroup.notes || '',
+      });
     }
+  }, [sampleGroup]);
+
+  // Handlers
+  const handleCollectionTimeUpdate = useCallback(async (timeString: string) => {
+    if (!sampleGroup?.id) return;
 
     try {
-      let collection_datetime_utc: string | null = null;
+      let collection_datetime_utc: string | undefined;
 
       if (timeString) {
         const utcDateTimeString = `${sampleGroup.collection_date}T${timeString}Z`;
@@ -69,348 +156,181 @@ const SampleGroupMetadata: React.FC<SampleGroupMetadataProps> = ({
         collection_datetime_utc = utcDateTime.toISOString();
       }
 
-      const updateData = {
-        collection_datetime_utc,
-      };
-
-      // Update local state immediately
-      setCollectionTimeUTC(timeString);
-      console.log('setCollectionTimeUTC called with:', timeString); // Debug log
-
-      // Update parent state
-      setSampleGroupData((prev) => ({
+      setLocalState(prev => ({
         ...prev,
-        [sampleGroup.id]: {
-          ...prev[sampleGroup.id],
-          collection_datetime_utc,
-        },
+        collectionTimeUTC: timeString
       }));
-      console.log('setSampleGroupData called for collection_datetime_utc'); // Debug log
 
-      // Save to IndexedDB
-      await addOrUpdateSampleGroup({
-        ...sampleGroup,
-        collection_datetime_utc,
-      });
-      console.log('Collection time saved to IndexedDB.'); // Debug log
-
-      if (navigator.onLine) {
-        // Online: Update Supabase directly
-        const { data, error } = await supabase
-          .from('sample_group_metadata')
-          .update(updateData)
-          .eq('id', sampleGroup.id)
-          .select();
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          setSampleGroupData((prev) => ({
-            ...prev,
-            [data[0].id]: {
-              ...prev[data[0].id],
-              collection_datetime_utc: data[0].collection_datetime_utc,
-            },
-          }));
-          console.log('Collection time updated in Supabase.'); // Debug log
-        }
-      } else {
-        // Offline: Queue the operation
-        const pendingOperation = {
-          type: 'update',
-          table: 'sample_group_metadata',
-          data: {
-            id: sampleGroup.id,
-            updateData,
-          },
-        };
-        await addPendingOperation(pendingOperation);
-        console.log(
-          'Collection time update queued for offline synchronization.',
-        ); // Debug log
-      }
+      await updateSampleGroup(sampleGroup.id, { collection_datetime_utc });
     } catch (error) {
       console.error('Error updating collection time:', error);
+      // Reset to previous value on error
+      setLocalState(prev => ({
+        ...prev,
+        collectionTimeUTC: sampleGroup.collection_datetime_utc
+            ? new Date(sampleGroup.collection_datetime_utc)
+                .toISOString()
+                .split('T')[1]
+                .substring(0, 8)
+            : ''
+      }));
     }
-  };
+  }, [sampleGroup, updateSampleGroup]);
 
-  const handleNotesUpdate = async (newNotes: string) => {
-    console.log('handleNotesUpdate called with:', newNotes); // Debug log
-
-    if (!sampleGroup.id) {
-      console.error('Sample group ID is undefined');
-      return;
-    }
+  const handleNotesUpdate = useCallback(async (newNotes: string) => {
+    if (!sampleGroup?.id) return;
 
     try {
-      const updateData = {
-        notes: newNotes,
-      };
-
-      // Update local state immediately
-      setNotes(newNotes);
-      console.log('setNotes called with:', newNotes); // Debug log
-
-      // Update parent state
-      setSampleGroupData((prev) => ({
+      setLocalState(prev => ({
         ...prev,
-        [sampleGroup.id]: {
-          ...prev[sampleGroup.id],
-          notes: newNotes,
-        },
+        notes: newNotes
       }));
-      console.log('setSampleGroupData called for notes'); // Debug log
 
-      // Save to IndexedDB
-      await addOrUpdateSampleGroup({
-        ...sampleGroup,
-        notes: newNotes,
-      });
-      console.log('Notes saved to IndexedDB.'); // Debug log
-
-      if (navigator.onLine) {
-        // Online: Update Supabase directly
-        const { data, error } = await supabase
-          .from('sample_group_metadata')
-          .update(updateData)
-          .eq('id', sampleGroup.id)
-          .select();
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          setSampleGroupData((prev) => ({
-            ...prev,
-            [data[0].id]: {
-              ...prev[sampleGroup.id],
-              notes: data[0].notes,
-            },
-          }));
-          console.log('Notes updated in Supabase.'); // Debug log
-        }
-      } else {
-        // Offline: Queue the operation
-        const pendingOperation = {
-          type: 'update',
-          table: 'sample_group_metadata',
-          data: {
-            id: sampleGroup.id,
-            updateData,
-          },
-        };
-        await addPendingOperation(pendingOperation);
-        console.log('Notes update queued for offline synchronization.'); // Debug log
-      }
+      await updateSampleGroup(sampleGroup.id, { notes: newNotes });
     } catch (error) {
       console.error('Error updating notes:', error);
+      setLocalState(prev => ({
+        ...prev,
+        notes: sampleGroup.notes || ''
+      }));
     }
-  };
+  }, [sampleGroup, updateSampleGroup]);
 
-  const metadataItemStyles = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    padding: theme.spacing(1.5),
-    borderBottom: `1px solid ${theme.palette.divider}`,
-    '&:last-child': {
-      borderBottom: 'none',
-    },
-  };
-
-  const labelStyles = {
-    width: '180px',
-    flexShrink: 0,
-    color: theme.palette.text.secondary,
-    fontSize: 'var(--font-size-medium)',
-  };
-
-  const valueStyles = {
-    flex: 1,
-    color: theme.palette.text.primary,
-    fontSize: 'var(--font-size-medium)',
-  };
-
-  const darkFieldStyles = {
-    '& .MuiOutlinedInput-root': {
-      backgroundColor: 'rgba(18, 18, 18, 0.7)',
-      '& fieldset': {
-        borderColor: theme.palette.divider,
-      },
-      '&:hover fieldset': {
-        borderColor: theme.palette.primary.main,
-      },
-      '&.Mui-focused fieldset': {
-        borderColor: theme.palette.primary.main,
-      },
-    },
-    '& .MuiInputLabel-root': {
-      color: theme.palette.text.primary,
-    },
-    '& .MuiInputBase-input': {
-      color: theme.palette.text.primary,
-      fontSize: 'var(--font-size-medium)',
-    },
-    '& .MuiSvgIcon-root': {
-      color: theme.palette.text.primary,
-    },
-  };
-
-  const summaryContent = (
-    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-        {sampleGroup.human_readable_sample_id}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {sampleGroup.collection_date} •{' '}
-        {location ? location.label : 'Unknown Location'}
-      </Typography>
-    </Box>
-  );
+  if (!sampleGroup) return null;
 
   return (
-    <Box
-      sx={{
-        backgroundColor: theme.palette.background.paper,
-        borderRadius: '8px',
-        boxShadow: 'var(--shadow-sm)',
-        margin: theme.spacing(2),
-      }}
-    >
-      <Accordion
-        expanded={isExpanded}
-        onChange={() => setIsExpanded(!isExpanded)}
-        sx={{
-          '&:before': {
-            display: 'none',
-          },
-          boxShadow: 'none',
-        }}
-      >
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          sx={{
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            '&.Mui-expanded': {
-              minHeight: '48px',
-            },
-          }}
+      <Card sx={styles.containerStyles}>
+        <Accordion
+            expanded={isExpanded}
+            onChange={() => setIsExpanded(!isExpanded)}
+            sx={styles.accordionStyles}
+            disableGutters
         >
-          {summaryContent}
-        </AccordionSummary>
-        <AccordionDetails sx={{ padding: 0 }}>
-          <Box sx={metadataItemStyles}>
-            <Typography sx={labelStyles}>Sample ID:</Typography>
-            <Typography sx={valueStyles}>
-              {sampleGroup.human_readable_sample_id}
-            </Typography>
-          </Box>
-
-          <Box sx={metadataItemStyles}>
-            <Typography sx={labelStyles}>Date:</Typography>
-            <Typography sx={valueStyles}>
-              {sampleGroup.collection_date}
-            </Typography>
-          </Box>
-
-          <Box sx={metadataItemStyles}>
-            <Typography sx={labelStyles}>Collection Time (UTC):</Typography>
-            <Box sx={valueStyles}>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <TimePicker
-                  value={
-                    collectionTimeUTC
-                      ? parse(collectionTimeUTC, 'HH:mm:ss', new Date())
-                      : null
-                  }
-                  onChange={(newValue) => {
-                    if (newValue && !isNaN(newValue.getTime())) {
-                      const timeString = format(newValue, 'HH:mm:ss');
-                      setCollectionTimeUTC(timeString);
-                      console.log('TimePicker onChange:', timeString); // Debug log
-                    } else {
-                      setCollectionTimeUTC('');
-                      console.log('TimePicker onChange: cleared'); // Debug log
-                    }
-                  }}
-                  onAccept={(newValue) => {
-                    if (newValue && !isNaN(newValue.getTime())) {
-                      const timeString = format(newValue, 'HH:mm:ss');
-                      handleCollectionTimeUpdate(timeString);
-                      console.log('TimePicker onAccept:', timeString); // Debug log
-                    }
-                  }}
-                  ampm={false}
-                  views={['hours', 'minutes', 'seconds']}
-                  slots={{ openPickerIcon: AccessTimeIcon }}
-                  slotProps={{
-                    textField: {
-                      variant: 'outlined',
-                      placeholder: 'HH:MM:SS',
-                      fullWidth: true,
-                      size: 'small',
-                      sx: darkFieldStyles,
-                    },
-                    popper: {
-                      sx: {
-                        '& .MuiPaper-root': {
-                          backgroundColor: theme.palette.background.paper,
-                          color: theme.palette.text.primary,
-                        },
-                        '& .MuiPickersDay-root': {
-                          color: theme.palette.text.primary,
-                          '&.Mui-selected': {
-                            backgroundColor: theme.palette.primary.main,
-                            color: theme.palette.common.white,
-                          },
-                        },
-                      },
-                    },
-                  }}
-                />
-              </LocalizationProvider>
+          <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={styles.summaryStyles}
+          >
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                {sampleGroup.human_readable_sample_id || 'Unnamed Sample'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {sampleGroup.collection_date || 'Unknown Date'} •{' '}
+                {location?.label || 'Unknown Location'}
+              </Typography>
             </Box>
-          </Box>
+          </AccordionSummary>
 
-          <Box sx={metadataItemStyles}>
-            <Typography sx={labelStyles}>Location:</Typography>
-            <Typography sx={valueStyles}>
-              {location ? location.label : 'Unknown Location'}
-            </Typography>
-          </Box>
+          <AccordionDetails sx={{
+            p: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden', // Prevent horizontal scroll
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            maxHeight: 'calc(100vh - 240px)', // Adjusted for header and margins
+          }}>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 'min-content',
+              pb: 2, // Add bottom padding for last item
+            }}>
+              {/* Basic Info Fields */}
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Sample ID:</Typography>
+                <Typography sx={styles.valueStyles}>
+                  {sampleGroup.human_readable_sample_id || 'N/A'}
+                </Typography>
+              </Box>
 
-          <Box sx={metadataItemStyles}>
-            <Typography sx={labelStyles}>Notes:</Typography>
-            <TextField
-              multiline
-              rows={3}
-              value={notes}
-              onChange={(e) => {
-                setNotes(e.target.value);
-                console.log('Notes onChange:', e.target.value); // Debug log
-              }}
-              onBlur={() => handleNotesUpdate(notes)}
-              placeholder="Add notes about this sample..."
-              fullWidth
-              variant="outlined"
-              size="small"
-              sx={{
-                ...darkFieldStyles,
-                flex: 1,
-              }}
-            />
-          </Box>
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Date:</Typography>
+                <Typography sx={styles.valueStyles}>
+                  {sampleGroup.collection_date || 'N/A'}
+                </Typography>
+              </Box>
 
-          <LocationFields
-            sampleGroup={sampleGroup}
-            theme={theme}
-            metadataItemStyles={metadataItemStyles}
-            labelStyles={labelStyles}
-            valueStyles={valueStyles}
-            darkFieldStyles={darkFieldStyles}
-            setSampleGroupData={setSampleGroupData}
-          />
-        </AccordionDetails>
-      </Accordion>
-    </Box>
+              {/* Time Picker */}
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Time (UTC):</Typography>
+                <Box sx={styles.valueStyles}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <TimePicker
+                        value={
+                          localState.collectionTimeUTC
+                              ? parse(localState.collectionTimeUTC, 'HH:mm:ss', new Date())
+                              : null
+                        }
+                        onChange={(newValue) => {
+                          if (newValue && !isNaN(newValue.getTime())) {
+                            const timeString = format(newValue, 'HH:mm:ss');
+                            handleCollectionTimeUpdate(timeString);
+                          }
+                        }}
+                        ampm={false}
+                        views={['hours', 'minutes', 'seconds']}
+                        slots={{ openPickerIcon: AccessTimeIcon }}
+                        slotProps={{
+                          textField: {
+                            variant: 'outlined',
+                            placeholder: 'HH:MM:SS',
+                            fullWidth: true,
+                            size: 'small',
+                            sx: styles.darkFieldStyles,
+                          },
+                        }}
+                    />
+                  </LocalizationProvider>
+                </Box>
+              </Box>
+
+              {/* Location Info */}
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Location:</Typography>
+                <Typography sx={styles.valueStyles}>
+                  {location?.label || 'Unknown Location'}
+                </Typography>
+              </Box>
+
+              {/* Notes Field */}
+              <Box sx={styles.metadataItemStyles}>
+                <Typography sx={styles.labelStyles}>Notes:</Typography>
+                <TextField
+                    multiline
+                    rows={3}
+                    value={localState.notes}
+                    onChange={(e) => setLocalState(prev => ({
+                      ...prev,
+                      notes: e.target.value
+                    }))}
+                    onBlur={() => handleNotesUpdate(localState.notes)}
+                    placeholder="Add notes about this sample..."
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      ...styles.darkFieldStyles,
+                      flex: 1,
+                    }}
+                />
+              </Box>
+
+              {/* Location Fields Component */}
+              <LocationFields
+                  sampleGroup={sampleGroup}
+                  metadataItemStyles={{
+                    ...styles.metadataItemStyles,
+                    minHeight: 'fit-content', // Ensure enough space for error messages
+                    py: 2, // Add vertical padding
+                  }}
+                  labelStyles={styles.labelStyles}
+                  darkFieldStyles={styles.darkFieldStyles}
+              />
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      </Card>
   );
 };
 

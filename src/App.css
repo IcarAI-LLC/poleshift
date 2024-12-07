@@ -60,7 +60,7 @@
   --spacing-xl: 2.25rem;
 
   /* Layout */
-  --sidebar-width: 275px;
+  --sidebar-width: 350px;
   --header-height: 60px;
 
   /* Transitions */
@@ -121,6 +121,13 @@ body {
   height: 100%;
 }
 
+.content-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--spacing-md);
+  position: relative;
+}
+
 /* ===================================== */
 /*           GLOBE COMPONENT             */
 /* ===================================== */
@@ -131,12 +138,13 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 200; /* Lower than sidebar and controls */
   background-color: #000000;
+  pointer-events: none; /* Prevents blocking clicks */
 }
 
-.globe-container > canvas {
-  width: 100% !important;
-  height: 100% !important;
+.globe-container canvas {
+  pointer-events: auto; /* Globe interaction still works */
 }
 
 /* ===================================== */
@@ -153,7 +161,7 @@ body {
   transition: width var(--transition-medium);
   overflow: hidden;
   position: relative;
-  z-index: 1000;
+  z-index: 10000;
 }
 
 .left-sidebar.collapsed {
@@ -283,6 +291,19 @@ body {
   color: var(--color-secondary);
 }
 
+.tree-node--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidebar__content--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+}
+
 /* ===================================== */
 /*        CONTEXT MENU                   */
 /* ===================================== */
@@ -364,7 +385,7 @@ body {
   position: fixed;
   top: 20px;
   right: 20px;
-  background-color: var(--color-error-bg);
+  /* background-color: var(--color-error-bg); */
   color: var(--color-error);
   padding: var(--spacing-md);
   border-radius: 4px;
@@ -380,7 +401,7 @@ body {
 .error-message__icon {
   margin-right: var(--spacing-sm);
   font-size: var(--font-size-large);
-  color: var(--color-error-icon);
+  /* color: var(--color-error-icon); */
 }
 
 /* ===================================== */

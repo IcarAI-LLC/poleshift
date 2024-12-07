@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -7,96 +7,115 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import supabase from '../../utils/supabaseClient';
+import type { SxProps, Theme } from '@mui/material/styles';
+import { useAuth } from '../../lib/hooks';
+import type { PreAuthView } from '../../lib/types';
+
+interface SignUpFormState {
+  email: string;
+  password: string;
+  message: string | null;
+  error: string | null;
+  isLoading: boolean;
+}
 
 interface SignUpProps {
-  onNavigate: (view: 'login') => void;
+  onNavigate: (
+      view: PreAuthView,
+      data?: { email?: string; message?: string }
+  ) => void;
 }
 
 const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [licenseKey, setLicenseKey] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { signUp } = useAuth();
+  const [formState, setFormState] = useState<SignUpFormState>({
+    email: '',
+    password: '',
+    message: null,
+    error: null,
+    isLoading: false,
+  });
+
+  const handleInputChange =
+      (field: keyof SignUpFormState) =>
+          (e: React.ChangeEvent<HTMLInputElement>) => {
+            setFormState((prev) => ({ ...prev, [field]: e.target.value }));
+          };
+
+  const styles = useMemo(
+      () => ({
+        container: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          bgcolor: 'background.default',
+          color: 'text.primary',
+          p: 2,
+        } as SxProps<Theme>,
+        form: {
+          width: '100%',
+          maxWidth: 400,
+          p: 4,
+          bgcolor: 'background.paper',
+          borderRadius: 2,
+          boxShadow: 3,
+        } as SxProps<Theme>,
+        button: {
+          mt: 2,
+          mb: 1,
+        } as SxProps<Theme>,
+      }),
+      []
+  );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
-    setIsLoading(true);
 
-    if (!email || !password || !licenseKey) {
-      setError('Email, password, and license key are required.');
-      setIsLoading(false);
+    if (!formState.email || !formState.password) {
+      setFormState((prev) => ({
+        ...prev,
+        error: 'Email and password are required.',
+      }));
       return;
     }
 
+    setFormState((prev) => ({
+      ...prev,
+      error: null,
+      message: null,
+      isLoading: true,
+    }));
+
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+      await signUp(formState.email, formState.password);
+
+      // After sign-up, navigate to login with prefilled email and a helpful message
+      onNavigate('login', {
+        email: formState.email,
+        message:
+            'Sign-up successful! Please check your email to confirm your account before logging in.',
       });
-
-      if (signUpError) {
-        setError(signUpError.message);
-        setIsLoading(false);
-        return;
-      }
-
-      localStorage.setItem('licenseKey', licenseKey);
-
-      setMessage(
-          'Sign-up successful! Please check your email to confirm your account before logging in.'
-      );
-    } catch (err: any) {
+    } catch (err) {
       console.error('Sign-up error:', err);
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setFormState((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+        isLoading: false,
+      }));
     }
   };
 
   return (
-      <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          minHeight="100vh"
-          bgcolor="background.default"
-          color="text.primary"
-          padding={2}
-      >
-        <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{
-              width: '100%',
-              maxWidth: 400,
-              p: 4,
-              bgcolor: 'background.paper',
-              borderRadius: 2,
-              boxShadow: 3,
-            }}
-        >
+      <Box sx={styles.container}>
+        <Box component="form" onSubmit={handleSubmit} sx={styles.form}>
           <Typography variant="h5" component="h1" gutterBottom align="center">
             Sign Up
           </Typography>
 
-          {error && (
+          {formState.error && (
               <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-          )}
-
-          {message && (
-              <Alert severity="success" sx={{ mb: 2 }}>
-                {message}{' '}
-                <Button variant="text" onClick={() => onNavigate('login')}>
-                  Log in here
-                </Button>
-                .
+                {formState.error}
               </Alert>
           )}
 
@@ -106,10 +125,14 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               type="email"
               fullWidth
               margin="normal"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formState.email}
+              onChange={handleInputChange('email')}
               required
-              disabled={!!message || isLoading}
+              disabled={formState.isLoading}
+              autoComplete="email"
+              inputProps={{
+                'aria-label': 'Email',
+              }}
           />
 
           <TextField
@@ -118,22 +141,14 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               type="password"
               fullWidth
               margin="normal"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formState.password}
+              onChange={handleInputChange('password')}
               required
-              disabled={!!message || isLoading}
-          />
-
-          <TextField
-              label="License Key"
-              variant="outlined"
-              type="text"
-              fullWidth
-              margin="normal"
-              value={licenseKey}
-              onChange={(e) => setLicenseKey(e.target.value)}
-              required
-              disabled={!!message || isLoading}
+              disabled={formState.isLoading}
+              autoComplete="new-password"
+              inputProps={{
+                'aria-label': 'Password',
+              }}
           />
 
           <Button
@@ -141,27 +156,25 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
               variant="contained"
               color="primary"
               fullWidth
-              sx={{ mt: 2, mb: 1 }}
-              disabled={!!message || isLoading}
-              startIcon={isLoading && <CircularProgress size={20} />}
+              sx={styles.button}
+              disabled={formState.isLoading}
+              startIcon={formState.isLoading ? <CircularProgress size={20} /> : null}
           >
-            {isLoading ? 'Signing Up...' : 'Sign Up'}
+            {formState.isLoading ? 'Signing Up...' : 'Sign Up'}
           </Button>
 
-          {!message && (
-              <Box textAlign="center" mt={2}>
-                <Typography variant="body2">
-                  Already have an account?{' '}
-                  <Button
-                      variant="text"
-                      onClick={() => onNavigate('login')}
-                      disabled={isLoading}
-                  >
-                    Log In
-                  </Button>
-                </Typography>
-              </Box>
-          )}
+          <Box textAlign="center" mt={2}>
+            <Typography variant="body2">
+              Already have an account?{' '}
+              <Button
+                  variant="text"
+                  onClick={() => onNavigate('login')}
+                  disabled={formState.isLoading}
+              >
+                Log In
+              </Button>
+            </Typography>
+          </Box>
         </Box>
       </Box>
   );

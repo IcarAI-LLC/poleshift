@@ -7,9 +7,16 @@ import {
   Typography,
   Button,
   Box,
-  Grid,
+  Dialog,
+  IconButton,
+  Snackbar,
+  Alert,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
+import CloseIcon from '@mui/icons-material/Close';
 import { Download } from '@mui/icons-material';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 import SummaryCard from './SummaryCard';
 import DataTable from './DataTable';
@@ -17,20 +24,11 @@ import SearchInput from './SearchInput';
 import FilterSelect from './FilterSelect';
 import HierarchyTree from './HierarchyTree';
 import DistributionChart from './DistributionChart';
+import TaxonomyStarburst from './TaxonomyStarburst';
 
 enum SortDirection {
   ASC = 'asc',
   DESC = 'desc',
-}
-
-interface TaxonomyNode {
-  depth: number;
-  percentage: number;
-  cladeReads: number;
-  taxonReads: number;
-  rankCode: string;
-  taxId: number;
-  name: string;
 }
 
 interface KrakenData {
@@ -41,17 +39,35 @@ interface KrakenData {
     plotData: Array<{
       taxon: string;
       percentage: number;
-      cladeReads: number;
-      taxonReads: number;
+      reads: number;
+      taxReads: number;
+      kmers: number;
+      dup: number;
+      cov: number;
       depth: number;
-      rankLevel: number;
     }>;
   }>;
-  hierarchy: TaxonomyNode[];
+  hierarchy: KrakenReportEntry[];
+  unclassifiedReads: number;
+}
+
+interface KrakenReportEntry {
+  depth: number;
+  percentage: number;
+  reads: number;
+  taxReads: number;
+  kmers: number;
+  dup: number;
+  cov: number;
+  taxId: number;
+  rank: string;
+  name: string;
 }
 
 interface Props {
   data?: KrakenData;
+  open: boolean;
+  onClose: () => void;
 }
 
 const formatNumber = (num: number): string => {
@@ -62,14 +78,19 @@ const formatPercentage = (num: number): string => {
   return `${num.toFixed(2)}%`;
 };
 
-const KrakenVisualization: React.FC<Props> = ({ data }) => {
+const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRank, setSelectedRank] = useState('all');
-  const [sortConfig, setSortConfig] = useState({
+  const [_, setSortConfig] = useState({
     key: 'percentage',
     direction: SortDirection.DESC,
   });
+  const [exportStatus, setExportStatus] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({open: false, message: '', severity: 'success'});
 
   const summaryStats = useMemo(() => {
     if (!data?.hierarchy) {
@@ -82,20 +103,25 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
       };
     }
 
-    const rootNode = data.hierarchy.find((node) => node.rankCode === 'R');
-    const unclassifiedNode = data.hierarchy.find(
-      (node) => node.rankCode === 'U',
+    // Find the root node (either named "Life" or "Root")
+    const rootNode = data.hierarchy.find(node =>
+        node.name === "Life" || node.name === "Root"
     );
 
-    const classifiedReads = rootNode?.cladeReads || 0;
-    const unclassifiedReads = unclassifiedNode?.cladeReads || 0;
-    const totalReads = classifiedReads + unclassifiedReads;
+    // Calculate classified reads from the root node if found
+    const classifiedReads = rootNode?.reads ?? 0;
 
+    // Use unclassifiedReads directly from the data
+    const unclassifiedReads = data.unclassifiedReads;
+
+    // Calculate total reads and classification rate
+    const totalReads = classifiedReads + unclassifiedReads;
     const classificationRate = totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
-    const uniqueTaxa = data.data?.reduce(
-      (sum, rankData) => sum + (rankData.plotData?.length || 0),
-      0,
-    ) || 0;
+
+    // Count unique taxa (all nodes except root)
+    const uniqueTaxa = data.hierarchy
+        .filter(node => node.name !== "Life" && node.name !== "Root")
+        .length;
 
     return {
       totalReads,
@@ -106,6 +132,7 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
     };
   }, [data]);
 
+  // Rest of the component remains the same
   const availableRanks = useMemo(() => {
     if (!data?.data) return [];
 
@@ -119,53 +146,65 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
     if (!data?.data) return [];
 
     const rankData =
-      selectedRank === 'all'
-        ? data.data.flatMap((d) => d.plotData || [])
-        : data.data.find((d) => d.rankBase === selectedRank)?.plotData || [];
+        selectedRank === 'all'
+            ? data.data.flatMap((d) => d.plotData || [])
+            : data.data.find((d) => d.rankBase === selectedRank)?.plotData || [];
 
-    return rankData
-      .filter((item) =>
+    return rankData.filter((item) =>
         item.taxon?.toLowerCase().includes(searchTerm.toLowerCase() || '')
-      )
-      .sort((a, b) => {
-        const aVal = a[sortConfig.key];
-        const bVal = b[sortConfig.key];
+    );
+  }, [data, searchTerm, selectedRank]);
 
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          return sortConfig.direction === SortDirection.ASC
-            ? aVal.localeCompare(bVal)
-            : bVal.localeCompare(aVal);
-        } else {
-          return sortConfig.direction === SortDirection.ASC
-            ? (aVal || 0) - (bVal || 0)
-            : (bVal || 0) - (aVal || 0);
+  // Export handler updated to include unclassified reads directly
+  const handleExport = useCallback(async () => {
+    try {
+      if (!data) {
+        throw new Error('No data available for export');
+      }
+
+      const exportData = {
+        summary: summaryStats,
+        taxonomy: data.data,
+        hierarchy: data.hierarchy,
+        unclassifiedReads: data.unclassifiedReads,
+        metadata: {
+          exportDate: new Date().toISOString(),
+          totalReads: summaryStats.totalReads,
+          classificationRate: summaryStats.classificationRate
         }
+      };
+
+      const filePath = await save({
+        filters: [{
+          name: 'JSON',
+          extensions: ['json']
+        }],
+        defaultPath: `kraken-analysis-${new Date().toISOString().split('T')[0]}.json`
       });
-  }, [data, searchTerm, selectedRank, sortConfig]);
 
-  const handleExport = useCallback(() => {
-    if (!data) return;
-
-    const exportData = {
-      summary: summaryStats,
-      taxonomy: data.data,
-      hierarchy: data.hierarchy,
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'kraken-analysis.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      if (filePath) {
+        await writeTextFile(filePath, JSON.stringify(exportData, null, 2));
+        setExportStatus({
+          open: true,
+          message: 'Analysis data exported successfully',
+          severity: 'success'
+        });
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      setExportStatus({
+        open: true,
+        message: `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
+    }
   }, [data, summaryStats]);
 
-  const handleTabChange = useCallback((_, newValue) => {
+  const handleCloseSnackbar = useCallback(() => {
+    setExportStatus(prev => ({...prev, open: false}));
+  }, []);
+
+  const handleTabChange = useCallback((_: any, newValue: number) => {
     setActiveTab(newValue);
   }, []);
 
@@ -176,14 +215,14 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
       sortable: true,
     },
     {
-      key: 'cladeReads',
-      header: 'Clade Reads',
+      key: 'reads',
+      header: 'Reads',
       sortable: true,
       render: (value: number) => formatNumber(value || 0),
     },
     {
-      key: 'taxonReads',
-      header: 'Taxon Reads',
+      key: 'taxReads',
+      header: 'Tax Reads',
       sortable: true,
       render: (value: number) => formatNumber(value || 0),
     },
@@ -197,127 +236,157 @@ const KrakenVisualization: React.FC<Props> = ({ data }) => {
 
   if (!data) {
     return (
-      <Box p={3}>
-        <Typography>No data available</Typography>
-      </Box>
+        <Box p={3}>
+          <Typography>No data available</Typography>
+        </Box>
     );
   }
 
   return (
-    <div>
-      <AppBar position="static" color="default">
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Taxonomic Classification Analysis
-          </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<Download />}
-            onClick={handleExport}
+      <Dialog open={open} onClose={onClose} fullScreen>
+        <AppBar position="static" color="primary" sx={{position: 'relative'}}>
+          <Toolbar>
+            <Typography variant="h6" sx={{flexGrow: 1}}>
+              Taxonomic Classification Analysis
+            </Typography>
+            <Button
+                variant="outlined"
+                startIcon={<Download/>}
+                onClick={handleExport}
+                disabled={!data}
+                sx={{mr: 2, color: '#fff', borderColor: '#fff'}}
+            >
+              Export Data
+            </Button>
+            <IconButton edge="end" color="inherit" onClick={onClose} aria-label="close">
+              <CloseIcon/>
+            </IconButton>
+          </Toolbar>
+          <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              textColor="inherit"
+              indicatorColor="secondary"
+              variant="scrollable"
           >
-            Export Data
-          </Button>
-        </Toolbar>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="scrollable"
+            <Tab label="Summary"/>
+            <Tab label="Taxonomy Distribution"/>
+            <Tab label="Taxonomy Hierarchy"/>
+            <Tab label="Taxonomy Starburst"/>
+          </Tabs>
+        </AppBar>
+
+        <Box p={3}>
+          {activeTab === 0 && (
+              <div>
+                <Grid container spacing={2}>
+                  <Grid size={{xs: 12, md: 3}}>
+                    <SummaryCard
+                        title="Total Reads"
+                        value={formatNumber(summaryStats.totalReads)}
+                    />
+                  </Grid>
+                  <Grid size={{xs: 12, md: 3}}>
+                    <SummaryCard
+                        title="Classified"
+                        value={formatNumber(summaryStats.classifiedReads)}
+                        subtitle={formatPercentage(summaryStats.classificationRate)}
+                    />
+                  </Grid>
+                  <Grid size={{xs: 12, md: 3}}>
+                    <SummaryCard
+                        title="Unclassified"
+                        value={formatNumber(summaryStats.unclassifiedReads)}
+                        subtitle={formatPercentage(100 - summaryStats.classificationRate)}
+                    />
+                  </Grid>
+                  <Grid size={{xs: 12, md: 3}}>
+                    <SummaryCard
+                        title="Unique Taxa"
+                        value={formatNumber(summaryStats.uniqueTaxa)}
+                    />
+                  </Grid>
+                </Grid>
+
+                {data.data?.length > 0 ? (
+                    data.data
+                        .filter(rankData => rankData.rankBase.toUpperCase() !== 'NO RANK')
+                        .map((rankData) => (
+                            <DistributionChart
+                                key={rankData.rankBase}
+                                data={rankData.plotData || []}
+                                title={`${rankData.rankName} Distribution`}
+                            />
+                        ))
+                ) : (
+                    <Typography>No data available</Typography>
+                )}
+              </div>
+          )}
+
+          {activeTab === 1 && (
+              <div>
+                <Grid container spacing={2} alignItems="flex-end">
+                  <Grid size={{xs: 12, sm: 6}}>
+                    <SearchInput
+                        value={searchTerm}
+                        onChange={setSearchTerm}
+                        placeholder="Search by taxonomy name..."
+                    />
+                  </Grid>
+                  <Grid size={{xs: 12, sm: 6}}>
+                    <FilterSelect
+                        value={selectedRank}
+                        onChange={setSelectedRank}
+                        options={[
+                          {value: 'all', label: 'All Ranks'},
+                          ...availableRanks,
+                        ]}
+                        label="Rank"
+                    />
+                  </Grid>
+                </Grid>
+                <DataTable
+                    data={filteredData}
+                    columns={taxonomyColumns}
+                    onSort={(key, direction) =>
+                        setSortConfig({key, direction: direction as SortDirection})
+                    }
+                />
+              </div>
+          )}
+
+          {activeTab === 2 && data.hierarchy && (
+              <div>
+                <HierarchyTree
+                    nodes={data.hierarchy.filter(node => node.rank.toUpperCase() !== 'NO RANK')}
+                />
+              </div>
+          )}
+          {activeTab === 3 && data.hierarchy && (
+              <div>
+                <TaxonomyStarburst
+                    nodes={data.hierarchy.filter(node => node.name.toUpperCase() !== 'UNCLASSIFIED')}
+                />
+              </div>
+          )}
+        </Box>
+
+        <Snackbar
+            open={exportStatus.open}
+            autoHideDuration={6000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{vertical: 'bottom', horizontal: 'center'}}
         >
-          <Tab label="Summary" />
-          <Tab label="Taxonomy Distribution" />
-          <Tab label="Taxonomy Hierarchy" />
-        </Tabs>
-      </AppBar>
-
-      <Box p={3}>
-        {activeTab === 0 && (
-          <div>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={3}>
-                <SummaryCard
-                  title="Total Reads"
-                  value={formatNumber(summaryStats.totalReads)}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <SummaryCard
-                  title="Classified"
-                  value={formatNumber(summaryStats.classifiedReads)}
-                  subtitle={formatPercentage(summaryStats.classificationRate)}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <SummaryCard
-                  title="Unclassified"
-                  value={formatNumber(summaryStats.unclassifiedReads)}
-                  subtitle={formatPercentage(
-                    100 - summaryStats.classificationRate,
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <SummaryCard
-                  title="Unique Taxa"
-                  value={formatNumber(summaryStats.uniqueTaxa)}
-                />
-              </Grid>
-            </Grid>
-
-            {data.data?.length > 0 ? (
-              data.data.map((rankData) => (
-                <DistributionChart
-                  key={rankData.rankBase}
-                  data={rankData.plotData || []}
-                  title={`${rankData.rankName} Distribution`}
-                />
-              ))
-            ) : (
-              <Typography>No data available</Typography>
-            )}
-          </div>
-        )}
-
-        {activeTab === 1 && (
-          <div>
-            <Grid container spacing={2} alignItems="flex-end">
-              <Grid item xs={12} sm={6}>
-                <SearchInput
-                  value={searchTerm}
-                  onChange={setSearchTerm}
-                  placeholder="Search by taxonomy name..."
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FilterSelect
-                  value={selectedRank}
-                  onChange={setSelectedRank}
-                  options={[
-                    { value: 'all', label: 'All Ranks' },
-                    ...availableRanks,
-                  ]}
-                  label="Rank"
-                />
-              </Grid>
-            </Grid>
-            <DataTable
-              data={filteredData}
-              columns={taxonomyColumns}
-              onSort={(key, direction) =>
-                setSortConfig({ key, direction: direction as SortDirection })
-              }
-            />
-          </div>
-        )}
-
-        {activeTab === 2 && data.hierarchy && (
-          <div>
-            <HierarchyTree node={data.hierarchy[0]} nodes={data.hierarchy} />
-          </div>
-        )}
-      </Box>
-    </div>
+          <Alert
+              onClose={handleCloseSnackbar}
+              severity={exportStatus.severity}
+              variant="filled"
+          >
+            {exportStatus.message}
+          </Alert>
+        </Snackbar>
+      </Dialog>
   );
 };
 

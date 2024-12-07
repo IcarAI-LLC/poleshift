@@ -7,90 +7,38 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import supabase from '../../utils/supabaseClient';
+import { useAuth } from '../../lib/hooks';
+import type { PreAuthView } from '../../lib/types';
 
 interface LoginProps {
-  onNavigate: (view: 'signup' | 'reset-password') => void;
+  onNavigate: (view: PreAuthView) => void;
+  prefillEmail?: string;
+  message?: string;
 }
 
-const Login: React.FC<LoginProps> = ({ onNavigate }) => {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const callLicenseFunction = async (licenseKey: string) => {
-    try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError) {
-        throw sessionError;
-      }
-
-      const accessToken = session?.access_token;
-
-      if (!accessToken) {
-        throw new Error('User is not authenticated.');
-      }
-
-      const response = await fetch(
-          'https://poleshift.icarai.cloud/functions/v1/process_license',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({ licenseKey }),
-          }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error processing license key.');
-      }
-
-      localStorage.removeItem('licenseKey');
-
-      return { success: true };
-    } catch (error: any) {
-      console.error('Error processing license key:', error.message);
-      return { success: false, error: error.message };
-    }
-  };
+const Login: React.FC<LoginProps> = ({ onNavigate, prefillEmail = '', message }) => {
+  const [email, setEmail] = useState(prefillEmail);
+  const [password, setPassword] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const { loading, error: authError, login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError(null);
-    setIsLoading(true);
+    setLocalError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setError(error.message);
-      setIsLoading(false);
+    if (!email || !password) {
+      setLocalError('Please enter both email and password');
       return;
     }
 
-    const licenseKey = localStorage.getItem('licenseKey');
-    if (licenseKey) {
-      const result = await callLicenseFunction(licenseKey);
-      if (!result.success) {
-        setError(result.error);
-        setIsLoading(false);
-        return;
-      }
+    try {
+      await login(email, password);
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : 'Login failed');
     }
-
-    setIsLoading(false);
   };
+
+  const displayError = localError || authError;
 
   return (
       <Box
@@ -118,9 +66,15 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
             Login
           </Typography>
 
-          {error && (
+          {message && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {message}
+              </Alert>
+          )}
+
+          {displayError && (
               <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
+                {displayError}
               </Alert>
           )}
 
@@ -133,7 +87,11 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={isLoading}
+              disabled={loading}
+              autoComplete="email"
+              inputProps={{
+                'aria-label': 'Email',
+              }}
           />
 
           <TextField
@@ -145,7 +103,11 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={isLoading}
+              disabled={loading}
+              autoComplete="current-password"
+              inputProps={{
+                'aria-label': 'Password',
+              }}
           />
 
           <Button
@@ -154,17 +116,17 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               color="primary"
               fullWidth
               sx={{ mt: 2, mb: 1 }}
-              disabled={isLoading}
-              startIcon={isLoading && <CircularProgress size={20} />}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={20} /> : null}
           >
-            {isLoading ? 'Logging In...' : 'Login'}
+            {loading ? 'Logging In...' : 'Login'}
           </Button>
 
           <Box textAlign="center" mt={2}>
             <Button
                 variant="text"
                 onClick={() => onNavigate('reset-password')}
-                disabled={isLoading}
+                disabled={loading}
             >
               Forgot your password?
             </Button>
@@ -173,11 +135,7 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           <Box textAlign="center" mt={1}>
             <Typography variant="body2">
               Don't have an account?{' '}
-              <Button
-                  variant="text"
-                  onClick={() => onNavigate('signup')}
-                  disabled={isLoading}
-              >
+              <Button variant="text" onClick={() => onNavigate('signup')} disabled={loading}>
                 Sign Up
               </Button>
             </Typography>
