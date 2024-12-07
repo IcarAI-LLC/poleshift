@@ -15,7 +15,7 @@ interface GlobePoint {
 
 const GLOBE_CONFIG = {
     pointAltitude: 0.1,
-    pointRadius: 0.2, // Increased for better visibility
+    pointRadius: 0.1, // Increased for better visibility
     backgroundColor: '#000000',
     //@ts-ignore
     pointColor: (d: GlobePoint) => 'rgba(0, 255, 255, 0.8)', // More distinct color

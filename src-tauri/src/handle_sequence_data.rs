@@ -228,11 +228,16 @@ pub async fn handle_sequence_data<R: Runtime>(
         PoleshiftError::SidecarSpawnError(e.to_string())
     })?;
 
+    let mut sidecar_command = app_handle.shell().sidecar("krakenuniq").map_err(|e| {
+        println!("Error spawning sidecar: {}", e);
+        PoleshiftError::SidecarSpawnError(e.to_string())
+    })?;
+
     let mut sidecar_command = sidecar_command
         .arg("--db")
-        .arg(&kudb_dir)
+        .arg(format!("\"{}\"", kudb_dir.to_string_lossy()))
         .arg("--report-file")
-        .arg(&report_file_path)
+        .arg(format!("\"{}\"", report_file_path.to_string_lossy()))
         .arg("--threads")
         .arg("8")
         .arg("--exact")
@@ -243,7 +248,7 @@ pub async fn handle_sequence_data<R: Runtime>(
 
     for path in &temp_file_paths {
         println!("Adding input file to command: {:?}", path);
-        sidecar_command = sidecar_command.arg(path.to_str().unwrap().to_string());
+        sidecar_command = sidecar_command.arg(format!("\"{}\"", path.to_string_lossy()));
     }
 
     let (mut rx, mut _child) = sidecar_command.spawn().map_err(|e| {

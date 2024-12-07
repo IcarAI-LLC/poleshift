@@ -1,6 +1,6 @@
 [package]
 name = "poleshift-tauri"
-version = "0.2.1"
+version = "0.2.3"
 description = "Research Application"
 authors = ["Nikolas Yanek-Chrones"]
 edition = "2021"
