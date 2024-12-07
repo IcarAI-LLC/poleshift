@@ -1,54 +1,84 @@
 import { CircularProgress, Typography, Box } from '@mui/material';
 
-const LoadingScreen = ({ message = 'Loading application...' }) => {
+const LoadingScreen = ({
+                           message = 'Loading application...',
+                           showRefreshHint = true,
+                           size = 44
+                       }) => {
+    const getDetailMessage = () => {
+        if (message.includes("Authenticating")) {
+            return "Verifying your credentials and retrieving your user profile...";
+        }
+        if (message.includes("Loading your profile")) {
+            return "Setting up your workspace and preparing the application...";
+        }
+        if (message.includes("Syncing")) {
+            return "Retrieving and synchronizing your data with the server...";
+        }
+        return "Preparing your workspace...";
+    };
+
     return (
         <Box
-            className="flex flex-col items-center justify-center min-h-screen bg-gray-900"
+            sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '100vh',
+                backgroundColor: 'var(--color-background)',
+                color: 'var(--color-text)'
+            }}
         >
-            <Box className="relative mb-8">
+            <Box sx={{ position: 'relative', mb: 4 }}>
                 <CircularProgress
-                    size={60}
+                    size={size}
                     thickness={4}
-                    className="text-blue-500"
-                />
-                <CircularProgress
-                    size={60}
-                    thickness={4}
-                    className="absolute top-0 left-0 text-blue-300 opacity-30"
-                    variant="determinate"
-                    value={100}
+                    sx={{
+                        color: 'var(--color-primary)',
+                        position: 'relative',
+                        zIndex: 1
+                    }}
                 />
             </Box>
 
             <Typography
                 variant="h5"
-                className="mb-4 text-gray-100 font-medium text-center"
+                sx={{
+                    mb: 2,
+                    color: 'var(--color-text)',
+                    fontWeight: 500,
+                    textAlign: 'center',
+                    px: 2
+                }}
             >
                 {message}
             </Typography>
 
-            <Box className="max-w-md text-center space-y-2">
+            <Box sx={{ maxWidth: '400px', px: 2 }}>
                 <Typography
                     variant="body1"
-                    className="text-gray-400"
+                    sx={{
+                        color: 'var(--color-text-muted)',
+                        textAlign: 'center',
+                        mb: 1
+                    }}
                 >
-                    {(() => {
-                        if (message.includes("Authenticating")) {
-                            return "Verifying your credentials and retrieving your user profile...";
-                        }
-                        if (message.includes("Syncing")) {
-                            return "Retrieving and synchronizing your data with the server...";
-                        }
-                        return "Setting up your workspace and preparing the application...";
-                    })()}
+                    {getDetailMessage()}
                 </Typography>
 
-                <Typography
-                    variant="body2"
-                    className="text-gray-500"
-                >
-                    If this takes longer than expected, try refreshing the page
-                </Typography>
+                {showRefreshHint && (
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            color: 'var(--color-text-disabled)',
+                            textAlign: 'center',
+                            fontSize: 'var(--font-size-small)'
+                        }}
+                    >
+                        This should take no longer than a minute...
+                    </Typography>
+                )}
             </Box>
         </Box>
     );
