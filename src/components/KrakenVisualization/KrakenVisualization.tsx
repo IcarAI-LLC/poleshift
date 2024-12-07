@@ -12,7 +12,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2'; // Correct import for Grid2
+import Grid from '@mui/material/Grid2';
 import CloseIcon from '@mui/icons-material/Close';
 import { Download } from '@mui/icons-material';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -48,7 +48,7 @@ interface KrakenData {
     }>;
   }>;
   hierarchy: KrakenReportEntry[];
-  unclassifiedReads: any;
+  unclassifiedReads: number;
 }
 
 interface KrakenReportEntry {
@@ -82,7 +82,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRank, setSelectedRank] = useState('all');
-  const [sortConfig, setSortConfig] = useState({
+  const [_, setSortConfig] = useState({
     key: 'percentage',
     direction: SortDirection.DESC,
   });
@@ -103,24 +103,25 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       };
     }
 
-    // Count reads from nodes that aren't NO RANK as classified
-    const classifiedReads = data.hierarchy
-        .filter(node => node.rank.toUpperCase() !== 'NO RANK')
-        .reduce((sum, node) => sum + node.reads, 0);
+    // Find the root node (either named "Life" or "Root")
+    const rootNode = data.hierarchy.find(node =>
+        node.name === "Life" || node.name === "Root"
+    );
 
-    // Sum reads from NO RANK nodes as unclassified
-    const noRankReads = data.hierarchy
-        .filter(node => node.rank.toUpperCase() === 'NO RANK')
-        .reduce((sum, node) => sum + node.reads, 0);
+    // Calculate classified reads from the root node if found
+    const classifiedReads = rootNode?.reads ?? 0;
 
-    const unclassifiedReads = noRankReads + (data.unclassifiedReads || 0);
+    // Use unclassifiedReads directly from the data
+    const unclassifiedReads = data.unclassifiedReads;
+
+    // Calculate total reads and classification rate
     const totalReads = classifiedReads + unclassifiedReads;
     const classificationRate = totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
 
-    // Count unique taxa excluding NO RANK entries
-    const uniqueTaxa = data.data
-        ?.filter(rankData => rankData.rankBase.toUpperCase() !== 'NO RANK')
-        .reduce((sum, rankData) => sum + (rankData.plotData?.length || 0), 0) || 0;
+    // Count unique taxa (all nodes except root)
+    const uniqueTaxa = data.hierarchy
+        .filter(node => node.name !== "Life" && node.name !== "Root")
+        .length;
 
     return {
       totalReads,
@@ -131,33 +132,30 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
     };
   }, [data]);
 
+  // Rest of the component remains the same
   const availableRanks = useMemo(() => {
     if (!data?.data) return [];
 
-    return data.data
-        .filter(rankData => rankData.rankBase.toUpperCase() !== 'NO RANK')
-        .map((rankData) => ({
-          value: rankData.rankBase,
-          label: rankData.rankName,
-        }));
+    return data.data.map((rankData) => ({
+      value: rankData.rankBase,
+      label: rankData.rankName,
+    }));
   }, [data]);
 
   const filteredData = useMemo(() => {
     if (!data?.data) return [];
 
-    const filteredRankData = data.data
-        .filter(d => d.rankBase.toUpperCase() !== 'NO RANK');
-
     const rankData =
         selectedRank === 'all'
-            ? filteredRankData.flatMap((d) => d.plotData || [])
-            : filteredRankData.find((d) => d.rankBase === selectedRank)?.plotData || [];
+            ? data.data.flatMap((d) => d.plotData || [])
+            : data.data.find((d) => d.rankBase === selectedRank)?.plotData || [];
 
     return rankData.filter((item) =>
         item.taxon?.toLowerCase().includes(searchTerm.toLowerCase() || '')
     );
-  }, [data, searchTerm, selectedRank, sortConfig]);
+  }, [data, searchTerm, selectedRank]);
 
+  // Export handler updated to include unclassified reads directly
   const handleExport = useCallback(async () => {
     try {
       if (!data) {
@@ -166,8 +164,9 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
 
       const exportData = {
         summary: summaryStats,
-        taxonomy: data.data.filter(d => d.rankBase.toUpperCase() !== 'NO RANK'),
-        hierarchy: data.hierarchy.filter(node => node.rank.toUpperCase() !== 'NO RANK'),
+        taxonomy: data.data,
+        hierarchy: data.hierarchy,
+        unclassifiedReads: data.unclassifiedReads,
         metadata: {
           exportDate: new Date().toISOString(),
           totalReads: summaryStats.totalReads,
@@ -175,7 +174,6 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
         }
       };
 
-      // Open save dialog
       const filePath = await save({
         filters: [{
           name: 'JSON',
@@ -185,9 +183,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       });
 
       if (filePath) {
-        // Write the file
         await writeTextFile(filePath, JSON.stringify(exportData, null, 2));
-
         setExportStatus({
           open: true,
           message: 'Analysis data exported successfully',
@@ -370,7 +366,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
           {activeTab === 3 && data.hierarchy && (
               <div>
                 <TaxonomyStarburst
-                    nodes={data.hierarchy.filter(node => node.rank.toUpperCase() !== 'NO RANK')}
+                    nodes={data.hierarchy.filter(node => node.name.toUpperCase() !== 'UNCLASSIFIED')}
                 />
               </div>
           )}

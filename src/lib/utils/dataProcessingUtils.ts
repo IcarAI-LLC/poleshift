@@ -27,21 +27,6 @@ interface RankData {
         depth: number;
     }>;
 }
-
-export interface TaxonomyNode {
-    name: string;
-    taxId: number;
-    rank: string;
-    percentage: number;
-    reads: number;
-    taxReads: number;
-    kmers: number;
-    dup: number;
-    cov: number;
-    depth: number;
-    children: TaxonomyNode[];
-}
-
 interface ProcessedKrakenData {
     type: 'report';
     data: RankData[];
@@ -51,6 +36,7 @@ interface ProcessedKrakenData {
 
 const RANK_NAMES: Record<string, string> = {
     'NO RANK': 'No Rank',
+    'ROOT' : 'Root',
     'DOMAIN': 'Domain',
     'SUPERGROUP': 'Supergroup',
     'DIVISION': 'Division',

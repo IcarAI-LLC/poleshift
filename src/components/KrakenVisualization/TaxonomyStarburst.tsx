@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ResponsiveSunburst } from '@nivo/sunburst';
+import {ComputedDatum, ResponsiveSunburst} from '@nivo/sunburst';
 import { Box, Button, Typography } from '@mui/material';
 
 interface TaxonomyNode {
@@ -18,11 +18,10 @@ interface TaxonomyNode {
 interface TreeNode {
     id: string;
     name: string;
-    percentage: number;
+    rank: string;
     children?: TreeNode[];
-    value?: number;
-    color?: string;
-    reads?: number;
+    value: number; // This will be taxReads - direct reads for this node
+    depth: number;
 }
 
 interface TaxonomyStarburstProps {
@@ -34,61 +33,56 @@ const buildTree = (nodes: TaxonomyNode[]): TreeNode => {
         throw new Error("No nodes provided to build the tree.");
     }
 
-    const rootNodeData = nodes.find(node => node.depth === 1);
+    // Find root node (Life or Root)
+    const rootNodeData = nodes.find(node =>
+        node.name === "Life" || node.name === "Root"
+    );
+
     if (!rootNodeData) {
-        throw new Error("No root node found (node with depth=1).");
+        throw new Error("No root node (Life or Root) found.");
     }
 
+    // Create root node
     const rootNode: TreeNode = {
-        id: `${rootNodeData.name}-${rootNodeData.taxId}-${rootNodeData.depth}`,
+        id: `${rootNodeData.name}-${rootNodeData.taxId}`,
         name: rootNodeData.name,
-        percentage: rootNodeData.percentage,
+        rank: rootNodeData.rank,
+        value: rootNodeData.taxReads,
         children: [],
+        depth: rootNodeData.depth
     };
 
-    const stack: { node: TreeNode; depth: number }[] = [{ node: rootNode, depth: rootNodeData.depth }];
+    const stack: TreeNode[] = [rootNode];
 
+    // Process all nodes except root
     nodes
         .filter(node => node !== rootNodeData)
         .forEach((node) => {
             const treeNode: TreeNode = {
-                id: `${node.name}-${node.taxId}-${node.depth}`,
+                id: `${node.name}-${node.taxId}`,
                 name: node.name,
-                percentage: node.percentage,
+                rank: node.rank,
+                value: node.taxReads,
                 children: [],
+                depth: node.depth,
             };
 
+            // Adjust the stack based on the depth
             while (stack.length > 0 && stack[stack.length - 1].depth >= node.depth) {
                 stack.pop();
             }
 
-            if (stack.length === 0) {
-                rootNode.children?.push(treeNode);
-            } else {
-                const parent = stack[stack.length - 1].node;
-                parent.children?.push(treeNode);
+            if (stack.length > 0) {
+                // Add as a child to the last node in stack
+                const parent = stack[stack.length - 1];
+                parent.children = parent.children || [];
+                parent.children.push(treeNode);
             }
 
-            stack.push({ node: treeNode, depth: node.depth });
+            // Push current node onto the stack
+            stack.push(treeNode);
         });
 
-    const assignValues = (node: TreeNode) => {
-        const correspondingNode = nodes.find(
-            (n) => `${n.name}-${n.taxId}-${n.depth}` === node.id
-        );
-
-        if (correspondingNode) {
-            // Store the actual value directly
-            node.value = correspondingNode.taxReads;
-            node.reads = correspondingNode.reads;
-        }
-
-        if (node.children) {
-            node.children.forEach(assignValues);
-        }
-    };
-
-    assignValues(rootNode);
     return rootNode;
 };
 
@@ -113,7 +107,12 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes }) => {
         setOverlayText('');
     };
 
-    // @ts-ignore
+    const formatTooltip = (node: ComputedDatum<TreeNode>) => {
+        const totalValue = node.value;
+        const percentage = node.percentage;
+        return `${node.data.name} (${node.data.rank}): ${totalValue.toLocaleString()} reads (${percentage}%)`;
+    };
+
     return (
         <Box position="relative" height={600}>
             <ResponsiveSunburst
@@ -128,25 +127,23 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes }) => {
                 animate={true}
                 motionConfig="gentle"
                 onClick={handleClick}
-                enableArcLabels={false}
-                tooltip={(node ) => {
-                    // Use the stored percentage instead of Nivo's calculated one
-                    const nodeData = node.data as TreeNode;
-                    return (
-                        <Box
-                            sx={{
-                                bgcolor: 'rgba(0, 0, 0, 0.75)',
-                                color: 'white',
-                                padding: '5px 10px',
-                                borderRadius: '4px',
-                            }}
-                        >
-                            <Typography variant="body2">
-                                {nodeData.name}: {nodeData.reads?.toLocaleString()} reads ({nodeData.percentage.toFixed(2)}%)
-                            </Typography>
-                        </Box>
-                    );
-                }}
+                enableArcLabels={true}
+                arcLabel="name"
+                arcLabelsSkipAngle={10}
+                tooltip={(node) => (
+                    <Box
+                        sx={{
+                            bgcolor: 'rgba(0, 0, 0, 0.75)',
+                            color: 'white',
+                            padding: '5px 10px',
+                            borderRadius: '4px',
+                        }}
+                    >
+                        <Typography variant="body2">
+                            {formatTooltip(node)}
+                        </Typography>
+                    </Box>
+                )}
             />
 
             {overlayText && (
