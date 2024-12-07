@@ -228,11 +228,6 @@ pub async fn handle_sequence_data<R: Runtime>(
         PoleshiftError::SidecarSpawnError(e.to_string())
     })?;
 
-    let mut sidecar_command = app_handle.shell().sidecar("krakenuniq").map_err(|e| {
-        println!("Error spawning sidecar: {}", e);
-        PoleshiftError::SidecarSpawnError(e.to_string())
-    })?;
-
     let mut sidecar_command = sidecar_command
         .arg("--db")
         .arg(format!("\"{}\"", kudb_dir.to_string_lossy()))
