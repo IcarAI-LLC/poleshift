@@ -4,8 +4,6 @@ use serde::Serialize;
 pub enum PoleshiftError {
     #[error("No input files provided")]
     NoFiles,
-    #[error("Database file not found: {0}")]
-    DatabaseNotFound(String),
     #[error("Window not found")]
     WindowNotFound,
     #[error("Path resolution error: {0}")]
@@ -72,16 +70,18 @@ pub struct KrakenConfig {
     pub db_file: String,
     pub idx_file: String,
     pub taxdb_file: String,
-    pub uid_mapping_file: Option<String>,
-
-    // Other parameters
     pub threads: u32,
+    pub report_file: String,
+    pub input_files: Vec<String>,
+}
+
+/*
+    pub uid_mapping_file: Option<String>,
     pub quick: bool,
     pub min_hits: u32,
     pub unclassified_out: Option<String>,
     pub classified_out: Option<String>,
     pub outfile: Option<String>,
-    pub report_file: String,
     pub print_sequence: bool,
     pub preload: bool,
     pub preload_size: Option<String>,
@@ -91,5 +91,4 @@ pub struct KrakenConfig {
     pub only_classified_output: bool,
     pub hll_precision: i32,
     pub use_exact_counting: bool,
-    pub input_files: Vec<String>,
-}
+ */
