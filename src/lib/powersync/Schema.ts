@@ -13,6 +13,45 @@ const sample_locations = new Table(
     { indexes: {} }
 );
 
+const license_keys = new Table(
+    {
+        // id column (text) is automatically included
+        organization_id: column.text,
+        key: column.text,
+        is_active: column.integer,
+        created_at: column.text
+    },
+    { indexes: {} }
+);
+
+const user_profiles = new Table(
+    {
+        // id column (text) is automatically included
+        organization_id: column.text,
+        user_tier: column.text,
+        created_at: column.text
+    },
+    { indexes: {} }
+);
+
+const user_tiers = new Table(
+    {
+        // id column (text) is automatically included
+        name: column.text
+    },
+    { indexes: {} }
+);
+
+const organizations = new Table(
+    {
+        // id column (text) is automatically included
+        name: column.text,
+        created_at: column.text,
+        org_short_id: column.text
+    },
+    { indexes: {} }
+);
+
 const file_nodes = new Table(
     {
         // id column (text) is automatically included
@@ -26,17 +65,6 @@ const file_nodes = new Table(
         sample_group_id: column.text,
         children: column.text,
         droppable: column.integer
-    },
-    { indexes: {} }
-);
-
-const license_keys = new Table(
-    {
-        // id column (text) is automatically included
-        organization_id: column.text,
-        key: column.text,
-        is_active: column.integer,
-        created_at: column.text
     },
     { indexes: {} }
 );
@@ -105,44 +133,16 @@ const sample_metadata = new Table(
     { indexes: {} }
 );
 
-const user_profiles = new Table(
-    {
-        // id column (text) is automatically included
-        organization_id: column.text,
-        user_tier: column.text,
-        created_at: column.text
-    },
-    { indexes: {} }
-);
-
-const user_tiers = new Table(
-    {
-        // id column (text) is automatically included
-        name: column.text
-    },
-    { indexes: {} }
-);
-
-const organizations = new Table(
-    {
-        // id column (text) is automatically included
-        name: column.text,
-        created_at: column.text,
-        org_short_id: column.text
-    },
-    { indexes: {} }
-);
-
 export const AppSchema = new Schema({
     sample_locations,
-    file_nodes,
     license_keys,
-    processed_data,
-    sample_group_metadata,
-    sample_metadata,
     user_profiles,
     user_tiers,
-    organizations
+    organizations,
+    file_nodes,
+    processed_data,
+    sample_group_metadata,
+    sample_metadata
 });
 
 export type Database = (typeof AppSchema)['types'];

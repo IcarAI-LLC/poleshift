@@ -1,7 +1,7 @@
 {
   "name": "poleshift",
   "private": true,
-  "version": "0.0.1-alpha",
+  "version": "0.0.1-beta",
   "type": "module",
   "scripts": {
     "dev": "vite",

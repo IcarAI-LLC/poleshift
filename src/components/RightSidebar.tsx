@@ -40,7 +40,7 @@ const initialDataStats: DataStats = {
   genusData: {},
 };
 
-export const RightSidebar: React.FC = () => {
+const RightSidebar: React.FC = () => {
   const {
     selectedRightItem,
     setSelectedRightItem,
@@ -92,16 +92,13 @@ export const RightSidebar: React.FC = () => {
   const samplesAtLocation = useMemo(() => {
     if (!selectedRightItem) return [];
     return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
-      // Check location match
       if (group.loc_id !== selectedRightItem.id) return false;
 
-      // Apply location filters
       if (filters.selectedLocations.length > 0 &&
           !filters.selectedLocations.includes(group.loc_id)) {
         return false;
       }
 
-      // Apply date filters
       if (group.collection_date) {
         const sampleDate = DateTime.fromISO(group.collection_date);
         if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
@@ -116,35 +113,23 @@ export const RightSidebar: React.FC = () => {
     });
   }, [selectedRightItem, sampleGroups, filters]);
 
-  // Build a dynamic query for all sample IDs
+  // Build a list of sample IDs
   const sampleIds = useMemo(() => samplesAtLocation.map(g => g.id), [samplesAtLocation]);
 
-  const processedDataQuery = useMemo(() => {
-    if (sampleIds.length === 0) {
-      // No samples means no query needed, return a dummy query that returns nothing
-      return {
-        sql: 'SELECT * FROM processed_data WHERE 1=0',
-        params: [],
-      };
-    }
-    const placeholders = sampleIds.map(() => '?').join(', ');
-    const sql = `
-      SELECT * FROM processed_data
-      WHERE sample_id IN (${placeholders}) AND status = 'completed'
-      ORDER BY timestamp DESC
-    `;
-    return { sql, params: sampleIds };
-  }, [sampleIds]);
-
-  const {
-    data: rawResults = [],
-    // Could also use isLoading, error for error handling if needed
-  } = useQuery(
-      processedDataQuery.sql,
-      processedDataQuery.params
+  // Define query for processed data using useQuery
+  const { data: rawResults = [] } = useQuery(
+      sampleIds.length > 0
+          ? `
+        SELECT * FROM processed_data
+        WHERE sample_id IN (${sampleIds.map(() => '?').join(', ')})
+        AND status = 'completed'
+        ORDER BY timestamp DESC
+      `
+          : 'SELECT * FROM processed_data WHERE 1=0',
+      sampleIds
   );
 
-  // Parse processed data into a map keyed by `sample_id:config_id`
+  // Process the raw results
   const processedData = useMemo(() => {
     const dataMap: Record<string, any> = {};
     for (const result of rawResults) {
@@ -154,7 +139,7 @@ export const RightSidebar: React.FC = () => {
         data: result.data ? JSON.parse(result.data) : null,
         metadata: result.metadata ? JSON.parse(result.metadata) : null,
         raw_file_paths: result.raw_file_paths ? JSON.parse(result.raw_file_paths) : null,
-        processed_file_paths: result.processed_file_paths ? JSON.parse(result.processed_file_paths) : null
+        processed_file_paths: result.processed_file_paths ? JSON.parse(result.processed_file_paths) : null,
       };
     }
     return dataMap;

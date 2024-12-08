@@ -1,6 +1,6 @@
 [package]
 name = "poleshift"
-version = "0.0.1-alpha"
+version = "0.0.1-beta"
 description = "Research Application"
 authors = ["Nikolas Yanek-Chrones"]
 edition = "2021"
