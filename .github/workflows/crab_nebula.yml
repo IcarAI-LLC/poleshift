@@ -2,14 +2,14 @@ name: Tauri v2 Release Process
 on:
   push:
     branches:
-      - release
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  CN_APPLICATION: "icarai/poleshift-tauri"
+  CN_APPLICATION: "icarai/poleshift"
 
 jobs:
   draft:

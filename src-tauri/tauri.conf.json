@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "poleshift-tauri",
-  "version": "0.2.3",
-  "identifier": "com.poleshift-tauri.app",
+  "productName": "poleshift",
+  "version": "0.0.1-alpha",
+  "identifier": "io.icarai.poleshift",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -27,9 +27,10 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
+    "macOS":{
+      "minimumSystemVersion": "12.0"
+    },
     "externalBin": [
-      "resources/krakenuniq-bin/krakenuniq",
-      "resources/krakenuniq-bin/classify",
       "resources/krakenuniq-bin/classifyExact"
 
     ],
@@ -51,10 +52,10 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://cdn.crabnebula.app/update/icarai/poleshift-tauri/{{target}}-{{arch}}/{{current_version}}"
+        "https://cdn.crabnebula.app/update/icarai/poleshift/{{target}}-{{arch}}/{{current_version}}"
       ],
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlCRUQ2NTdENUQyQjdFQTkKUldTcGZpdGRmV1h0bTBmeEZyb3BzUWwrdUp2L3MvSG0yRUo5ZEE1aWllYVkyalkyTkRxSTd4dUoK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFFNTVGMzc4OTdERTA4NjQKUldSa0NONlhlUE5WSGc2TDNtY3RBQlg5MG5wQ2FGL1dtZGV3Z3dRcW03RG5lV3VOSGs3QmNKMnQK"
     }
   }
 }

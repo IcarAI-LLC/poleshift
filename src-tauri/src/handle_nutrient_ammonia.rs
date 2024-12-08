@@ -1,6 +1,7 @@
-use crate::poleshift_common::utils::{
-    emit_progress, FileMeta, FilesResponse, PoleshiftError, StandardResponse,
+use crate::poleshift_common::types::{
+    FileMeta, FilesResponse, PoleshiftError, StandardResponse,
 };
+use crate::poleshift_common::utils::emit_progress;
 use serde::Serialize;
 use tauri::Window;
 use uuid::Uuid;

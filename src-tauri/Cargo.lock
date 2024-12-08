@@ -3117,8 +3117,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "poleshift-tauri"
-version = "0.2.3"
+name = "poleshift"
+version = "0.0.1-alpha"
 dependencies = [
  "async-compression",
  "async-tar",

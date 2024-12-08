@@ -26,3 +26,4 @@ dist-ssr
 /test-files/
 /static_kraken_ubuntu_x64/
 /.supabase/
+/.apple.env
