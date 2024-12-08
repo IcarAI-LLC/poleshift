@@ -27,3 +27,4 @@ dist-ssr
 /static_kraken_ubuntu_x64/
 /.supabase/
 /.apple.env
+/.env.tauri
