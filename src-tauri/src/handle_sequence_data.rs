@@ -1,14 +1,31 @@
-use std::io::{Read, Result as IoResult};
+use std::{vec};
+use std::io::{Read};
 use std::path::PathBuf;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, Runtime, Window};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use uuid::Uuid;
-
-use crate::poleshift_common::utils::{
-    emit_progress, FileMeta, FilesResponse, PoleshiftError, StandardResponse,
+use crate::poleshift_common::types::{KrakenConfig, FileMeta, FilesResponse, PoleshiftError, StandardResponse,
 };
+use crate::poleshift_common::utils::emit_progress;
+
+// Flag Constants
+const DATABASE_FLAG: &str = "-d";
+const INDEX_FLAG: &str = "-i";
+const TAXDB_FLAG: &str = "-a";
+const THREADS_FLAG: &str = "-t";
+const QUICK_FLAG: &str = "-q";
+const UNCLASSIFIED_OUT_FLAG: &str = "-U";
+const CLASSIFIED_OUT_FLAG: &str = "-C";
+const MIN_HITS_FLAG: &str = "-m";
+const OUTFILE_FLAG: &str = "-o";
+const ONLY_CLASSIFIED_OUTPUT_FLAG: &str = "-c";
+const PRELOAD_FLAG: &str = "-M";
+const PRELOAD_SIZE_FLAG: &str = "-x";
+const REPORT_FILE_FLAG: &str = "-r";
+const PRINT_SEQUENCE_FLAG: &str = "-s";
+const HLL_PRECISION_FLAG: &str = "-p";
 
 #[derive(Debug, Serialize)]
 pub struct KrakenReport {
@@ -17,49 +34,34 @@ pub struct KrakenReport {
     pub status: String,
 }
 
-struct ProgressReader<Inner: Read, RT: Runtime> {
-    inner: Inner,
-    window: Window<RT>,
-    total_size: u64,
-    bytes_read: u64,
-    last_emitted_percent: u8,
-}
-
-impl<Inner: Read, RT: Runtime> ProgressReader<Inner, RT> {
-    fn new(inner: Inner, window: Window<RT>, total_size: u64) -> Self {
+impl KrakenConfig {
+    pub fn hardcoded(resource_dir: PathBuf, report_path: PathBuf, input_files: Vec<String>) -> Self {
         Self {
-            inner,
-            window,
-            total_size,
-            bytes_read: 0,
-            last_emitted_percent: 0,
+            db_file: resource_dir.join("database.kdb").to_string_lossy().to_string(),
+            idx_file: resource_dir.join("database.idx").to_string_lossy().to_string(),
+            taxdb_file: resource_dir.join("taxDB").to_string_lossy().to_string(),
+            uid_mapping_file: None,
+            threads: 1,
+            quick: false,
+            min_hits: 2,
+            unclassified_out: None,
+            classified_out: None,
+            outfile: None,
+            report_file: report_path.to_string_lossy().to_string(),
+            print_sequence: false,
+            preload: true,
+            preload_size: None,
+            paired: false,
+            check_names: false,
+            uid_mapping: false,
+            only_classified_output: false,
+            hll_precision: 10,
+            use_exact_counting: true,
+            input_files: input_files,
         }
     }
 }
 
-impl<Inner: Read, RT: Runtime> Read for ProgressReader<Inner, RT> {
-    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
-        let n = self.inner.read(buf)?;
-        if n == 0 {
-            return Ok(0);
-        }
-
-        self.bytes_read += n as u64;
-        if self.total_size > 0 {
-            let percent = ((self.bytes_read as f64 / self.total_size as f64) * 100.0).floor() as u8;
-            // Emit progress every 5% increments as an example
-            if percent >= self.last_emitted_percent + 5 && percent <= 95 {
-                let msg = format!("Extracting database... {}%", percent);
-                if let Err(e) = crate::poleshift_common::utils::emit_progress(&self.window, percent, &msg) {
-                    println!("Failed to emit progress: {}", e);
-                }
-                self.last_emitted_percent = percent;
-            }
-        }
-
-        Ok(n)
-    }
-}
 
 #[tauri::command]
 pub async fn handle_sequence_data<R: Runtime>(
@@ -83,14 +85,6 @@ pub async fn handle_sequence_data<R: Runtime>(
     emit_progress(&window, 0, "Initializing...")?;
     println!("Progress emitted: 0%, 'Initializing...'");
 
-    let base_dir = app_handle
-        .path()
-        .resource_dir()
-        .map_err(|e| {
-            println!("Failed to resolve base directory: {}", e);
-            PoleshiftError::PathResolution(e.to_string())
-        })?;
-
     let resource_dir = app_handle
         .path()
         .resource_dir()
@@ -100,33 +94,6 @@ pub async fn handle_sequence_data<R: Runtime>(
         })?
         .join("resources");
 
-    println!("Resource directory resolved: {:?}", resource_dir);
-
-    // Define paths for database files
-    let classifier_binary = base_dir.join("classifyExact");
-    let db_file = resource_dir.join("database.kdb");
-    let idx_file = resource_dir.join("database.idx");
-    let taxdb_file = resource_dir.join("taxDB");
-
-    // Verify all required files exist
-    let required_files = [
-        (&classifier_binary, "Classifier binary"),
-        (&db_file, "Database file"),
-        (&idx_file, "Index file"),
-        (&taxdb_file, "Taxonomy database"),
-    ];
-
-    for (path, desc) in required_files.iter() {
-        if !path.exists() {
-            println!("{} not found at: {:?}", desc, path);
-            return Err(PoleshiftError::DatabaseNotFound(
-                format!("{} not found: {}", desc, path.to_string_lossy())
-            ));
-        }
-    }
-
-    emit_progress(&window, 40, "Database files ready")?;
-
     let data_dir = app_handle.path().temp_dir().map_err(|e| {
         println!("Failed to resolve app local data directory: {}", e);
         PoleshiftError::PathResolution(e.to_string())
@@ -135,42 +102,40 @@ pub async fn handle_sequence_data<R: Runtime>(
     let report_filename = format!("kraken_report_{}.txt", Uuid::new_v4());
     let report_file_path = data_dir.join(&report_filename);
 
-    emit_progress(&window, 50, "Running KrakenUniq...")?;
+    emit_progress(&window, 20, "Filesystem initialized...")?;
+
 
     let window_clone = window.clone();
     println!("Spawning sidecar 'krakenuniq'...");
+    emit_progress(&window, 50, "Running KrakenUniq...")?;
 
-    let sidecar_command = app_handle.shell().sidecar("krakenuniq").map_err(|e| {
+    let config = KrakenConfig::hardcoded(resource_dir.clone(), report_file_path.clone(), file_paths.clone());
+    let sidecar_command = app_handle.shell().sidecar("classifyExact").map_err(|e| {
         println!("Error spawning sidecar: {}", e);
         PoleshiftError::SidecarSpawnError(e.to_string())
     })?;
 
     // Build command with updated paths
     let mut sidecar_command = sidecar_command
-        .arg("--classifier-binary")
-        .arg(classifier_binary.to_string_lossy().to_string())
-        .arg("--db-file")
-        .arg(db_file.to_string_lossy().to_string())
-        .arg("--idx-file")
-        .arg(idx_file.to_string_lossy().to_string())
-        .arg("--taxdb-file")
-        .arg(taxdb_file.to_string_lossy().to_string())
-        .arg("--report-file")
-        .arg(report_file_path.to_string_lossy().to_string())
-        .arg("--exact")
-        .arg("--preload")
-        .arg("--output")
-        .arg("off")
-        .arg("--threads")
-        .arg("16");
+        .arg(DATABASE_FLAG)
+        .arg(config.db_file)
+        .arg(INDEX_FLAG)
+        .arg(config.idx_file)
+        .arg(TAXDB_FLAG)
+        .arg(config.taxdb_file)
+        .arg(REPORT_FILE_FLAG)
+        .arg(config.report_file)
+        .arg(PRELOAD_FLAG)
+        .arg(THREADS_FLAG)
+        .arg(config.threads.to_string());
 
     // Add input files
-    for path in &file_paths {
+    for path in &config.input_files {
         println!("Adding input file to command: {:?}", path);
         sidecar_command = sidecar_command.arg(path);
     }
 
-    let (mut rx, mut _child) = sidecar_command.spawn().map_err(|e| {
+    let (mut rx, _child) = sidecar_command.spawn().map_err(|e| {
         println!("Error spawning sidecar command: {}", e);
         PoleshiftError::SidecarSpawnError(e.to_string())
     })?;

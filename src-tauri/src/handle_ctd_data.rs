@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 // CTD Handler
-use crate::poleshift_common::utils::{FileMeta, FilesResponse, PoleshiftError, StandardResponse};
+use crate::poleshift_common::types::{FileMeta, FilesResponse, PoleshiftError, StandardResponse};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
+use crate::poleshift_common::utils::emit_progress;
+
 
 #[derive(Serialize)]
 pub struct CTDReport {
@@ -50,12 +52,13 @@ pub async fn handle_ctd_data_upload(
 
     let file_path = &file_paths[0];
 
-    app_handle
-        .emit(
-            "progress",
-            serde_json::json!({"progress":0,"status":"Opening database..."}),
-        )
-        .map_err(|e| PoleshiftError::ProgressError(e.to_string()))?;
+    let window = app_handle
+        .get_window("main")
+        .ok_or_else(|| {
+            println!("Window 'main' not found.");
+            PoleshiftError::WindowNotFound
+        })?;
+    emit_progress(&window, 0, "Opening database...")?;
 
     // Put all DB work in a block
     let (channel_rows, monotonically_increasing_data) = {
@@ -82,12 +85,7 @@ pub async fn handle_ctd_data_upload(
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| PoleshiftError::DataError(e.to_string()))?;
 
-        app_handle
-            .emit(
-                "progress",
-                serde_json::json!({"progress":20,"status":"Reading channel data..."}),
-            )
-            .map_err(|e| PoleshiftError::ProgressError(e.to_string()))?;
+        emit_progress(&window, 20, "Reading channel data ...")?;
 
         let mut stmt = db_connection
             .prepare("SELECT * FROM data")
@@ -113,31 +111,16 @@ pub async fn handle_ctd_data_upload(
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| PoleshiftError::DataError(e.to_string()))?;
 
-        app_handle
-            .emit(
-                "progress",
-                serde_json::json!({"progress":40,"status":"Reading measurements..."}),
-            )
-            .map_err(|e| PoleshiftError::ProgressError(e.to_string()))?;
+        emit_progress(&window, 40, "Reading measurements...")?;
 
         data_rows.retain(|item| item.channel06 > Some(0.2));
 
-        app_handle
-            .emit(
-                "progress",
-                serde_json::json!({"progress":60,"status":"Filtering data..."}),
-            )
-            .map_err(|e| PoleshiftError::ProgressError(e.to_string()))?;
+        emit_progress(&window, 60, "Filtering data...")?;
 
         // Sorting by timestamp
         data_rows.sort_by_key(|a| a.tstamp);
 
-        app_handle
-            .emit(
-                "progress",
-                serde_json::json!({"progress":70,"status":"Processing depth data..."}),
-            )
-            .map_err(|e| PoleshiftError::ProgressError(e.to_string()))?;
+        emit_progress(&window, 0, "Processing depth data...")?;
 
         let mut monotonically_increasing_data = Vec::new();
         let mut previous_depth = f64::NEG_INFINITY;
@@ -150,18 +133,10 @@ pub async fn handle_ctd_data_upload(
             }
         }
 
-        app_handle
-            .emit(
-                "progress",
-                serde_json::json!({"progress":80,"status":"Validating measurements..."}),
-            )
-            .map_err(|e| PoleshiftError::ProgressError(e.to_string()))?;
+        emit_progress(&window, 80, "Validating measurements...")?;
 
         (channel_rows, monotonically_increasing_data)
-    }; // <- db_connection and stmt go out of scope here!
-
-    // Now that we've left the scope, `db_connection` and `stmt` are dropped.
-    // We can safely await async operations.
+    };
 
     let report_filename = format!("ctd_data_report_{}.json", Uuid::new_v4());
     let temp_dir = std::env::temp_dir();
@@ -173,12 +148,7 @@ pub async fn handle_ctd_data_upload(
         processed_path: temp_report_file_path.to_string_lossy().into_owned(),
     };
 
-    app_handle
-        .emit(
-            "progress",
-            serde_json::json!({"progress":90,"status":"Generating report..."}),
-        )
-        .map_err(|e| PoleshiftError::ProgressError(e.to_string()))?;
+    emit_progress(&window, 90, "Generating report...")?;
 
     tokio::fs::write(
         &temp_report_file_path,
@@ -186,12 +156,7 @@ pub async fn handle_ctd_data_upload(
     )
     .await?;
 
-    app_handle
-        .emit(
-            "progress",
-            serde_json::json!({"progress":100,"status":"Complete"}),
-        )
-        .map_err(|e| PoleshiftError::ProgressError(e.to_string()))?;
+    emit_progress(&window, 100, "Complete...")?;
 
     // Raw file(s): The input files are considered raw
     let raw_files: Vec<FileMeta> = file_paths

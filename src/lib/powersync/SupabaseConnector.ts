@@ -4,7 +4,7 @@ import { UpdateType } from '@powersync/web';
 
 export class SupabaseConnector {
     readonly client: SupabaseClient;
-    currentSession: Session | null;
+    private lastUserId: string | null;
 
     constructor() {
         this.client = createClient(
@@ -12,12 +12,14 @@ export class SupabaseConnector {
             import.meta.env.VITE_SUPABASE_ANON_KEY!,
             { auth: { persistSession: true } }
         );
-        this.currentSession = null;
+        this.lastUserId = null;
 
         // Subscribe to authentication state changes
-        //@ts-ignore
         this.client.auth.onAuthStateChange((event, session) => {
-            this.handleSessionChange(session);
+            // Only process certain auth events that indicate real state changes
+            if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED'].includes(event)) {
+                this.handleSessionChange(session);
+            }
         });
 
         // Initialize session
@@ -34,17 +36,26 @@ export class SupabaseConnector {
     }
 
     private handleSessionChange(session: Session | null) {
-        console.log("Handling session change for session", session);
-        const { setUser } = useAuthStore.getState();
-        this.currentSession = session;
+        const newUserId = session?.user?.id || null;
 
-        if (session && session.user) {
-            //@ts-ignore
-            setUser(session.user);
-        } else {
-            setUser(null);
+        // Only proceed if the user ID has actually changed
+        if (this.lastUserId !== newUserId) {
+            console.log("User state changed:", {
+                previousUserId: this.lastUserId,
+                newUserId: newUserId
+            });
+
+            const { setUser } = useAuthStore.getState();
+            this.lastUserId = newUserId;
+
+            if (session?.user) {
+                setUser(session.user);
+            } else {
+                setUser(null);
+            }
         }
     }
+
 
     // Authentication Methods
     async login(email: string, password: string) {
@@ -88,12 +99,11 @@ export class SupabaseConnector {
                 token: data.session.access_token ?? '',
                 expiresAt: data.session.expires_at
                     ? new Date(data.session.expires_at * 1000)
-                    : undefined
+                    : undefined,
+                user: data.session.user,
             };
         } catch (error) {
             console.error('Failed to fetch credentials:', error);
-            //@ts-ignore
-            this.updateSession(null); // Clear session on failure
             throw error;
         }
     }

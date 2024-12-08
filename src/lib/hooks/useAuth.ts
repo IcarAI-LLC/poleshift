@@ -100,7 +100,8 @@ export const useAuth = () => {
         try {
             setLoading(true);
             await supabaseConnector.login(email, password);
-            const loggedInUser = supabaseConnector.currentSession?.user;
+            const loggedInSession = await supabaseConnector.fetchCredentials();
+            const loggedInUser = loggedInSession?.user;
             setUser(loggedInUser || null);
 
             // Attempt initial load of user data
