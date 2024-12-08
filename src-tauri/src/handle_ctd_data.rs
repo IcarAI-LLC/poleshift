@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::poleshift_common::types::{FileMeta, FilesResponse, PoleshiftError, StandardResponse};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 use crate::poleshift_common::utils::emit_progress;
 

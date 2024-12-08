@@ -1,5 +1,4 @@
 use std::{vec};
-use std::io::{Read};
 use std::path::PathBuf;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -15,17 +14,20 @@ const DATABASE_FLAG: &str = "-d";
 const INDEX_FLAG: &str = "-i";
 const TAXDB_FLAG: &str = "-a";
 const THREADS_FLAG: &str = "-t";
+const PRELOAD_FLAG: &str = "-M";
+const REPORT_FILE_FLAG: &str = "-r";
+/*
 const QUICK_FLAG: &str = "-q";
 const UNCLASSIFIED_OUT_FLAG: &str = "-U";
 const CLASSIFIED_OUT_FLAG: &str = "-C";
 const MIN_HITS_FLAG: &str = "-m";
 const OUTFILE_FLAG: &str = "-o";
 const ONLY_CLASSIFIED_OUTPUT_FLAG: &str = "-c";
-const PRELOAD_FLAG: &str = "-M";
 const PRELOAD_SIZE_FLAG: &str = "-x";
-const REPORT_FILE_FLAG: &str = "-r";
 const PRINT_SEQUENCE_FLAG: &str = "-s";
 const HLL_PRECISION_FLAG: &str = "-p";
+*/
+
 
 #[derive(Debug, Serialize)]
 pub struct KrakenReport {
@@ -40,24 +42,25 @@ impl KrakenConfig {
             db_file: resource_dir.join("database.kdb").to_string_lossy().to_string(),
             idx_file: resource_dir.join("database.idx").to_string_lossy().to_string(),
             taxdb_file: resource_dir.join("taxDB").to_string_lossy().to_string(),
-            uid_mapping_file: None,
             threads: 1,
-            quick: false,
-            min_hits: 2,
-            unclassified_out: None,
-            classified_out: None,
-            outfile: None,
             report_file: report_path.to_string_lossy().to_string(),
-            print_sequence: false,
-            preload: true,
-            preload_size: None,
-            paired: false,
-            check_names: false,
-            uid_mapping: false,
-            only_classified_output: false,
-            hll_precision: 10,
-            use_exact_counting: true,
             input_files: input_files,
+
+            // uid_mapping_file: None,
+            // quick: false,
+            // min_hits: 2,
+            // unclassified_out: None,
+            // classified_out: None,
+            // outfile: None,
+            // print_sequence: false,
+            // preload: true,
+            // preload_size: None,
+            // paired: false,
+            // check_names: false,
+            // uid_mapping: false,
+            // only_classified_output: false,
+            // hll_precision: 10,
+            // use_exact_counting: true,
         }
     }
 }
