@@ -148,9 +148,80 @@ body {
 }
 
 /* ===================================== */
+/*           TOP CONTROLS                */
+/* ===================================== */
+
+.top-controls {
+  position: fixed;
+  top: var(--spacing-sm);
+  left: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  z-index: 1001;
+}
+
+/* Menu Button */
+.top-controls .MuiIconButton-root {
+  color: var(--color-text);
+  padding: 8px;
+  transition: color var(--transition-medium);
+}
+
+.top-controls .MuiIconButton-root:hover {
+  color: var(--color-primary);
+  background-color: transparent;
+}
+
+/* Sync Status */
+.top-controls .sync-status {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  color: var(--color-text);
+}
+
+/* Account Button */
+.top-controls .account-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all var(--transition-medium);
+}
+
+.top-controls .account-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.top-controls .account-icon {
+  font-size: var(--font-size-large);
+  color: var(--color-white);
+  transition: color var(--transition-medium);
+}
+
+.top-controls .account-button:hover .account-icon {
+  color: var(--color-primary);
+}
+
+/* Sync Animation */
+.syncing {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+/* ===================================== */
 /*           LEFT SIDEBAR                */
 /* ===================================== */
 
+/* Update to remove fixed positioning styles */
 .left-sidebar {
   width: var(--sidebar-width);
   height: 100vh;
@@ -161,82 +232,71 @@ body {
   transition: width var(--transition-medium);
   overflow: hidden;
   position: relative;
-  z-index: 10000;
+  z-index: 1000;
 }
 
 .left-sidebar.collapsed {
   width: 0;
 }
 
-/* ===================================== */
-/*      SIDEBAR TOGGLE BUTTON            */
-/* ===================================== */
-
-.left-sidebar-toggle-button {
-  position: fixed;
-  top: var(--spacing-sm);
-  left: var(--spacing-sm);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  transition: color var(--transition-medium);
-  z-index: 1001;
-  color: var(--color-text);
+/* Update content positioning since we removed the controls */
+.left-sidebar .content-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--header-height);
 }
 
-.left-sidebar-toggle-button:hover {
-  color: var(--color-primary);
-}
-
-/* ===================================== */
-/*        ACCOUNT BUTTON                 */
-/* ===================================== */
-
-.left-sidebar__account-button {
-  position: fixed;
-  top: var(--spacing-sm);
-  left: 85px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  transition: color var(--transition-medium);
-  z-index: 1001;
-  color: var(--color-white);
-}
-
-.left-sidebar__account-button:hover {
-  color: var(--color-primary);
-}
-
-.left-sidebar__account-icon {
-  font-size: var(--font-size-large);
-}
-
-/* ===================================== */
-/*        SYNC STATUS ICON               */
-/* ===================================== */
-
+/* Remove old control-specific styles */
+.left-sidebar-toggle-button,
+.left-sidebar__account-button,
 .left-sidebar__sync-status-icon {
+  display: none; /* Remove old buttons */
+}
+
+/* Update z-index hierarchy */
+.app-container {
+  position: relative;
+  z-index: 1;
+}
+
+.main-content {
+  position: relative;
+  z-index: 2;
+}
+
+.top-controls {
+  z-index: 1001;
+}
+
+/* Responsive Design Updates */
+@media (max-width: 768px) {
+  .left-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+
+  .top-controls {
+    position: fixed;
+    top: var(--spacing-sm);
+    left: var(--spacing-sm);
+  }
+}
+
+/* Filter Button Position */
+.open-filters-icon-button {
   position: fixed;
   top: var(--spacing-sm);
-  left: 50px;
-  background: none;
-  border: none;
-  cursor: default;
-  padding: 8px;
+  right: var(--spacing-sm);
   z-index: 1001;
-  color: var(--color-text);
 }
 
-.syncing {
-  animation: spin 2s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Remove any old positioning styles that might conflict */
+.sidebar-controls,
+.left-sidebar__account-button,
+.left-sidebar__sync-status-icon {
+  display: none;
 }
 
 /* ===================================== */

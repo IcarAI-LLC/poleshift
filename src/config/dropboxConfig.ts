@@ -3,7 +3,7 @@
 export interface ModalField {
   name: string;
   label?: string;
-  type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'time' | 'timezone';
+  type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'time' | 'timezone' | 'location';
   options?: any;
   tooltip?: string;
   required?: boolean;

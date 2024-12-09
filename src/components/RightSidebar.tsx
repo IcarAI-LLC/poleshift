@@ -7,37 +7,37 @@ import {
   Grid,
   Divider,
   IconButton,
+  Slider,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { DateTime } from 'luxon';
-import { useQuery } from '@powersync/react';
+import { invoke } from '@tauri-apps/api/core';
 
 import { useUI, useData } from '../lib/hooks';
 import type { SampleGroupMetadata } from '../lib/types';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
+import { useQuery } from "@powersync/react";
 
-import { processKrakenDataForModal } from '../lib/utils/dataProcessingUtils';
-
-interface DataStats {
-  averageTemperature: number | null;
-  averageSalinity: number | null;
-  ammoniumStats: {
+interface ProcessedStats {
+  average_temperature: number | null;
+  average_salinity: number | null;
+  ammonium_stats: {
     average: number | null;
     min: number | null;
     max: number | null;
     count: number;
   };
-  speciesData: Record<string, number>;
-  genusData: Record<string, number>;
+  species_data: Record<string, number>;
+  genus_data: Record<string, number>;
 }
 
-const initialDataStats: DataStats = {
-  averageTemperature: null,
-  averageSalinity: null,
-  ammoniumStats: { average: null, min: null, max: null, count: 0 },
-  speciesData: {},
-  genusData: {},
+const initialStats: ProcessedStats = {
+  average_temperature: null,
+  average_salinity: null,
+  ammonium_stats: { average: null, min: null, max: null, count: 0 },
+  species_data: {},
+  genus_data: {},
 };
 
 const RightSidebar: React.FC = () => {
@@ -50,7 +50,8 @@ const RightSidebar: React.FC = () => {
   } = useUI();
 
   const { sampleGroups } = useData();
-  const [stats, setStats] = useState<DataStats>(initialDataStats);
+  const [stats, setStats] = useState<ProcessedStats>(initialStats);
+  const [confidenceThreshold, setConfidenceThreshold] = useState<number>(25);
 
   // Styles
   const styles = useMemo((): Record<string, SxProps<Theme>> => ({
@@ -73,6 +74,14 @@ const RightSidebar: React.FC = () => {
       bgcolor: 'background.paper',
       borderRadius: 1,
     },
+    sliderCard: {
+      mb: 2,
+      bgcolor: 'background.paper',
+      borderRadius: 1,
+      position: 'sticky',
+      top: 0,
+      zIndex: 1,
+    },
     divider: {
       my: 2,
     },
@@ -87,6 +96,10 @@ const RightSidebar: React.FC = () => {
     setSelectedRightItem(null);
     toggleRightSidebar();
   }, [setSelectedRightItem, toggleRightSidebar]);
+
+  const handleConfidenceChange = useCallback((_event: Event, newValue: number | number[]) => {
+    setConfidenceThreshold(newValue as number);
+  }, []);
 
   // Filter samples based on location and date filters
   const samplesAtLocation = useMemo(() => {
@@ -120,11 +133,11 @@ const RightSidebar: React.FC = () => {
   const { data: rawResults = [] } = useQuery(
       sampleIds.length > 0
           ? `
-        SELECT * FROM processed_data
-        WHERE sample_id IN (${sampleIds.map(() => '?').join(', ')})
-        AND status = 'completed'
-        ORDER BY timestamp DESC
-      `
+            SELECT * FROM processed_data
+            WHERE sample_id IN (${sampleIds.map(() => '?').join(', ')})
+              AND status = 'completed'
+            ORDER BY timestamp DESC
+          `
           : 'SELECT * FROM processed_data WHERE 1=0',
       sampleIds
   );
@@ -145,131 +158,50 @@ const RightSidebar: React.FC = () => {
     return dataMap;
   }, [rawResults]);
 
-  const processCTDData = useCallback((data: any) => {
-    console.debug('Processing CTD data:', data);
-    const channelMap: Record<string, string> = {};
-    data.channels.forEach((channel: any) => {
-      channelMap[channel.long_name] = `channel${String(channel.channel_id).padStart(2, '0')}`;
-    });
-
-    let tempSum = 0, tempCount = 0;
-    let salSum = 0, salCount = 0;
-
-    data.data.forEach((point: any) => {
-      const depth = point[channelMap['Depth']];
-      if (depth != null && depth <= 2) {
-        if (channelMap['Temperature']) {
-          const temp = point[channelMap['Temperature']];
-          if (temp != null && !isNaN(temp)) {
-            tempSum += temp;
-            tempCount++;
-          }
-        }
-        if (channelMap['Salinity']) {
-          const sal = point[channelMap['Salinity']];
-          if (sal != null && !isNaN(sal)) {
-            salSum += sal;
-            salCount++;
-          }
-        }
-      }
-    });
-
-    return {
-      temperature: tempCount > 0 ? tempSum / tempCount : null,
-      salinity: salCount > 0 ? salSum / salCount : null,
-    };
-  }, []);
-
-  // Update statistics whenever dependencies change
+// Update statistics using Tauri command
   useEffect(() => {
-    if (!selectedRightItem) {
-      setStats(initialDataStats);
-      return;
-    }
+    const updateStats = async () => {
+      if (!selectedRightItem || samplesAtLocation.length === 0) {
+        setStats(initialStats);
+        return;
+      }
 
-    const processStats = () => {
-      let tempSum = 0, tempCount = 0;
-      let salSum = 0, salCount = 0;
-      let totalAmm = 0, ammCount = 0;
-      let minAmm: number | null = null;
-      let maxAmm: number | null = null;
-      const speciesSet: Record<string, Set<string>> = {};
-      const genusSet: Record<string, Set<string>> = {};
+      try {
+        // Create request object matching Rust struct expectations
+        const request = {
+          sample_groups: samplesAtLocation.map(group => ({
+            id: group.id,
+            loc_id: group.loc_id,
+          })),
+          processed_data: Object.fromEntries(
+              Object.entries(processedData).map(([key, value]) => [
+                key,
+                {
+                  sample_id: value.sample_id,
+                  config_id: value.config_id,
+                  status: value.status,
+                  data: value.data,
+                  metadata: value.metadata,
+                  raw_file_paths: value.raw_file_paths,
+                  processed_file_paths: value.processed_file_paths,
+                }
+              ])
+          ),
+          confidence_threshold: confidenceThreshold,
+        };
 
-      samplesAtLocation.forEach(group => {
-        const sampleId = group.id;
-
-        // Process CTD data
-        const ctdKey = `${sampleId}:ctd_data`;
-        if (processedData[ctdKey]) {
-          const processed = processCTDData(processedData[ctdKey]?.data?.report);
-          if (processed) {
-            if (processed.temperature !== null) {
-              tempSum += processed.temperature;
-              tempCount++;
-            }
-            if (processed.salinity !== null) {
-              salSum += processed.salinity;
-              salCount++;
-            }
-          }
-        }
-
-        // Process nutrient data
-        const nutrientKey = `${sampleId}:nutrient_ammonia`;
-        const nutrientData = processedData[nutrientKey]?.data?.report;
-        if (nutrientData?.ammonium_value != null) {
-          const ammValue = nutrientData.ammonium_value;
-          totalAmm += ammValue;
-          ammCount++;
-          minAmm = minAmm === null ? ammValue : Math.min(minAmm, ammValue);
-          maxAmm = maxAmm === null ? ammValue : Math.max(maxAmm, ammValue);
-        }
-
-        // Process sequencing data
-        const seqKey = `${sampleId}:sequencing_data`;
-        if (processedData[seqKey]) {
-          try {
-            const krakenData = processKrakenDataForModal(processedData[seqKey]?.data?.report?.report_content);
-            krakenData.data?.forEach(rankData => {
-              const rank = rankData.rankBase.toUpperCase();
-              if (rank === 'SPECIES' || rank === 'GENUS') {
-                rankData.plotData?.forEach(item => {
-                  if (item.taxon) {
-                    const set = rank === 'SPECIES' ? speciesSet : genusSet;
-                    if (!set[item.taxon]) set[item.taxon] = new Set();
-                    set[item.taxon].add(sampleId);
-                  }
-                });
-              }
-            });
-          } catch (error) {
-            console.error('Error processing sequencing data:', error);
-          }
-        }
-      });
-
-      setStats({
-        averageTemperature: tempCount > 0 ? tempSum / tempCount : null,
-        averageSalinity: salCount > 0 ? salSum / salCount : null,
-        ammoniumStats: {
-          average: ammCount > 0 ? totalAmm / ammCount : null,
-          min: minAmm,
-          max: maxAmm,
-          count: ammCount,
-        },
-        speciesData: Object.fromEntries(
-            Object.entries(speciesSet).map(([name, samples]) => [name, samples.size])
-        ),
-        genusData: Object.fromEntries(
-            Object.entries(genusSet).map(([name, samples]) => [name, samples.size])
-        ),
-      });
+        const result = await invoke<ProcessedStats>('process_sidebar_stats', {
+          request // Wrap the request object in an outer object
+        });
+        setStats(result);
+      } catch (error) {
+        console.error('Error processing stats:', error);
+        setStats(initialStats);
+      }
     };
 
-    processStats();
-  }, [selectedRightItem, samplesAtLocation, processedData, processCTDData]);
+    updateStats();
+  }, [selectedRightItem, samplesAtLocation, processedData, confidenceThreshold]);
 
   if (!selectedRightItem) return null;
 
@@ -300,25 +232,49 @@ const RightSidebar: React.FC = () => {
 
           <Divider sx={styles.divider} />
 
+          {/* Confidence Threshold Slider */}
+          <Card sx={styles.sliderCard}>
+            <CardContent sx={styles.cardContent}>
+              <Typography variant="h6" gutterBottom>
+                Sequence Confidence Threshold
+              </Typography>
+              <Box sx={{ px: 2 }}>
+                <Slider
+                    value={confidenceThreshold}
+                    onChange={handleConfidenceChange}
+                    aria-labelledby="confidence-threshold-slider"
+                    valueLabelDisplay="auto"
+                    step={5}
+                    marks
+                    min={0}
+                    max={100}
+                />
+                <Typography variant="body2" color="text.secondary" align="center">
+                  Showing taxa with {'>'}{confidenceThreshold}% inter-sample read abundance
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+
           {/* Temperature and Salinity Card */}
-          {(stats.averageTemperature !== null || stats.averageSalinity !== null) && (
+          {(stats.average_temperature !== null || stats.average_salinity !== null) && (
               <Card sx={styles.card}>
                 <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
                     Average Measurements (First 2 Meters)
                   </Typography>
-                  {stats.averageTemperature !== null ? (
+                  {stats.average_temperature !== null ? (
                       <Typography variant="body1" gutterBottom>
-                        <strong>Temperature:</strong> {stats.averageTemperature.toFixed(2)} °C
+                        <strong>Temperature:</strong> {stats.average_temperature.toFixed(2)} °C
                       </Typography>
                   ) : (
                       <Typography variant="body1" gutterBottom>
                         Temperature data not available for the first 2 meters.
                       </Typography>
                   )}
-                  {stats.averageSalinity !== null ? (
+                  {stats.average_salinity !== null ? (
                       <Typography variant="body1" gutterBottom>
-                        <strong>Salinity:</strong> {stats.averageSalinity.toFixed(2)} PSU
+                        <strong>Salinity:</strong> {stats.average_salinity.toFixed(2)} PSU
                       </Typography>
                   ) : (
                       <Typography variant="body1" gutterBottom>
@@ -330,7 +286,7 @@ const RightSidebar: React.FC = () => {
           )}
 
           {/* Ammonium Stats Card */}
-          {stats.ammoniumStats.count > 0 && (
+          {stats.ammonium_stats.count > 0 && (
               <Card sx={styles.card}>
                 <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
@@ -339,18 +295,18 @@ const RightSidebar: React.FC = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <Typography variant="body1" gutterBottom>
-                        <strong>Average:</strong> {stats.ammoniumStats.average?.toFixed(2)} µmol/L
+                        <strong>Average:</strong> {stats.ammonium_stats.average?.toFixed(2)} µmol/L
                       </Typography>
                       <Typography variant="body1" gutterBottom>
-                        <strong>Minimum:</strong> {stats.ammoniumStats.min?.toFixed(2)} µmol/L
+                        <strong>Minimum:</strong> {stats.ammonium_stats.min?.toFixed(2)} µmol/L
                       </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <Typography variant="body1" gutterBottom>
-                        <strong>Maximum:</strong> {stats.ammoniumStats.max?.toFixed(2)} µmol/L
+                        <strong>Maximum:</strong> {stats.ammonium_stats.max?.toFixed(2)} µmol/L
                       </Typography>
                       <Typography variant="body1" gutterBottom>
-                        <strong>Samples:</strong> {stats.ammoniumStats.count}
+                        <strong>Samples:</strong> {stats.ammonium_stats.count}
                       </Typography>
                     </Grid>
                   </Grid>
@@ -359,16 +315,16 @@ const RightSidebar: React.FC = () => {
           )}
 
           {/* Species Data Card */}
-          {Object.keys(stats.speciesData).length > 0 && (
+          {Object.keys(stats.species_data).length > 0 && (
               <Card sx={styles.card}>
                 <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
                     Species Identified
                   </Typography>
                   <Grid container spacing={1}>
-                    {Object.entries(stats.speciesData)
+                    {Object.entries(stats.species_data)
                         .sort(([, a], [, b]) => b - a)
-                        .slice(0, 10)
+                        .slice(0, 100)
                         .map(([species, count]) => (
                             <Grid item xs={12} key={species}>
                               <Typography variant="body1">
@@ -382,16 +338,16 @@ const RightSidebar: React.FC = () => {
           )}
 
           {/* Genus Data Card */}
-          {Object.keys(stats.genusData).length > 0 && (
+          {Object.keys(stats.genus_data).length > 0 && (
               <Card sx={styles.card}>
                 <CardContent sx={styles.cardContent}>
                   <Typography variant="h6" gutterBottom>
                     Genera Identified
                   </Typography>
                   <Grid container spacing={1}>
-                    {Object.entries(stats.genusData)
+                    {Object.entries(stats.genus_data)
                         .sort(([, a], [, b]) => b - a)
-                        .slice(0, 10)
+                        .slice(0, 100)
                         .map(([genus, count]) => (
                             <Grid item xs={12} key={genus}>
                               <Typography variant="body1">

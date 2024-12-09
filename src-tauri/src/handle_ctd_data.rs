@@ -1,12 +1,11 @@
 use std::path::PathBuf;
 // CTD Handler
 use crate::poleshift_common::types::{FileMeta, FilesResponse, PoleshiftError, StandardResponse};
+use crate::poleshift_common::utils::emit_progress;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
 use uuid::Uuid;
-use crate::poleshift_common::utils::emit_progress;
-
+use tauri::{AppHandle, Manager};
 
 #[derive(Serialize)]
 pub struct CTDReport {
@@ -52,12 +51,10 @@ pub async fn handle_ctd_data_upload(
 
     let file_path = &file_paths[0];
 
-    let window = app_handle
-        .get_window("main")
-        .ok_or_else(|| {
-            println!("Window 'main' not found.");
-            PoleshiftError::WindowNotFound
-        })?;
+    let window = app_handle.get_window("main").ok_or_else(|| {
+        println!("Window 'main' not found.");
+        PoleshiftError::WindowNotFound
+    })?;
     emit_progress(&window, 0, "Opening database...")?;
 
     // Put all DB work in a block

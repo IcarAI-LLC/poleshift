@@ -1,5 +1,5 @@
-use tauri::{Emitter, Runtime, Window};
 use crate::poleshift_common::types::PoleshiftError;
+use tauri::{Emitter, Runtime, Window};
 
 pub fn emit_progress<R: Runtime>(
     window: &Window<R>,

@@ -1,13 +1,14 @@
-use std::{vec};
-use std::path::PathBuf;
+use crate::poleshift_common::types::{
+    FileMeta, FilesResponse, KrakenConfig, PoleshiftError, StandardResponse,
+};
+use crate::poleshift_common::utils::emit_progress;
 use serde::Serialize;
+use std::path::PathBuf;
+use std::vec;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use uuid::Uuid;
-use crate::poleshift_common::types::{KrakenConfig, FileMeta, FilesResponse, PoleshiftError, StandardResponse,
-};
-use crate::poleshift_common::utils::emit_progress;
 
 // Flag Constants
 const DATABASE_FLAG: &str = "-d";
@@ -28,7 +29,6 @@ const PRINT_SEQUENCE_FLAG: &str = "-s";
 const HLL_PRECISION_FLAG: &str = "-p";
 */
 
-
 #[derive(Debug, Serialize)]
 pub struct KrakenReport {
     pub report_path: String,
@@ -37,15 +37,24 @@ pub struct KrakenReport {
 }
 
 impl KrakenConfig {
-    pub fn hardcoded(resource_dir: PathBuf, report_path: PathBuf, input_files: Vec<String>) -> Self {
+    pub fn hardcoded(
+        resource_dir: PathBuf,
+        report_path: PathBuf,
+        input_files: Vec<String>,
+    ) -> Self {
         Self {
-            db_file: resource_dir.join("database.kdb").to_string_lossy().to_string(),
-            idx_file: resource_dir.join("database.idx").to_string_lossy().to_string(),
+            db_file: resource_dir
+                .join("database.kdb")
+                .to_string_lossy()
+                .to_string(),
+            idx_file: resource_dir
+                .join("database.idx")
+                .to_string_lossy()
+                .to_string(),
             taxdb_file: resource_dir.join("taxDB").to_string_lossy().to_string(),
             threads: 1,
             report_file: report_path.to_string_lossy().to_string(),
             input_files: input_files,
-
             // uid_mapping_file: None,
             // quick: false,
             // min_hits: 2,
@@ -65,25 +74,25 @@ impl KrakenConfig {
     }
 }
 
-
 #[tauri::command]
 pub async fn handle_sequence_data<R: Runtime>(
     app_handle: AppHandle<R>,
     file_paths: Vec<String>,
 ) -> Result<StandardResponse<KrakenReport>, PoleshiftError> {
-    println!("handle_sequence_data called with file_paths: {:?}", file_paths);
+    println!(
+        "handle_sequence_data called with file_paths: {:?}",
+        file_paths
+    );
 
     if file_paths.is_empty() {
         println!("No files provided.");
         return Err(PoleshiftError::NoFiles);
     }
 
-    let window = app_handle
-        .get_window("main")
-        .ok_or_else(|| {
-            println!("Window 'main' not found.");
-            PoleshiftError::WindowNotFound
-        })?;
+    let window = app_handle.get_window("main").ok_or_else(|| {
+        println!("Window 'main' not found.");
+        PoleshiftError::WindowNotFound
+    })?;
 
     emit_progress(&window, 0, "Initializing...")?;
     println!("Progress emitted: 0%, 'Initializing...'");
@@ -107,12 +116,15 @@ pub async fn handle_sequence_data<R: Runtime>(
 
     emit_progress(&window, 20, "Filesystem initialized...")?;
 
-
     let window_clone = window.clone();
     println!("Spawning sidecar 'krakenuniq'...");
     emit_progress(&window, 50, "Running KrakenUniq...")?;
 
-    let config = KrakenConfig::hardcoded(resource_dir.clone(), report_file_path.clone(), file_paths.clone());
+    let config = KrakenConfig::hardcoded(
+        resource_dir.clone(),
+        report_file_path.clone(),
+        file_paths.clone(),
+    );
     let sidecar_command = app_handle.shell().sidecar("classifyExact").map_err(|e| {
         println!("Error spawning sidecar: {}", e);
         PoleshiftError::SidecarSpawnError(e.to_string())

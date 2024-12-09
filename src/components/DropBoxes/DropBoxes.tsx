@@ -93,7 +93,6 @@ const DropBoxes: React.FC<DropBoxesProps> = ({ onError }) => {
         dataItem: any,
         configItem: DropboxConfigItem
     ): Promise<ProcessedModalData> => {
-        console.log("Modal data item:", dataItem);
         switch (configItem.id) {
             case 'ctd_data': {
                 dataItem = dataItem.data.report;

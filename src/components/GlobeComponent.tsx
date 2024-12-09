@@ -1,10 +1,12 @@
-//src/components/GlobeComponent.tsx
+// src/components/GlobeComponent.tsx
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
 import globeImage from '../assets/globe.jpg';
 
-import { useData, useUI } from '../lib/hooks';
+import { useData } from '../lib/hooks/useData';
+import { useUI } from '../lib/hooks/useUI';
+import { useQuery } from '@powersync/react'; // Import useQuery
 
 interface GlobePoint {
     lat: number;
@@ -26,20 +28,67 @@ const GLOBE_CONFIG = {
 export const GlobeComponent: React.FC = () => {
     const globeRef = useRef<GlobeMethods | undefined>(undefined);
 
-    const { sampleGroups, locations } = useData();
-    const { setSelectedRightItem, filters } = useUI();
+    const { filters, setSelectedRightItem } = useUI();
 
-    // Transform locations into globe points with filter consideration
-    const pointsData = useMemo<GlobePoint[]>(() => {
-        const filteredLocations = locations.filter(location => {
-            // If there are selected locations, only show those
-            if (filters.selectedLocations.length > 0) {
-                return filters.selectedLocations.includes(location.id);
+    // Construct the filtered query based on filters
+    const { query: filteredLocationsQuery, params: filteredLocationsParams } = useMemo(() => {
+        let query = `
+            SELECT DISTINCT sl.id, sl.lat, sl.long, sl.label
+            FROM sample_locations sl
+            WHERE sl.is_enabled = 1
+        `;
+        const params: any[] = [];
+
+        // Apply selected location IDs filter
+        if (filters.selectedLocations.length > 0) {
+            const placeholders = filters.selectedLocations.map(() => '?').join(', ');
+            query += ` AND sl.id IN (${placeholders})`;
+            params.push(...filters.selectedLocations);
+        }
+
+        // Apply date range filter by ensuring at least one related sample_group_metadata exists within the date range
+        if (filters.startDate || filters.endDate) {
+            query += `
+                AND EXISTS (
+                    SELECT 1 FROM sample_group_metadata sg
+                    WHERE sg.loc_id = sl.id
+            `;
+
+            if (filters.startDate) {
+                query += ` AND sg.collection_date >= ?`;
+                params.push(filters.startDate);
             }
-            return true;
-        });
 
-        // Convert locations to points
+            if (filters.endDate) {
+                query += ` AND sg.collection_date <= ?`;
+                params.push(filters.endDate);
+            }
+
+            query += `)
+            `;
+        }
+
+        query += ' ORDER BY sl.label ASC';
+
+        return { query, params };
+    }, [filters]);
+
+    // Fetch filtered locations using useQuery
+    const {
+        data: filteredLocations = [],
+        isLoading: locationsLoading,
+        error: locationsError
+    } = useQuery(filteredLocationsQuery, filteredLocationsParams, {
+        // Optional: Add any additional options like caching, refetching, etc.
+        // For example:
+        // cacheTime: 1000 * 60 * 5, // 5 minutes
+    });
+
+    // Fetch sampleGroups from useData for further processing
+    const { sampleGroups } = useData();
+
+    // Transform filtered locations into globe points
+    const pointsData = useMemo<GlobePoint[]>(() => {
         return filteredLocations
             .map(location => {
                 if (location?.lat != null && location?.long != null) {
@@ -77,15 +126,15 @@ export const GlobeComponent: React.FC = () => {
                 return null;
             })
             .filter((point): point is GlobePoint => point !== null);
-    }, [locations, sampleGroups, filters]);
+    }, [filteredLocations, sampleGroups, filters]);
 
     // Debugging statement
-    console.log('Points Data:', pointsData);
+    console.log('Filtered Points Data:', pointsData);
 
     // Handle point click with proper typing
     const handlePointClick = useCallback(
         (pointData: GlobePoint, _event: MouseEvent) => {
-            const selectedLocation = locations.find(loc => loc.id === pointData.id);
+            const selectedLocation = filteredLocations.find(loc => loc.id === pointData.id);
 
             if (!selectedLocation) return;
 
@@ -103,7 +152,7 @@ export const GlobeComponent: React.FC = () => {
                 );
             }
         },
-        [locations, setSelectedRightItem]
+        [filteredLocations, setSelectedRightItem]
     );
 
     // Handle window resizing
@@ -118,6 +167,15 @@ export const GlobeComponent: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Handle loading and error states
+    if (locationsLoading) {
+        return <div>Loading Globe...</div>;
+    }
+
+    if (locationsError) {
+        return <div>Error loading globe data: {locationsError.message}</div>;
+    }
+
     return (
         <div className="globe-container">
             <Globe
@@ -131,7 +189,7 @@ export const GlobeComponent: React.FC = () => {
                 //@ts-ignore
                 pointRadius={GLOBE_CONFIG.pointRadius}
                 //@ts-ignore
-                pointColor={ GLOBE_CONFIG.pointColor }
+                pointColor={GLOBE_CONFIG.pointColor}
                 pointLabel="name"
                 backgroundColor={GLOBE_CONFIG.backgroundColor}
                 enablePointerInteraction={true}

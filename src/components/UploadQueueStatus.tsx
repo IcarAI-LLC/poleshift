@@ -1,14 +1,26 @@
-import { useEffect, useState, useRef } from 'react';
-import { Box, Typography, List, ListItem, ListItemText, LinearProgress, IconButton, Tooltip, Card, CardHeader, CardContent, Divider, Snackbar, Alert, Badge } from '@mui/material';
+// src/components/UploadQueueStatus.tsx
+import { useState } from 'react';
+import { Box, Typography, List, ListItem, ListItemText, LinearProgress, IconButton,
+    Tooltip, Card, CardHeader, CardContent, Divider, Snackbar, Alert } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { getAllQueuedUploads, UploadTask, removeFromQueue } from '../lib/utils/uploadQueue';
-import { useStorage } from '../lib/hooks';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { UploadTask, removeFromQueue } from '../lib/utils/uploadQueue';
 
-const UploadQueueStatus = () => {
-    const [queuedUploads, setQueuedUploads] = useState<UploadTask[]>([]);
-    const [isExpanded, setIsExpanded] = useState<boolean>(false);
+interface UploadQueueStatusProps {
+    isExpanded: boolean;
+    onClose: () => void;
+    queuedUploads: UploadTask[];
+    setQueuedUploads: React.Dispatch<React.SetStateAction<UploadTask[]>>;
+}
+
+const UploadQueueStatus: React.FC<UploadQueueStatusProps> = ({
+                                                                 isExpanded,
+                                                                 onClose,
+                                                                 queuedUploads,
+                                                                 setQueuedUploads
+                                                             }) => {
     const [snackbar, setSnackbar] = useState<{
         open: boolean;
         message: string;
@@ -18,41 +30,26 @@ const UploadQueueStatus = () => {
         message: '',
         severity: 'success',
     });
-    const { fileExists } = useStorage();
-    const previousQueueRef = useRef<UploadTask[]>([]);
 
-    useEffect(() => {
-        const fetchQueuedUploads = async () => {
-            const uploads = await getAllQueuedUploads();
-            const updatedUploads: UploadTask[] = [];
+    const getStatusIcon = (status: string, retries: number) => {
+        if (status === 'error' || retries >= 3) {
+            return <ErrorOutlineIcon color="error" />;
+        }
+        if (status === 'queued' && retries > 0) {
+            return <WarningAmberIcon color="warning" />;
+        }
+        if (status === 'success') {
+            return <CheckCircleOutlineIcon color="success" />;
+        }
+        return null;
+    };
 
-            for (const upload of uploads) {
-                const exists = await fileExists(upload.path);
-                if (exists) {
-                    await removeFromQueue(upload.id);
-                    setSnackbar({
-                        open: true,
-                        message: `File "${upload.file.name}" already exists. Removed from queue.`,
-                        severity: 'info',
-                    });
-                } else {
-                    updatedUploads.push(upload);
-                }
-            }
-
-            previousQueueRef.current = updatedUploads;
-            setQueuedUploads(updatedUploads);
-
-            // Auto-expand when new uploads are added
-            if (updatedUploads.length > previousQueueRef.current.length) {
-                setIsExpanded(true);
-            }
-        };
-
-        fetchQueuedUploads();
-        const interval = setInterval(fetchQueuedUploads, 5000);
-        return () => clearInterval(interval);
-    }, [fileExists]);
+    const getStatusColor = (status: string, retries: number) => {
+        if (status === 'error' || retries >= 3) return 'error.main';
+        if (status === 'queued' && retries > 0) return 'warning.main';
+        if (status === 'success') return 'success.main';
+        return 'text.secondary';
+    };
 
     const handleRemove = async (id: string) => {
         await removeFromQueue(id);
@@ -68,65 +65,55 @@ const UploadQueueStatus = () => {
         setSnackbar(prev => ({ ...prev, open: false }));
     };
 
-    const toggleExpanded = () => {
-        setIsExpanded(!isExpanded);
-    };
+    if (!isExpanded) {
+        return null;
+    }
 
     return (
         <>
-            <Box sx={{
-                position: 'fixed',
-                bottom: 16,
-                right: 16,
-                zIndex: 1300,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-end'
-            }}>
+            <Box
+                sx={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    bgcolor: 'rgba(0, 0, 0, 0.5)',
+                    zIndex: 1200,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}
+                onClick={onClose}
+            >
                 <Card
                     sx={{
-                        width: 350,
-                        transition: 'all 0.3s ease-in-out',
-                        maxHeight: isExpanded ? '500px' : '64px',
-                        overflow: 'hidden'
+                        width: 800,
+                        maxHeight: '80vh',
+                        margin: 2,
                     }}
                     elevation={4}
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <CardHeader
-                        title={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="h6" component="div">
-                                    Upload Queue
-                                </Typography>
-                                {queuedUploads.length > 0 && (
-                                    <Badge
-                                        badgeContent={queuedUploads.length}
-                                        color="secondary"
-                                        sx={{ ml: 1 }}
-                                    />
-                                )}
-                            </Box>
-                        }
+                        title="Upload Queue"
                         action={
-                            <Tooltip title={isExpanded ? "Minimize" : "Expand"}>
-                                <IconButton onClick={toggleExpanded}>
-                                    {isExpanded ? <ExpandMoreIcon /> : <ExpandLessIcon />}
-                                </IconButton>
-                            </Tooltip>
+                            <IconButton onClick={onClose} size="small">
+                                <CloseIcon />
+                            </IconButton>
                         }
                         sx={{
                             bgcolor: 'primary.main',
                             color: 'primary.contrastText',
-                            py: 1
+                            py: 1,
                         }}
                     />
                     <Divider />
                     <CardContent
                         sx={{
-                            maxHeight: '400px',
+                            maxHeight: 'calc(80vh - 64px)',
                             overflowY: 'auto',
-                            padding: 1,
-                            display: isExpanded ? 'block' : 'none'
+                            padding: 2,
                         }}
                     >
                         {queuedUploads.length === 0 ? (
@@ -141,7 +128,12 @@ const UploadQueueStatus = () => {
                                         sx={{
                                             flexDirection: 'column',
                                             alignItems: 'stretch',
-                                            paddingY: 1
+                                            paddingY: 1,
+                                            bgcolor: 'background.paper',
+                                            borderRadius: 1,
+                                            mb: 1,
+                                            border: 1,
+                                            borderColor: 'divider'
                                         }}
                                     >
                                         <Box sx={{
@@ -150,14 +142,13 @@ const UploadQueueStatus = () => {
                                             alignItems: 'center',
                                             width: '100%'
                                         }}>
-                                            <ListItemText
-                                                primary={
-                                                    <Typography variant="subtitle1" fontWeight="bold">
-                                                        {upload.file.name}
-                                                    </Typography>
-                                                }
-                                                secondary={`Path: ${upload.path}`}
-                                            />
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                {getStatusIcon(upload.status, upload.retries)}
+                                                <ListItemText
+                                                    primary={upload.file.name}
+                                                    secondary={`Path: ${upload.path}`}
+                                                />
+                                            </Box>
                                             <Tooltip title="Remove">
                                                 <IconButton
                                                     edge="end"
@@ -172,18 +163,25 @@ const UploadQueueStatus = () => {
                                             <LinearProgress
                                                 variant="determinate"
                                                 value={upload.progress || 0}
-                                                sx={{ height: 8, borderRadius: 4 }}
+                                                sx={{
+                                                    height: 8,
+                                                    borderRadius: 4,
+                                                    bgcolor: 'grey.200',
+                                                    '& .MuiLinearProgress-bar': {
+                                                        bgcolor: getStatusColor(upload.status, upload.retries)
+                                                    }
+                                                }}
                                             />
                                             <Box sx={{
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
                                                 mt: 0.5
                                             }}>
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" color={getStatusColor(upload.status, upload.retries)}>
                                                     {upload.progress ? `${upload.progress.toFixed(0)}%` : 'Queued'}
                                                 </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {upload.status}
+                                                <Typography variant="caption" color={getStatusColor(upload.status, upload.retries)}>
+                                                    {upload.retries > 0 ? `Retry ${upload.retries}/3` : upload.status}
                                                 </Typography>
                                             </Box>
                                         </Box>
