@@ -22,13 +22,21 @@ import AccountActions from './Account/AccountActions';
 import SampleGroupMetadataComponent from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
-import UploadQueueStatus from './UploadQueueStatus';
 import MoveModal from "./LeftSidebar/MoveModal";
+import UploadQueueStatus from "./UploadQueueStatus";
+import { getAllQueuedUploads, removeFromQueue, UploadTask } from "../lib/utils/uploadQueue";
 
 const MainApp: React.FC = () => {
-  // Hooks
-  const { userProfile, error: authError, organization } = useAuth();
-  const { sampleGroups, deleteNode, error: dataError } = useData();
+  // All hooks at the top level
+  const auth = useAuth();
+  const data = useData();
+  const ui = useUI();
+  const networkStatus = useNetworkStatus();
+  const storage = useStorage();
+
+  // Destructure values from hooks
+  const { userProfile, error: authError, organization } = auth;
+  const { sampleGroups, deleteNode, error: dataError } = data;
   const {
     selectedLeftItem,
     showAccountActions,
@@ -38,17 +46,26 @@ const MainApp: React.FC = () => {
     closeLeftSidebarContextMenu,
     toggleLeftSidebar,
     setShowAccountActions,
-  } = useUI();
-  const { isOnline, isSyncing } = useNetworkStatus();
-  const storage = useStorage();
+  } = ui;
+  const { isOnline, isSyncing } = networkStatus;
 
-  // Determine the currently selected sample group
+  // Local state
+  const [isUploadQueueOpen, setIsUploadQueueOpen] = useState(false);
+  const [queuedUploads, setQueuedUploads] = useState<UploadTask[]>([]);
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [showOfflineWarning, setShowOfflineWarning] = useState(true);
+
+  // Refs
+  const previousQueueRef = useRef<UploadTask[]>([]);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Memoized values
   const sampleGroup = useMemo<SampleGroupMetadata | null>(() => {
     if (!selectedLeftItem || selectedLeftItem.type !== 'sampleGroup') return null;
     return sampleGroups[selectedLeftItem.id];
   }, [selectedLeftItem, sampleGroups]);
 
-  // Use processed data hook
+  // Move hook to top level instead of inside useMemo
   const processedDataHook = useProcessedData({
     sampleGroup: sampleGroup as SampleGroupMetadata,
     orgShortId: organization?.org_short_id || '',
@@ -57,35 +74,16 @@ const MainApp: React.FC = () => {
     storage,
   });
 
-  // Local UI state
-  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const [showOfflineWarning, setShowOfflineWarning] = useState(true);
-  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const displayedError = useMemo(() =>
+          authError || dataError || errorMessage || processedDataHook.error,
+      [authError, dataError, errorMessage, processedDataHook.error]
+  );
 
-  // Aggregate errors
-  const displayedError = authError || dataError || errorMessage || processedDataHook.error;
-
-  // Handle sidebar toggle
+  // Event handlers
   const handleToggleLeftSidebar = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     toggleLeftSidebar();
   }, [toggleLeftSidebar]);
-
-  // Clear displayed errors after 5 seconds
-  useEffect(() => {
-    if (displayedError) {
-      const timer = setTimeout(() => {
-        setErrorMessage(null);
-        processedDataHook.setError(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [displayedError, setErrorMessage, processedDataHook]);
-
-  // Update offline warning based on network status
-  useEffect(() => {
-    setShowOfflineWarning(!isOnline);
-  }, [isOnline]);
 
   const handleDeleteSample = useCallback(async () => {
     if (!leftSidebarContextMenu.itemId) {
@@ -103,7 +101,7 @@ const MainApp: React.FC = () => {
               : 'An error occurred while deleting the item.'
       );
     }
-  }, [leftSidebarContextMenu, deleteNode, closeLeftSidebarContextMenu, setErrorMessage]);
+  }, [leftSidebarContextMenu.itemId, deleteNode, closeLeftSidebarContextMenu, setErrorMessage]);
 
   const handleApplyFilters = useCallback(() => {
     setIsFilterMenuOpen(false);
@@ -122,20 +120,67 @@ const MainApp: React.FC = () => {
     openButtonRef.current?.focus();
   }, []);
 
-  // Scroll lock effect when the filter menu is open
+  const toggleUploadQueue = useCallback(() => {
+    setIsUploadQueueOpen(prev => !prev);
+  }, []);
+
+  const handleCloseUploadQueue = useCallback(() => {
+    setIsUploadQueueOpen(false);
+  }, []);
+
+  const renderContent = useMemo(() => {
+    if (selectedLeftItem?.type === 'sampleGroup') {
+      return <DropBoxes onError={setErrorMessage} />;
+    }
+    return <GlobeComponent />;
+  }, [selectedLeftItem?.type, setErrorMessage]);
+
+  // Effects
+  useEffect(() => {
+    const fetchQueuedUploads = async () => {
+      const uploads = await getAllQueuedUploads();
+      const updatedUploads: UploadTask[] = [];
+
+      for (const upload of uploads) {
+        const exists = await storage.fileExists(upload.path);
+        if (exists) {
+          await removeFromQueue(upload.id);
+        } else {
+          updatedUploads.push(upload);
+        }
+      }
+
+      if (JSON.stringify(previousQueueRef.current) !== JSON.stringify(updatedUploads)) {
+        previousQueueRef.current = updatedUploads;
+        setQueuedUploads(updatedUploads);
+      }
+    };
+
+    fetchQueuedUploads();
+    const interval = setInterval(fetchQueuedUploads, 5000);
+    return () => clearInterval(interval);
+  }, [storage.fileExists]);
+
+  useEffect(() => {
+    if (displayedError) {
+      const timer = setTimeout(() => {
+        setErrorMessage(null);
+        processedDataHook.setError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [displayedError, setErrorMessage, processedDataHook]);
+
+  useEffect(() => {
+    setShowOfflineWarning(!isOnline);
+  }, [isOnline]);
+
   useEffect(() => {
     document.body.style.overflow = isFilterMenuOpen ? 'hidden' : 'auto';
     return () => {
       document.body.style.overflow = 'auto';
     };
   }, [isFilterMenuOpen]);
-
-  const renderContent = useCallback(() => {
-    if (selectedLeftItem?.type === 'sampleGroup') {
-      return <DropBoxes onError={setErrorMessage} />;
-    }
-    return <GlobeComponent />;
-  }, [selectedLeftItem?.type, setErrorMessage]);
 
   return (
       <div id="app">
@@ -146,6 +191,8 @@ const MainApp: React.FC = () => {
               setShowAccountActions={setShowAccountActions}
               onOpenFilters={openFilterMenu}
               filterButtonRef={openButtonRef}
+              queuedUploadsCount={queuedUploads.length}
+              onToggleUploadQueue={toggleUploadQueue}
           />
 
           <LeftSidebar userTier={userProfile?.user_tier || 'researcher'} />
@@ -178,7 +225,7 @@ const MainApp: React.FC = () => {
                 />
             )}
 
-            <div className="content-body">{renderContent()}</div>
+            <div className="content-body">{renderContent}</div>
           </div>
 
           <RightSidebar />
@@ -187,10 +234,17 @@ const MainApp: React.FC = () => {
         {showAccountActions && <AccountActions />}
 
         <ContextMenu deleteItem={handleDeleteSample} />
+
+        <UploadQueueStatus
+            isExpanded={isUploadQueueOpen}
+            onClose={handleCloseUploadQueue}
+            queuedUploads={queuedUploads}
+            setQueuedUploads={setQueuedUploads}
+        />
+
         <MoveModal />
-        <UploadQueueStatus />
       </div>
   );
 };
 
-export default MainApp;
+export default React.memo(MainApp);

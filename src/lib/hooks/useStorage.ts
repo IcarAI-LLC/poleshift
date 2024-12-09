@@ -142,42 +142,73 @@ export const useStorage = () => {
             const paths: string[] = [];
             let filesProcessed = 0;
             const totalFiles = files.length;
+            const concurrentUploads = 3; // Number of concurrent uploads
 
             console.debug(`Uploading ${files.length} files to ${bucket}...`);
-            for (const file of files) {
-                const path = `${basePath}/${file.name}`;
 
-                if (isOnline) {
-                    // Check if file already exists before uploading
-                    const exists = await fileExists(path);
-                    if (exists) {
-                        enqueueSnackbar(`File "${file.name}" already exists. Skipping upload.`, { variant: 'info' });
-                        paths.push(path);
-                        filesProcessed += 1;
-                        if (onProgress) {
-                            onProgress({
-                                progress: (filesProcessed / totalFiles) * 100,
-                                bytesUploaded: 0,
-                                totalBytes: 0,
-                            });
-                        }
-                        continue;
-                    }
+            // Process files in chunks
+            for (let i = 0; i < files.length; i += concurrentUploads) {
+                const chunk = files.slice(i, i + concurrentUploads);
+                const uploadPromises = chunk.map(async (file) => {
+                    const path = `${basePath}/${file.name}`;
 
-                    try {
-                        await uploadFile(file, path, bucket);
-                        paths.push(path);
-                        filesProcessed += 1;
-                        if (onProgress) {
-                            onProgress({
-                                progress: (filesProcessed / totalFiles) * 100,
-                                bytesUploaded: 0,
-                                totalBytes: 0,
-                            });
+                    if (isOnline) {
+                        // Check if file exists before uploading
+                        const exists = await fileExists(path);
+                        if (exists) {
+                            enqueueSnackbar(`File "${file.name}" already exists. Skipping upload.`, { variant: 'info' });
+                            paths.push(path);
+                            filesProcessed += 1;
+                            if (onProgress) {
+                                onProgress({
+                                    progress: (filesProcessed / totalFiles) * 100,
+                                    bytesUploaded: 0,
+                                    totalBytes: 0,
+                                });
+                            }
+                            return path;
                         }
-                    } catch (error) {
-                        // If upload fails while online, queue the upload
-                        console.error(`Failed to upload ${file.name} while online. Queuing...`);
+
+                        try {
+                            await uploadFile(file, path, bucket);
+                            paths.push(path);
+                            filesProcessed += 1;
+                            if (onProgress) {
+                                onProgress({
+                                    progress: (filesProcessed / totalFiles) * 100,
+                                    bytesUploaded: 0,
+                                    totalBytes: 0,
+                                });
+                            }
+                            return path;
+                        } catch (error) {
+                            // If upload fails while online, queue the upload
+                            console.error(`Failed to upload ${file.name} while online. Queuing...`);
+                            const uploadTask: UploadTask = {
+                                id: uuidv4(),
+                                file,
+                                path,
+                                bucket,
+                                retries: 0,
+                                status: 'queued',
+                                progress: 0,
+                            };
+                            await addToQueue(uploadTask);
+                            enqueueSnackbar(`Queued upload for "${file.name}".`, { variant: 'warning' });
+                            paths.push(path);
+                            filesProcessed += 1;
+                            if (onProgress) {
+                                onProgress({
+                                    progress: (filesProcessed / totalFiles) * 100,
+                                    bytesUploaded: 0,
+                                    totalBytes: 0,
+                                });
+                            }
+                            return path;
+                        }
+                    } else {
+                        // Offline: Queue the upload
+                        console.log(`Offline: Queuing upload for ${file.name}`);
                         const uploadTask: UploadTask = {
                             id: uuidv4(),
                             file,
@@ -188,7 +219,7 @@ export const useStorage = () => {
                             progress: 0,
                         };
                         await addToQueue(uploadTask);
-                        enqueueSnackbar(`Queued upload for "${file.name}".`, { variant: 'warning' });
+                        enqueueSnackbar(`Queued upload for "${file.name}" (Offline).`, { variant: 'info' });
                         paths.push(path);
                         filesProcessed += 1;
                         if (onProgress) {
@@ -198,31 +229,12 @@ export const useStorage = () => {
                                 totalBytes: 0,
                             });
                         }
+                        return path;
                     }
-                } else {
-                    // Offline: Queue the upload
-                    console.log(`Offline: Queuing upload for ${file.name}`);
-                    const uploadTask: UploadTask = {
-                        id: uuidv4(),
-                        file,
-                        path,
-                        bucket,
-                        retries: 0,
-                        status: 'queued',
-                        progress: 0,
-                    };
-                    await addToQueue(uploadTask);
-                    enqueueSnackbar(`Queued upload for "${file.name}" (Offline).`, { variant: 'info' });
-                    paths.push(path);
-                    filesProcessed += 1;
-                    if (onProgress) {
-                        onProgress({
-                            progress: (filesProcessed / totalFiles) * 100,
-                            bytesUploaded: 0,
-                            totalBytes: 0,
-                        });
-                    }
-                }
+                });
+
+                // Wait for current chunk to complete before moving to next chunk
+                await Promise.all(uploadPromises);
             }
 
             return paths;

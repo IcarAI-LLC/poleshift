@@ -3,6 +3,7 @@ mod handle_nutrient_ammonia;
 mod handle_sequence_data;
 mod build_taxonomy_hierarchy;
 mod poleshift_common;
+mod process_sidebar_stats;
 
 use handle_ctd_data::handle_ctd_data_upload;
 use handle_nutrient_ammonia::handle_nutrient_ammonia;
@@ -10,6 +11,7 @@ use handle_sequence_data::handle_sequence_data;
 use build_taxonomy_hierarchy::build_taxonomy_hierarchy;
 use build_taxonomy_hierarchy::validate_taxonomy_hierarchy;
 use build_taxonomy_hierarchy::get_hierarchy_stats;
+use process_sidebar_stats::process_sidebar_stats;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -25,7 +27,8 @@ pub fn run() {
             handle_sequence_data,
             build_taxonomy_hierarchy,
             validate_taxonomy_hierarchy,
-            get_hierarchy_stats
+            get_hierarchy_stats,
+            process_sidebar_stats
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");

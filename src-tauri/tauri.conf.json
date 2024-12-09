@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "poleshift-tauri",
+        "title": "poleshift",
         "width": 1920,
         "height": 1080
       }
