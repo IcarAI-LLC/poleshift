@@ -1,8 +1,6 @@
 // src/lib/components/MainApp.tsx
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { IconButton, Tooltip } from '@mui/material';
-import FilterListIcon from '@mui/icons-material/FilterList';
+import type { SampleGroupMetadata } from '../lib/types';
 
 import {
   useAuth,
@@ -11,8 +9,9 @@ import {
   useNetworkStatus,
   useStorage,
 } from '../lib/hooks';
-import type { SampleGroupMetadata } from '../lib/types';
+import { useProcessedData } from '../lib/hooks/useProcessedData';
 
+import TopControls from './TopControls/TopControls';
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
 import DropBoxes from './DropBoxes/DropBoxes';
@@ -24,8 +23,7 @@ import SampleGroupMetadataComponent from './SampleGroupMetadata';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
 import UploadQueueStatus from './UploadQueueStatus';
-import MoveModal from "./LeftSidebar/MoveModal.tsx";
-import { useProcessedData } from '../lib/hooks/useProcessedData';
+import MoveModal from "./LeftSidebar/MoveModal";
 
 const MainApp: React.FC = () => {
   // Hooks
@@ -37,9 +35,11 @@ const MainApp: React.FC = () => {
     errorMessage,
     setErrorMessage,
     leftSidebarContextMenu,
-    closeLeftSidebarContextMenu
+    closeLeftSidebarContextMenu,
+    toggleLeftSidebar,
+    setShowAccountActions,
   } = useUI();
-  const { isOnline } = useNetworkStatus();
+  const { isOnline, isSyncing } = useNetworkStatus();
   const storage = useStorage();
 
   // Determine the currently selected sample group
@@ -50,7 +50,7 @@ const MainApp: React.FC = () => {
 
   // Use processed data hook
   const processedDataHook = useProcessedData({
-    sampleGroup: sampleGroup as SampleGroupMetadata, // safe even if null is passed
+    sampleGroup: sampleGroup as SampleGroupMetadata,
     orgShortId: organization?.org_short_id || '',
     orgId: organization?.id || '',
     organization,
@@ -64,6 +64,12 @@ const MainApp: React.FC = () => {
 
   // Aggregate errors
   const displayedError = authError || dataError || errorMessage || processedDataHook.error;
+
+  // Handle sidebar toggle
+  const handleToggleLeftSidebar = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    toggleLeftSidebar();
+  }, [toggleLeftSidebar]);
 
   // Clear displayed errors after 5 seconds
   useEffect(() => {
@@ -126,9 +132,7 @@ const MainApp: React.FC = () => {
 
   const renderContent = useCallback(() => {
     if (selectedLeftItem?.type === 'sampleGroup') {
-      return (
-          <DropBoxes onError={setErrorMessage} />
-      );
+      return <DropBoxes onError={setErrorMessage} />;
     }
     return <GlobeComponent />;
   }, [selectedLeftItem?.type, setErrorMessage]);
@@ -136,20 +140,15 @@ const MainApp: React.FC = () => {
   return (
       <div id="app">
         <div className="app-container">
-          <LeftSidebar userTier={userProfile?.user_tier || 'researcher'} />
+          <TopControls
+              isSyncing={isSyncing}
+              onToggleSidebar={handleToggleLeftSidebar}
+              setShowAccountActions={setShowAccountActions}
+              onOpenFilters={openFilterMenu}
+              filterButtonRef={openButtonRef}
+          />
 
-          <Tooltip title="Open Filters" arrow>
-            <IconButton
-                color="primary"
-                size="small"
-                onClick={openFilterMenu}
-                ref={openButtonRef}
-                className="open-filters-icon-button"
-                aria-label="Open Filters"
-            >
-              <FilterListIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <LeftSidebar userTier={userProfile?.user_tier || 'researcher'} />
 
           {isFilterMenuOpen && (
               <FilterMenu

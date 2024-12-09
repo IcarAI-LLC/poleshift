@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../lib/hooks';
-import type { PreAuthView } from '../lib/types';
-import LoadingScreen from '../components/PreAuth/LoadingScreen';
-import Login from '../components/PreAuth/Login';
-import SignUp from '../components/PreAuth/SignUp';
-import ResetPassword from '../components/PreAuth/ResetPassword';
-import MainApp from '../components/MainApp';
-import ActivateLicense from '../components/PreAuth/ActivateLicense';
+import { useAuth } from '../../lib/hooks';
+import type { PreAuthView } from '../../lib/types';
+import LoadingScreen from './LoadingScreen.tsx';
+import Login from './Login.tsx';
+import SignUp from './SignUp.tsx';
+import ResetPassword from './ResetPassword.tsx';
+import MainApp from '../MainApp.tsx';
+import ActivateLicense from './ActivateLicense.tsx';
 
 const WAIT_TIME_MS = 20000; // 20 seconds
 
-const AppRoutes: React.FC = () => {
+const PreAuth: React.FC = () => {
   const { isAuthenticated, loading: authLoading, userProfile } = useAuth();
   const [currentView, setCurrentView] = useState<PreAuthView>('login');
 
@@ -100,4 +100,4 @@ const AppRoutes: React.FC = () => {
   return <MainApp />;
 };
 
-export default AppRoutes;
+export default PreAuth;

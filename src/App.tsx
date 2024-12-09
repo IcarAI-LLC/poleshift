@@ -6,7 +6,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { PowerSyncContext } from '@powersync/react';
 
 import { theme } from './theme';
-import AppRoutes from './routes/AppRoutes';
+import PreAuth from './components/PreAuth/PreAuth.tsx';
 import './App.css';
 import { db, setupPowerSync } from './lib/powersync/db';
 import { checkForAppUpdates } from './updater';
@@ -32,7 +32,7 @@ function App() {
         <PowerSyncContext.Provider value={db}>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
                 <ThemeProvider theme={theme}>
-                    <AppRoutes />
+                    <PreAuth />
                 </ThemeProvider>
             </LocalizationProvider>
         </PowerSyncContext.Provider>
