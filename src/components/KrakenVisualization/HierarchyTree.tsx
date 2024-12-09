@@ -21,14 +21,14 @@ import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider';
 import { styled } from '@mui/material/styles';
 import { invoke } from '@tauri-apps/api/core';
 
-interface TaxonomyNode {
+interface _TaxonomyNodeHierarchyTree {
     name: string;
     tax_id: number;
     rank: string;
     percentage: number;
     reads: number;
     depth: number;
-    children?: TaxonomyNode[];
+    children?: _TaxonomyNodeHierarchyTree[];
 }
 
 interface TaxonomyFileNode {
@@ -44,7 +44,7 @@ interface TaxonomyFileNode {
 
 let nodeCounter = 0;
 // Update the convertToFileNodes function to handle the new field names
-const convertToFileNodes = (nodes: TaxonomyNode[]): TaxonomyFileNode[] => {
+const convertToFileNodes = (nodes: _TaxonomyNodeHierarchyTree[]): TaxonomyFileNode[] => {
     return nodes.map((node) => {
         nodeCounter += 1;
         return {
@@ -62,7 +62,7 @@ const convertToFileNodes = (nodes: TaxonomyNode[]): TaxonomyFileNode[] => {
     });
 };
 // Update the validation function
-const validateAndTransformNodes = (nodes: any[]): TaxonomyNode[] => {
+const validateAndTransformNodes = (nodes: any[]): _TaxonomyNodeHierarchyTree[] => {
     return nodes.map(node => ({
         name: node.name,
         tax_id: node.taxId || 0,
@@ -132,13 +132,13 @@ const CustomTaxonomyTreeItem = React.forwardRef(function CustomTaxonomyTreeItem(
 });
 
 interface HierarchyTreeProps {
-    nodes: TaxonomyNode[];
+    nodes: _TaxonomyNodeHierarchyTree[];
 }
 
 const HierarchyTree: React.FC<HierarchyTreeProps> = ({ nodes }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [hierarchyData, setHierarchyData] = useState<TaxonomyNode[]>([]);
+    const [hierarchyData, setHierarchyData] = useState<_TaxonomyNodeHierarchyTree[]>([]);
     const [stats, setStats] = useState<Record<string, number>>({});
 
     useEffect(() => {
@@ -159,7 +159,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ nodes }) => {
                 console.log('Transformed nodes:', JSON.stringify(transformedNodes, null, 2));
 
                 // Build the hierarchy using Rust
-                const hierarchy = await invoke<TaxonomyNode[]>('build_taxonomy_hierarchy', {
+                const hierarchy = await invoke<_TaxonomyNodeHierarchyTree[]>('build_taxonomy_hierarchy', {
                     nodes: transformedNodes
                 });
 

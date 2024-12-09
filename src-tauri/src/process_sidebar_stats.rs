@@ -21,19 +21,19 @@ pub struct AmmoniumStats {
 
 #[derive(Debug, Deserialize)]
 pub struct ProcessedDataEntry {
-    sample_id: String,
-    config_id: String,
-    status: String,
+    _sample_id: String,
+    _config_id: String,
+    _status: String,
     data: serde_json::Value,
-    metadata: Option<serde_json::Value>,
-    raw_file_paths: Option<Vec<String>>,
-    processed_file_paths: Option<Vec<String>>,
+    _metadata: Option<serde_json::Value>,
+    _raw_file_paths: Option<Vec<String>>,
+    _processed_file_paths: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SampleGroup {
     id: String,
-    loc_id: String,
+    _loc_id: String,
 }
 
 #[derive(Debug, Deserialize)]

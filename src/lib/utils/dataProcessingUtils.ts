@@ -8,7 +8,7 @@ interface KrakenReportEntry {
     kmers: number;
     dup: number;
     cov: number;
-    taxId: number;
+    tax_id: number;
     rank: string;
     name: string;
 }
@@ -175,7 +175,7 @@ const processKrakenReport = (reportContent: string): ProcessedKrakenData => {
                 kmersStr,
                 dupStr,
                 covStr,
-                taxIdStr,
+                tax_idStr,
                 rankStr,
                 taxNameWithIndent,
             ] = columns;
@@ -203,7 +203,7 @@ const processKrakenReport = (reportContent: string): ProcessedKrakenData => {
                 kmers: parseInt(kmersStr, 10),
                 dup: parseFloat(dupStr),
                 cov: parseFloat(covStr),
-                taxId: parseInt(taxIdStr, 10),
+                tax_id: parseInt(tax_idStr, 10),
                 rank,
                 name: taxName.trim(),
             };

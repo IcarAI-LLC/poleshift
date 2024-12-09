@@ -30,7 +30,7 @@ enum SortDirection {
   ASC = 'asc',
   DESC = 'desc',
 }
-
+    
 interface KrakenData {
   type: 'report';
   data: Array<{
@@ -59,7 +59,7 @@ interface KrakenReportEntry {
   kmers: number;
   dup: number;
   cov: number;
-  taxId: number;
+  tax_id: number;
   rank: string;
   name: string;
 }

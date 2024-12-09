@@ -1,33 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tauri::command;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use rayon::prelude::*;
 use std::sync::Arc;
-use std::sync::Mutex;
-
-// Simple thread-safe string interner
-struct StringInterner {
-    set: Mutex<HashSet<Arc<str>>>,
-}
-
-impl StringInterner {
-    fn new() -> Self {
-        StringInterner {
-            set: Mutex::new(HashSet::new()),
-        }
-    }
-
-    fn intern(&self, s: &str) -> Arc<str> {
-        let mut set = self.set.lock().unwrap();
-        if let Some(existing) = set.get(s) {
-            Arc::clone(existing)
-        } else {
-            let arc_str = Arc::<str>::from(s);
-            set.insert(Arc::clone(&arc_str));
-            arc_str
-        }
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TaxonomyNode {

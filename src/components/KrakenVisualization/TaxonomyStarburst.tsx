@@ -4,7 +4,7 @@ import { Box, Button, Typography } from '@mui/material';
 
 interface TaxonomyNode {
     name: string;
-    taxId: number;
+    tax_id: number;
     rank: string;
     percentage: number;
     reads: number;
@@ -44,7 +44,7 @@ const buildTree = (nodes: TaxonomyNode[]): TreeNode => {
 
     // Create root node
     const rootNode: TreeNode = {
-        id: `${rootNodeData.name}-${rootNodeData.taxId}`,
+        id: `${rootNodeData.name}-${rootNodeData.tax_id}`,
         name: rootNodeData.name,
         rank: rootNodeData.rank,
         value: rootNodeData.taxReads,
@@ -59,7 +59,7 @@ const buildTree = (nodes: TaxonomyNode[]): TreeNode => {
         .filter(node => node !== rootNodeData)
         .forEach((node) => {
             const treeNode: TreeNode = {
-                id: `${node.name}-${node.taxId}`,
+                id: `${node.name}-${node.tax_id}`,
                 name: node.name,
                 rank: node.rank,
                 value: node.taxReads,
