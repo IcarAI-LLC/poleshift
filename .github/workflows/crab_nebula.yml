@@ -56,6 +56,8 @@ jobs:
       - name: Build Tauri app for Linux
         if: matrix.os != 'macos-latest'
         run: |
+          npm install
+          npm install @tauri-apps/cli-linux-x64-gnu
           npm ci
           npm run tauri build
         env:
