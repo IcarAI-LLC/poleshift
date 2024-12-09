@@ -29,6 +29,7 @@ import {format, parse} from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import {useTheme} from '@mui/material/styles';
+import {LocationOn} from "@mui/icons-material";
 
 /**
  * Represents a form field with various customizable attributes.
@@ -53,21 +54,25 @@ import {useTheme} from '@mui/material/styles';
  * @property {boolean} [required]
  * Indicates whether the field is mandatory. If true, the form containing the field should not be submitted without a valid input for this field.
  */
+// src/renderer/components/Modal/Modal.tsx
+
 interface Field {
-  name: string;
-  label?: string;
-  type:
-      | 'text'
-      | 'textarea'
-      | 'select'
-      | 'number'
-      | 'date'
-      | 'time'
-      | 'timezone';
-  options?: { value: string; label: string }[];
-  tooltip?: string;
-  required?: boolean;
+    name: string;
+    label?: string;
+    type:
+        | 'text'
+        | 'textarea'
+        | 'select'
+        | 'number'
+        | 'date'
+        | 'time'
+        | 'timezone'
+        | 'location'; // Added 'location' type
+    options?: { value: string; label: string }[];
+    tooltip?: string;
+    required?: boolean;
 }
+
 
 /**
  * Represents the properties for a Modal component.
@@ -482,6 +487,47 @@ const Modal: React.FC<ModalProps> = ({
                         }}
                       />
                     );
+
+                        case 'location':
+                            return (
+                                <Autocomplete
+                                    key={field.name}
+                                    options={field.options || []} // Use options from the field
+                                    getOptionLabel={(option) => option.label}
+                                    value={
+                                        field.options?.find((loc) => loc.value === modalInputs[field.name]) || null
+                                    }
+                                    onChange={(_, newValue) => {
+                                        handleModalChange({
+                                            target: {
+                                                name: field.name,
+                                                value: newValue ? newValue.value : '',
+                                            },
+                                        } as any);
+                                    }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label={field.label}
+                                            required={field.required || false}
+                                            placeholder={
+                                                field.label
+                                                    ? `Select ${field.label.toLowerCase()}...`
+                                                    : 'Select location...'
+                                            }
+                                            sx={darkFieldStyles}
+                                        />
+                                    )}
+                                    fullWidth
+                                    popupIcon={<LocationOn />} // Using Globe Icon for Location
+                                    sx={{
+                                        '& .MuiAutocomplete-paper': {
+                                            backgroundColor: '#1a1a1a',
+                                            color: theme.palette.text.primary,
+                                        },
+                                    }}
+                                />
+                            );
 
                   default:
                     return (

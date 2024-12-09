@@ -351,11 +351,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           {
             name: 'locCharId',
             label: 'Location',
-            type: 'select',
+            type: 'location', // Changed from 'select' to 'location'
             options: locations.map((loc: SampleLocation) => ({
               value: loc.char_id,
               label: loc.label,
-            })),
+            })), // Pass dynamic locations as options
             tooltip: 'Select the location where the sample was collected.',
             required: true,
           },
