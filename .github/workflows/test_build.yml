@@ -47,11 +47,8 @@ jobs:
       - name: Build Tauri App for Linux
         if: matrix.os != 'macos-latest'
         run: |
-          npm ci
-          rm -rf node_modules package-lock.json
-          npm install
-          npm install @tauri-apps/cli-linux-x64-gnu
-          npm run tauri build
+          yarn install --frozen-lockfile
+          yarn tauri build
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -59,10 +56,10 @@ jobs:
       - name: Install macOS Targets and Build Tauri Binaries
         if: matrix.os == 'macos-latest'
         run: |
-          npm ci
           rustup target add x86_64-apple-darwin
-          npm run tauri build -- --target aarch64-apple-darwin
-          npm run tauri build -- --target x86_64-apple-darwin
+          yarn install --frozen-lockfile
+          yarn tauri build --target x86_64-apple-darwin
+          yarn tauri build --target aarch64-apple-darwin
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

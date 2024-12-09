@@ -52,14 +52,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1
-          npm install
-          npm install @tauri-apps/cli-linux-x64-gnu
       - name: Build Tauri app for Linux
         if: matrix.os != 'macos-latest'
         run: |
-
-          npm ci
-          npm run tauri build
+          yarn install --frozen-lockfile
+          yarn tauri build
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -67,10 +64,10 @@ jobs:
       - name: Install x86_64-apple-darwin for mac and build Tauri binaries
         if: matrix.os == 'macos-latest'
         run: |
-          npm ci
           rustup target add x86_64-apple-darwin
-          npm run tauri build -- --target aarch64-apple-darwin
-          npm run tauri build -- --target x86_64-apple-darwin
+          yarn install --frozen-lockfile
+          yarn tauri build --target x86_64-apple-darwin
+          yarn tauri build --target aarch64-apple-darwin
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

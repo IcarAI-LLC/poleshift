@@ -28,7 +28,7 @@ const main = async () => {
                 }
                 : undefined,
             watch: {
-                ignored: ["**/src-tauri/**", "**/src/**"],
+                ignored: ["**/src-tauri/**"],
             },
         },
         envPrefix: ['VITE_', 'TAURI_ENV_*'],
