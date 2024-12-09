@@ -56,8 +56,6 @@ jobs:
         if: matrix.os != 'macos-latest'
         run: |
           npm ci
-          npm run tauri build
-          npm ci
           rm -rf node_modules package-lock.json
           npm install
           npm install @tauri-apps/cli-linux-x64-gnu
