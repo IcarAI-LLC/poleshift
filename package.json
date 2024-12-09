@@ -27,6 +27,7 @@
     "@powersync/web": "^1.12.1",
     "@supabase/supabase-js": "^2.46.1",
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-cli": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.1",
     "@tauri-apps/plugin-fs": "^2.0.2",
     "@tauri-apps/plugin-process": "^2.0.0",

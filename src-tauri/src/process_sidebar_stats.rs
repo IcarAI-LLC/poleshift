@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use tauri::command;
 use std::collections::HashMap;
+use tauri::command;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProcessedStats {
@@ -49,12 +49,18 @@ pub struct Channel {
     long_name: String,
 }
 
-fn process_kraken_report(report_content: &str, confidence_threshold: f64) -> (HashMap<String, Vec<String>>, HashMap<String, Vec<String>>) {
+fn process_kraken_report(
+    report_content: &str,
+    confidence_threshold: f64,
+) -> (HashMap<String, Vec<String>>, HashMap<String, Vec<String>>) {
     let mut species_set: HashMap<String, Vec<String>> = HashMap::new();
     let mut genus_set: HashMap<String, Vec<String>> = HashMap::new();
 
     let lines: Vec<&str> = report_content.lines().collect();
-    let start_index = if lines.get(1).map_or(false, |line| line.contains("unclassified")) {
+    let start_index = if lines
+        .get(1)
+        .map_or(false, |line| line.contains("unclassified"))
+    {
         2
     } else {
         1
@@ -69,9 +75,12 @@ fn process_kraken_report(report_content: &str, confidence_threshold: f64) -> (Ha
                     let name = parts[8].trim_start().to_string();
 
                     if rank == "SPECIES" || rank == "GENUS" {
-                        let set = if rank == "SPECIES" { &mut species_set } else { &mut genus_set };
-                        set.entry(name)
-                            .or_insert_with(Vec::new);
+                        let set = if rank == "SPECIES" {
+                            &mut species_set
+                        } else {
+                            &mut genus_set
+                        };
+                        set.entry(name).or_insert_with(Vec::new);
                     }
                 }
             }
@@ -98,7 +107,10 @@ pub async fn process_sidebar_stats(request: ProcessRequest) -> Result<ProcessedS
         let sample_id = &group.id;
 
         // Process CTD data
-        if let Some(entry) = request.processed_data.get(&format!("{}:ctd_data", sample_id)) {
+        if let Some(entry) = request
+            .processed_data
+            .get(&format!("{}:ctd_data", sample_id))
+        {
             if let Ok(report) = serde_json::from_value::<serde_json::Value>(entry.data.clone()) {
                 if let (Some(channels), Some(data)) = (
                     report.get("report").and_then(|r| r.get("channels")),
@@ -108,11 +120,12 @@ pub async fn process_sidebar_stats(request: ProcessRequest) -> Result<ProcessedS
                         serde_json::from_value::<Vec<Channel>>(channels.clone()),
                         serde_json::from_value::<Vec<HashMap<String, f64>>>(data.clone()),
                     ) {
-                        let channel_map: HashMap<String, String> = channels.iter()
+                        let channel_map: HashMap<String, String> = channels
+                            .iter()
                             .map(|channel| {
                                 (
                                     channel.long_name.clone(),
-                                    format!("channel{:02}", channel.channel_id)
+                                    format!("channel{:02}", channel.channel_id),
                                 )
                             })
                             .collect();
@@ -141,9 +154,13 @@ pub async fn process_sidebar_stats(request: ProcessRequest) -> Result<ProcessedS
         }
 
         // Process nutrient data
-        if let Some(entry) = request.processed_data.get(&format!("{}:nutrient_ammonia", sample_id)) {
+        if let Some(entry) = request
+            .processed_data
+            .get(&format!("{}:nutrient_ammonia", sample_id))
+        {
             if let Ok(report) = serde_json::from_value::<serde_json::Value>(entry.data.clone()) {
-                if let Some(amm_value) = report.get("report")
+                if let Some(amm_value) = report
+                    .get("report")
                     .and_then(|r| r.get("ammonium_value"))
                     .and_then(|v| v.as_f64())
                 {
@@ -156,13 +173,18 @@ pub async fn process_sidebar_stats(request: ProcessRequest) -> Result<ProcessedS
         }
 
         // Process sequencing data
-        if let Some(entry) = request.processed_data.get(&format!("{}:sequencing_data", sample_id)) {
+        if let Some(entry) = request
+            .processed_data
+            .get(&format!("{}:sequencing_data", sample_id))
+        {
             if let Ok(report) = serde_json::from_value::<serde_json::Value>(entry.data.clone()) {
-                if let Some(report_content) = report.get("report")
+                if let Some(report_content) = report
+                    .get("report")
                     .and_then(|r| r.get("report_content"))
                     .and_then(|c| c.as_str())
                 {
-                    let (mut species, mut genera) = process_kraken_report(report_content, request.confidence_threshold);
+                    let (mut species, mut genera) =
+                        process_kraken_report(report_content, request.confidence_threshold);
 
                     // Add sample ID to each set
                     for samples in species.values_mut() {
@@ -174,12 +196,14 @@ pub async fn process_sidebar_stats(request: ProcessRequest) -> Result<ProcessedS
 
                     // Merge into main sets
                     for (taxon, samples) in species {
-                        species_set.entry(taxon)
+                        species_set
+                            .entry(taxon)
                             .or_insert_with(Vec::new)
                             .extend(samples);
                     }
                     for (taxon, samples) in genera {
-                        genus_set.entry(taxon)
+                        genus_set
+                            .entry(taxon)
                             .or_insert_with(Vec::new)
                             .extend(samples);
                     }
@@ -189,18 +213,32 @@ pub async fn process_sidebar_stats(request: ProcessRequest) -> Result<ProcessedS
     }
 
     Ok(ProcessedStats {
-        average_temperature: if temp_count > 0 { Some(temp_sum / temp_count as f64) } else { None },
-        average_salinity: if sal_count > 0 { Some(sal_sum / sal_count as f64) } else { None },
+        average_temperature: if temp_count > 0 {
+            Some(temp_sum / temp_count as f64)
+        } else {
+            None
+        },
+        average_salinity: if sal_count > 0 {
+            Some(sal_sum / sal_count as f64)
+        } else {
+            None
+        },
         ammonium_stats: AmmoniumStats {
-            average: if amm_count > 0 { Some(total_amm / amm_count as f64) } else { None },
+            average: if amm_count > 0 {
+                Some(total_amm / amm_count as f64)
+            } else {
+                None
+            },
             min: min_amm,
             max: max_amm,
             count: amm_count,
         },
-        species_data: species_set.into_iter()
+        species_data: species_set
+            .into_iter()
             .map(|(name, samples)| (name, samples.len() as i32))
             .collect(),
-        genus_data: genus_set.into_iter()
+        genus_data: genus_set
+            .into_iter()
             .map(|(name, samples)| (name, samples.len() as i32))
             .collect(),
     })
