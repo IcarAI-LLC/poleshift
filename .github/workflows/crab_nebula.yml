@@ -53,6 +53,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1
+          npm install --global yarn
       - name: Build Tauri app for Linux
         if: matrix.os != 'macos-latest'
         run: |
