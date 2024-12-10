@@ -3,6 +3,11 @@ import react from "@vitejs/plugin-react";
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 
+const ReactCompilerConfig = {
+    sources: (filename: string | string[]) => {
+        return filename.indexOf('./src') !== -1;
+    },
+};
 const host = process.env.TAURI_DEV_HOST;
 
 // Use top-level await if necessary to resolve any async configuration steps before defining the config
@@ -10,7 +15,16 @@ const main = async () => {
     // If you have asynchronous steps, resolve them here
 
     return defineConfig({
-        plugins: [react(), wasm(), topLevelAwait()],
+        plugins: [
+            react({
+                babel: {
+                    plugins: [
+                        ["babel-plugin-react-compiler", ReactCompilerConfig],
+                    ],
+            }
+            }),
+            wasm(),
+            topLevelAwait()],
         optimizeDeps: {
             exclude: ['@journeyapps/wa-sqlite', '@powersync/web'],
             include: ['@powersync/web > js-logger']

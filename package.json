@@ -35,6 +35,7 @@
     "@tauri-apps/plugin-updater": "^2.2.0",
     "@types/plotly.js": "^2.35.1",
     "@visx/event": "^3.12.0",
+    "babel-plugin-react-compiler": "^19.0.0-beta-37ed2a7-20241206",
     "d3": "^7.9.0",
     "d3-hierarchy": "^3.1.2",
     "d3-shape": "^3.2.0",
