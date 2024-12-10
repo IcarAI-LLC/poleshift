@@ -20,7 +20,6 @@ interface CustomLayout extends Partial<Plotly.Layout> {
 
 const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 800, height = 800 }) => {
     const plotRef = useRef<HTMLDivElement | null>(null);
-
     // Utilize the useHierarchyTree hook
     //@ts-ignore
     const { hierarchyData, stats, loading, error } = useHierarchyTree(nodes);
@@ -84,6 +83,7 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 80
                     %{value:,.0f} reads<br>
                     <extra></extra>
                 `,
+                branchvalues: "total",
             },
         ];
 

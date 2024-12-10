@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { ScatterChart } from '@mui/x-charts/ScatterChart';
-import type { ScatterSeriesType } from '@mui/x-charts/models';
+import { Chart } from "react-google-charts";
 import {
   Box,
   FormControlLabel,
   Checkbox,
   Typography,
   Card,
-  CardContent
+  CardContent,
+  Alert,
+  Stack
 } from '@mui/material';
 
 interface ProcessedCTDData {
@@ -39,6 +40,28 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
     return Object.keys(data[0]).filter((key) => key !== 'depth');
   }, [data]);
 
+  // Custom legend component
+  const CustomLegend = () => (
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        {selectedVariables.map((variableName, index) => (
+            <Box key={variableName} sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: colorArray[index % colorArray.length],
+                    mr: 1
+                  }}
+              />
+              <Typography variant="body2" color="white">
+                {`${variableName} (${units[variableName] || 'N/A'})`}
+              </Typography>
+            </Box>
+        ))}
+      </Stack>
+  );
+
   const handleToggle = (variableName: string) => {
     setSelectedVariables((prev) =>
         prev.includes(variableName)
@@ -48,30 +71,121 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
   };
 
   if (data.length === 0) {
-    return <Typography>No data available to display.</Typography>;
+    return (
+        <Card sx={{ bgcolor: 'black', color: 'white' }}>
+          <CardContent>
+            <Alert severity="info">No data available to display.</Alert>
+          </CardContent>
+        </Card>
+    );
   }
 
-  // Prepare series data for MUI X-Charts
-  const series: ScatterSeriesType[] = selectedVariables.map((variableName, index) => ({
-    type: 'scatter',
-    data: data
-        .map((item, idx) => ({
-          id: `${variableName}-${idx}`,
-          x: Number(item[variableName]),
-          y: Number(item.depth),
-          xAxis: undefined,
-          yAxis: undefined
-        }))
-        .filter(point => !isNaN(point.x)),
-    label: `${variableName} (${units[variableName] || 'N/A'})`,
-    color: colorArray[index % colorArray.length],
-    valueFormatter: (value: { x: number; y: number }) =>
-        `Value: ${value.x}, Depth: ${value.y} m`,
-    showMark: true
-  }));
+  // Show message when no variables are selected
+  if (selectedVariables.length === 0) {
+    return (
+        <Card sx={{ bgcolor: 'black', color: 'white' }}>
+          <CardContent>
+            <Box>
+              {/* Variable toggles */}
+              <Box display="flex" flexWrap="wrap" mb={2}>
+                {variableOptions.map((variableName) => (
+                    <FormControlLabel
+                        key={variableName}
+                        control={
+                          <Checkbox
+                              checked={false}
+                              onChange={() => handleToggle(variableName)}
+                              name={variableName}
+                              color="primary"
+                          />
+                        }
+                        label={`${variableName} (${units[variableName] || 'N/A'})`}
+                        sx={{ color: 'white' }}
+                    />
+                ))}
+              </Box>
+              <Alert severity="info">Please select at least one variable to display the chart.</Alert>
+            </Box>
+          </CardContent>
+        </Card>
+    );
+  }
+
+  // Prepare data for Google Charts
+  const chartData = [
+    ['Variable Value', 'Depth', { role: 'tooltip' }, { role: 'style' }],
+    ...selectedVariables.flatMap((variableName, seriesIndex) =>
+        data
+            .map(item => {
+              const x = Number(item[variableName]);
+              const y = Number(item.depth);
+              if (isNaN(x)) return null;
+
+              return [
+                x,
+                y,
+                `${variableName}: ${x} ${units[variableName] || ''}\nDepth: ${y} m`,
+                `point { size: 3; fill-color: ${colorArray[seriesIndex % colorArray.length]}; }`
+              ];
+            })
+            .filter((item): item is [number, number, string, string] => item !== null)
+    )
+  ];
+
+  const options = {
+    backgroundColor: '#000000',
+    colors: selectedVariables.map((_, index) => colorArray[index % colorArray.length]),
+    hAxis: {
+      title: selectedVariables.length === 1
+          ? `${selectedVariables[0]} (${units[selectedVariables[0]] || ''})`
+          : 'Variable Value',
+      gridlines: {
+        color: '#444444'
+      },
+      titleTextStyle: {
+        color: '#ffffff',
+        italic: false,
+        bold: true
+      },
+      textStyle: {
+        color: '#ffffff'
+      }
+    },
+    vAxis: {
+      title: 'Depth (m)',
+      direction: -1,
+      gridlines: {
+        color: '#444444'
+      },
+      titleTextStyle: {
+        color: '#ffffff',
+        italic: false,
+        bold: true
+      },
+      textStyle: {
+        color: '#ffffff'
+      }
+    },
+    legend: {
+      position: 'none'  // Hide default legend
+    },
+    tooltip: {
+      textStyle: {
+        fontSize: 12
+      }
+    },
+    chartArea: {
+      left: 80,
+      top: 50,
+      right: 20,
+      bottom: 60,
+      width: '100%',
+      height: '100%'
+    }
+  };
 
   return (
-      <Card>
+      <Card sx={{ bgcolor: 'black', color: 'white' }}>
         <CardContent>
           <Box>
             {/* Variable toggles */}
@@ -88,32 +202,22 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
                         />
                       }
                       label={`${variableName} (${units[variableName] || 'N/A'})`}
+                      sx={{ color: 'white' }}
                   />
               ))}
             </Box>
 
+            {/* Custom Legend */}
+            <CustomLegend />
+
             {/* Chart */}
             <Box style={{ width: '100%', height: 500 }}>
-              <ScatterChart
-                  series={series}
-                  width={undefined}
-                  height={500}
-                  margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
-                  xAxis={[{
-                    label: 'Variable Value',
-                  }]}
-                  yAxis={[{
-                    label: 'Depth (m)',
-                    reverse: true,
-                  }]}
-                  grid={{ vertical: true, horizontal: true }}
-                  slotProps={{
-                    legend: {
-                      direction: 'row',
-                      position: { vertical: 'top', horizontal: 'middle' },
-                      padding: 20,
-                    }
-                  }}
+              <Chart
+                  chartType="ScatterChart"
+                  width="100%"
+                  height="500px"
+                  data={chartData}
+                  options={options}
               />
             </Box>
           </Box>
