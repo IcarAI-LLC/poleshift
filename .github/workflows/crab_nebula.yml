@@ -32,7 +32,8 @@ jobs:
         os:
           - ubuntu-22.04
           - macos-latest
-          # - windows-latest skipping until kraken can be made
+          #TODO add full windows support for kraken
+          - windows-latest
 
     runs-on: ${{ matrix.os }}
 

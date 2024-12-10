@@ -1,13 +1,11 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Typography, Box, CircularProgress } from '@mui/material';
 import {
     Folder as FolderIcon,
     FolderOpen as FolderOpenIcon,
     Science as ScienceIcon,
 } from '@mui/icons-material';
-import {
-    RichTreeView,
-} from '@mui/x-tree-view/RichTreeView';
+import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
 import { useTreeItem2, UseTreeItem2Parameters } from '@mui/x-tree-view/useTreeItem2';
 import {
     TreeItem2Content,
@@ -19,17 +17,7 @@ import {
 import { TreeItem2Icon } from '@mui/x-tree-view/TreeItem2Icon';
 import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider';
 import { styled } from '@mui/material/styles';
-import { invoke } from '@tauri-apps/api/core';
-
-interface _TaxonomyNodeHierarchyTree {
-    name: string;
-    tax_id: number;
-    rank: string;
-    percentage: number;
-    reads: number;
-    depth: number;
-    children?: _TaxonomyNodeHierarchyTree[];
-}
+import {TaxonomyHierarchyNode, TaxonomyNode, useHierarchyTree} from "../../lib/hooks/useHierarchyTree.ts";
 
 interface TaxonomyFileNode {
     id: string;
@@ -43,8 +31,8 @@ interface TaxonomyFileNode {
 }
 
 let nodeCounter = 0;
-// Update the convertToFileNodes function to handle the new field names
-const convertToFileNodes = (nodes: _TaxonomyNodeHierarchyTree[]): TaxonomyFileNode[] => {
+
+const convertToFileNodes = (nodes: TaxonomyHierarchyNode[]): TaxonomyFileNode[] => {
     return nodes.map((node) => {
         nodeCounter += 1;
         return {
@@ -60,18 +48,6 @@ const convertToFileNodes = (nodes: _TaxonomyNodeHierarchyTree[]): TaxonomyFileNo
                 : undefined,
         };
     });
-};
-// Update the validation function
-const validateAndTransformNodes = (nodes: any[]): _TaxonomyNodeHierarchyTree[] => {
-    return nodes.map(node => ({
-        name: node.name,
-        tax_id: node.taxId || 0,
-        rank: node.rank,
-        percentage: node.percentage,
-        reads: node.reads,
-        depth: node.depth,
-        children: [] // Initialize empty children array
-    }));
 };
 
 const formatNumber = (num: number): string => {
@@ -132,65 +108,11 @@ const CustomTaxonomyTreeItem = React.forwardRef(function CustomTaxonomyTreeItem(
 });
 
 interface HierarchyTreeProps {
-    nodes: _TaxonomyNodeHierarchyTree[];
+    nodes: TaxonomyNode[];
 }
 
 const HierarchyTree: React.FC<HierarchyTreeProps> = ({ nodes }) => {
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [hierarchyData, setHierarchyData] = useState<_TaxonomyNodeHierarchyTree[]>([]);
-    const [stats, setStats] = useState<Record<string, number>>({});
-
-    useEffect(() => {
-        const buildHierarchy = async () => {
-            if (!nodes?.length) {
-                setLoading(false);
-                return;
-            }
-
-            try {
-                setLoading(true);
-                setError(null);
-
-                // Transform the incoming nodes to match Rust structure
-                const transformedNodes = validateAndTransformNodes(nodes);
-
-                // Debug log to check the structure
-                console.log('Transformed nodes:', JSON.stringify(transformedNodes, null, 2));
-
-                // Build the hierarchy using Rust
-                const hierarchy = await invoke<_TaxonomyNodeHierarchyTree[]>('build_taxonomy_hierarchy', {
-                    nodes: transformedNodes
-                });
-
-                // Validate the hierarchy
-                const isValid = await invoke<boolean>('validate_taxonomy_hierarchy', {
-                    nodes: hierarchy
-                });
-
-                if (!isValid) {
-                    throw new Error('Invalid hierarchy structure detected');
-                }
-
-                // Get hierarchy statistics
-                const hierarchyStats = await invoke<Record<string, number>>('get_hierarchy_stats', {
-                    nodes: hierarchy
-                });
-
-                setHierarchyData(hierarchy);
-                setStats(hierarchyStats);
-            } catch (err) {
-                const errorMessage = err instanceof Error ? err.message : 'Failed to build hierarchy';
-                console.error('Error building hierarchy:', err);
-                console.error('Original nodes:', nodes);
-                setError(errorMessage);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        buildHierarchy();
-    }, [nodes]);
+    const { hierarchyData, stats, loading, error } = useHierarchyTree(nodes);
 
     const fileNodes = useMemo(() => {
         nodeCounter = 0; // Reset counter before converting

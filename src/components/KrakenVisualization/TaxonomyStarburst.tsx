@@ -1,22 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import Plotly from 'plotly.js-dist';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Button, Typography, CircularProgress } from '@mui/material';
+import {useHierarchyTree, TaxonomyHierarchyNode, TaxonomyNode} from '../../lib/hooks/useHierarchyTree.ts';
 
-interface TaxonomyNode {
-    name: string;
-    tax_id: number;
-    rank: string;
-    percentage: number;
-    reads: number;
-    taxReads: number;
-    depth: number;
-    kmers: number;
-    dup: number;
-    cov: number;
-}
-
-interface CustomLayout extends Partial<Plotly.Layout> {
-    sunburstcolorway?: string[];
+interface TaxonomyStarburstProps {
+    nodes: TaxonomyNode[];
+    width?: number;
+    height?: number;
 }
 
 const nivoColors = [
@@ -24,54 +14,54 @@ const nivoColors = [
     '#97e3d5', '#83bcb6', '#f471af', '#cbd5e8', '#e8c1a0'
 ];
 
-const processNodes = (nodes: TaxonomyNode[]) => {
-    if (!nodes || nodes.length === 0) {
-        throw new Error("No nodes provided");
-    }
+interface CustomLayout extends Partial<Plotly.Layout> {
+    sunburstcolorway?: string[];
+}
 
-    const rootNode = nodes.find(node =>
-        node.name === "Life" || node.name === "Root"
-    );
-
-    if (!rootNode) {
-        throw new Error("No root node found");
-    }
-
-    const labels: string[] = [];
-    const parents: string[] = [];
-    const values: number[] = [];
-    const ids: string[] = [];
-    const ranks: string[] = [];
-
-    nodes.forEach(node => {
-        const nodeId = `${node.name}-${node.tax_id}`;
-        labels.push(node.name);
-        values.push(node.taxReads);
-        ids.push(nodeId);
-        ranks.push(node.rank);
-
-        if (node === rootNode) {
-            parents.push("");
-        } else {
-            const potentialParents = nodes.filter(n => n.depth === node.depth - 1);
-            const parent = potentialParents[potentialParents.length - 1];
-            parents.push(parent ? `${parent.name}-${parent.tax_id}` : "");
-        }
-    });
-
-    return { labels, parents, values, ids, ranks };
-};
-
-const TaxonomyStarburst: React.FC<{
-    nodes: TaxonomyNode[];
-    width?: number;
-    height?: number;
-}> = ({ nodes, width = 800, height = 800 }) => {
+const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 800, height = 800 }) => {
     const plotRef = useRef<HTMLDivElement | null>(null);
-    const [overlayText, setOverlayText] = useState<string>('Life');
+
+    // Utilize the useHierarchyTree hook
+    //@ts-ignore
+    const { hierarchyData, stats, loading, error } = useHierarchyTree(nodes);
+
+    // Function to process hierarchical data for Plotly
+    const processHierarchyData = (hierarchy: TaxonomyHierarchyNode[]) => {
+        const labels: string[] = [];
+        const parents: string[] = [];
+        const values: number[] = [];
+        const ids: string[] = [];
+        const ranks: string[] = [];
+
+        const traverse = (node: TaxonomyHierarchyNode, parentId: string = '') => {
+            const nodeId = `${node.name}-${node.tax_id}`;
+            labels.push(node.name);
+            parents.push(parentId);
+            values.push(node.reads); // Assuming 'reads' corresponds to 'taxReads'
+            ids.push(nodeId);
+            ranks.push(node.rank);
+
+            if (node.children && node.children.length > 0) {
+                node.children.forEach(child => traverse(child, nodeId));
+            }
+        };
+
+        hierarchy.forEach(root => traverse(root));
+
+        return { labels, parents, values, ids, ranks };
+    };
+
+    const processedData = useMemo(() => {
+        if (!hierarchyData || hierarchyData.length === 0) {
+            return null;
+        }
+        return processHierarchyData(hierarchyData);
+    }, [hierarchyData]);
 
     const initializePlot = (div: HTMLDivElement) => {
-        const processedData = processNodes(nodes);
+        if (!processedData) {
+            return;
+        }
 
         const data: Partial<Plotly.PlotData>[] = [
             {
@@ -116,7 +106,7 @@ const TaxonomyStarburst: React.FC<{
 
     useEffect(() => {
         const div = plotRef.current;
-        if (div) {
+        if (div && processedData) {
             initializePlot(div);
         }
 
@@ -125,14 +115,60 @@ const TaxonomyStarburst: React.FC<{
                 Plotly.purge(div);
             }
         };
-    }, [nodes, width, height]);
+    }, [processedData, width, height]);
+
+    const handleReset = () => {
+        const div = plotRef.current;
+        if (div && processedData) {
+            initializePlot(div); // Reinitialize the plot
+        }
+    };
+
+    if (loading) {
+        return (
+            <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                height="100vh"
+            >
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (error) {
+        return (
+            <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                height="100vh"
+            >
+                <Typography color="error">Error: {error}</Typography>
+            </Box>
+        );
+    }
+
+    if (!hierarchyData || hierarchyData.length === 0) {
+        return (
+            <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                height="100vh"
+            >
+                <Typography color="text.secondary">No hierarchy data available</Typography>
+            </Box>
+        );
+    }
 
     return (
         <Box
             display="flex"
             alignItems="center"
             justifyContent="center"
-            height="100vh"
+            height="80vh"
         >
             <Box
                 sx={{
@@ -142,32 +178,8 @@ const TaxonomyStarburst: React.FC<{
                 }}
             >
                 <div ref={plotRef} style={{ width: '100%', height: '100%' }} />
-                {overlayText && (
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            bgcolor: 'rgba(0, 0, 0, 0.7)',
-                            color: 'white',
-                            px: 2,
-                            py: 1,
-                            borderRadius: 1,
-                            textAlign: 'center',
-                        }}
-                    >
-                        <Typography variant="h6">{overlayText}</Typography>
-                    </Box>
-                )}
                 <Button
-                    onClick={() => {
-                        setOverlayText('Life');
-                        const div = plotRef.current;
-                        if (div) {
-                            initializePlot(div); // Reinitialize the plot
-                        }
-                    }}
+                    onClick={handleReset}
                     sx={{
                         position: 'absolute',
                         top: 16,
