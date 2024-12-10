@@ -14,15 +14,17 @@ env:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-22.04
-          - macos-latest
-          # - windows-latest # Skipping until kraken can be made
+        include:
+          - os: ubuntu-22.04
+            runner: self-hosted
+          - os: macos-latest
+            runner: macos-latest
+          # - os: windows-latest
+          #   runner: windows-latest # Uncomment when ready
 
     steps:
       - name: Checkout Repository
@@ -44,8 +46,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1
+
       - name: Build Tauri App for Linux
-        if: matrix.os != 'macos-latest'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           yarn install
           yarn tauri build
