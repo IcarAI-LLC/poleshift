@@ -81,6 +81,7 @@ jobs:
         run: yarn install --network-timeout 1000000
 
       - name: Build Tauri Application
+        shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             yarn tauri build --target x86_64-apple-darwin

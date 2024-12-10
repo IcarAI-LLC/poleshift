@@ -67,14 +67,16 @@ jobs:
         run: yarn install --network-timeout 1000000
 
       - name: Build Tauri Application
+        shell: bash
         run: |
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
             yarn tauri build --target x86_64-apple-darwin
             yarn tauri build --target aarch64-apple-darwin
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
             yarn tauri build
           else
             yarn tauri build
           fi
+
         env:
           NODE_OPTIONS: ${{ matrix.os == 'macos-latest' && '--max-old-space-size=8192' || '' }}
