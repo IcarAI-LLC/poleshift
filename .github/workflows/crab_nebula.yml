@@ -1,4 +1,5 @@
 name: Tauri v2 Release Process
+
 on:
   push:
     branches:
@@ -14,10 +15,11 @@ env:
 jobs:
   draft:
     runs-on: ubuntu-22.04
-
     steps:
-      - uses: actions/checkout@v4
-      - name: create draft release
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Draft Release
         uses: crabnebula-dev/cloud-release@v0
         with:
           command: release draft ${{ env.CN_APPLICATION }} --framework tauri
@@ -25,63 +27,71 @@ jobs:
 
   build:
     needs: draft
-
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-22.04
-          - macos-latest
-          #TODO add full windows support for kraken
-          - windows-latest
+        os: [ubuntu-22.04, macos-latest, windows-latest]
 
-    runs-on: ${{ matrix.os }}
+    env:
+      NODE_OPTIONS: "--max-old-space-size=8192"
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - name: Install stable toolchain
+          node-version: '20'
+
+      - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
           cache: true
 
-      - name: install Linux dependencies
+      - name: Install Dependencies on Ubuntu
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1
           npm install --global yarn
-      - name: Build Tauri app for Linux
-        if: matrix.os != 'macos-latest'
-        run: |
-          yarn install
-          yarn tauri build
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - name: Install x86_64-apple-darwin for mac and build Tauri binaries
+      - name: Install Dependencies on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install yarn -y
+          # Install additional Windows-specific dependencies if needed
+
+      - name: Add Rust Targets for macOS
         if: matrix.os == 'macos-latest'
         run: |
-          rustup target add x86_64-apple-darwin
-          yarn install
-          yarn tauri build --target x86_64-apple-darwin
-          yarn tauri build --target aarch64-apple-darwin
-        env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
-      - name: upload assets
+      - name: Install Node Modules
+        run: yarn install
+
+      - name: Build Tauri Application
+        run: |
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            yarn tauri build --target x86_64-apple-darwin
+            yarn tauri build --target aarch64-apple-darwin
+          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+            yarn tauri build
+          else
+            yarn tauri build
+          fi
+
+      - name: Upload Assets
         uses: crabnebula-dev/cloud-release@v0
         with:
           command: release upload ${{ env.CN_APPLICATION }} --framework tauri
@@ -90,13 +100,12 @@ jobs:
 
   publish:
     needs: build
-
     runs-on: ubuntu-22.04
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: publish release
+      - name: Publish Release
         uses: crabnebula-dev/cloud-release@v0
         with:
           command: release publish ${{ env.CN_APPLICATION }} --framework tauri
