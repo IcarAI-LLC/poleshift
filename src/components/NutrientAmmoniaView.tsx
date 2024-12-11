@@ -59,7 +59,7 @@ const NutrientAmmoniaView: React.FC<NutrientAmmoniaViewProps> = ({ data }) => {
   const { ammonia_value, ammonium_value } = data;
   console.log(data);
   return (
-    <Box sx={{ padding: 2 }}>
+    <Box sx={{ padding: 3 }}>
       <Typography variant="h6" gutterBottom>
         Nutrient Ammonia Details
       </Typography>

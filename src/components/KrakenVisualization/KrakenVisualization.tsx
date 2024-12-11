@@ -30,7 +30,7 @@ enum SortDirection {
   ASC = 'asc',
   DESC = 'desc',
 }
-    
+
 interface KrakenData {
   type: 'report';
   data: Array<{
@@ -364,10 +364,12 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
               </div>
           )}
           {activeTab === 3 && data.hierarchy && (
-              <div>
-                <TaxonomyStarburst
-                    nodes={data.hierarchy.filter(node => node.name.toUpperCase() !== 'UNCLASSIFIED')}
-                />
+              <div className="flex min-h-[calc(100vh-200px)] w-full items-center justify-center p-4">
+                <div className="w-full max-w-4xl aspect-square">
+                  <TaxonomyStarburst
+                      nodes={data.hierarchy.filter(node => node.name.toUpperCase() !== 'UNCLASSIFIED')}
+                  />
+                </div>
               </div>
           )}
         </Box>

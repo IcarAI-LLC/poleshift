@@ -64,6 +64,7 @@ export const SampleGroupMetadata: React.FC = () => {
       flexDirection: 'column',
       overflow: 'hidden',
       position: 'relative', // Added for proper positioning
+      marginTop: 'var(--header-height)',
     },
     accordionStyles: {
       '&:before': {

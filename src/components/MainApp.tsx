@@ -195,8 +195,6 @@ const MainApp: React.FC = () => {
               onToggleUploadQueue={toggleUploadQueue}
           />
 
-          <LeftSidebar userTier={userProfile?.user_tier || 'researcher'} />
-
           {isFilterMenuOpen && (
               <FilterMenu
                   onApply={handleApplyFilters}
@@ -206,6 +204,8 @@ const MainApp: React.FC = () => {
           )}
 
           <div className="main-content">
+            <LeftSidebar userTier={userProfile?.user_tier || 'researcher'} />
+
             <OfflineWarning
                 isVisible={!isOnline && showOfflineWarning}
                 message="You are offline"

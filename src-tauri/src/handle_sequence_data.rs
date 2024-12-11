@@ -1,3 +1,5 @@
+// TODO Support for windows
+
 use crate::poleshift_common::types::{
     FileMeta, FilesResponse, KrakenConfig, PoleshiftError, StandardResponse,
 };
@@ -9,7 +11,6 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use uuid::Uuid;
-
 // Flag Constants
 const DATABASE_FLAG: &str = "-d";
 const INDEX_FLAG: &str = "-i";
@@ -79,6 +80,14 @@ pub async fn handle_sequence_data<R: Runtime>(
     app_handle: AppHandle<R>,
     file_paths: Vec<String>,
 ) -> Result<StandardResponse<KrakenReport>, PoleshiftError> {
+    let platform = tauri_plugin_os::platform();
+    // OS Check: Return an error if running on Windows
+    if platform.eq_ignore_ascii_case("WINDOWS") {
+        println!("Operation not supported on Windows OS.");
+        return Err(PoleshiftError::UnsupportedOS(
+            "Windows OS is not supported yet.".into(),
+        ));
+    }
     println!(
         "handle_sequence_data called with file_paths: {:?}",
         file_paths
