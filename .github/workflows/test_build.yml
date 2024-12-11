@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -37,7 +38,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: 'yarn'  # Enables caching for Yarn dependencies
 
       - name: Setup Rust Toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -57,10 +57,20 @@ jobs:
         run: |
           rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
+      - name: Cache Node Modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.yarn
+            node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
       - name: Install Node Modules
         run: |
           yarn config set "strict-ssl" false -g
-          yarn install --network-timeout 10000000
+          yarn install --network-timeout 10000000 --non-interactive
 
       - name: Build Tauri Application
         shell: bash
