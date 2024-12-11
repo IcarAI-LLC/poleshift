@@ -64,7 +64,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             duration: theme.transitions.duration.standard,
           }),
           overflow: 'hidden',
-          position: 'relative',
+          position: 'absolute',
           zIndex: 1000,
         } as const,
         contentContainer: {

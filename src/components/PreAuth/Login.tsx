@@ -89,9 +89,7 @@ const Login: React.FC<LoginProps> = ({ onNavigate, prefillEmail = '', message })
               required
               disabled={loading}
               autoComplete="email"
-              inputProps={{
-                'aria-label': 'Email',
-              }}
+              aria-label={"email"}
           />
 
           <TextField
@@ -105,9 +103,7 @@ const Login: React.FC<LoginProps> = ({ onNavigate, prefillEmail = '', message })
               required
               disabled={loading}
               autoComplete="current-password"
-              inputProps={{
-                'aria-label': 'Password',
-              }}
+              aria-label={'password'}
           />
 
           <Button
