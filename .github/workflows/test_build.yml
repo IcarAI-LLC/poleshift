@@ -52,12 +52,6 @@ jobs:
           sudo apt-get install -y webkit2gtk-4.1
           npm install --global yarn
 
-      - name: Install Dependencies on Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install yarn -y
-          # Install additional Windows-specific dependencies if needed
-
       - name: Add Rust Targets for macOS
         if: matrix.os == 'macos-latest'
         run: |
