@@ -78,7 +78,9 @@ jobs:
           rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
       - name: Install Node Modules
-        run: yarn install --network-timeout 1000000
+        run: |
+          yarn config set "strict-ssl" false -g
+          yarn install --network-timeout 10000000
 
       - name: Build Tauri Application
         shell: bash
