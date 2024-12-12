@@ -15,14 +15,20 @@ env:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-22.04
-          - macos-latest
-          # - windows-latest # Skipping until kraken can be made
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
     steps:
       - name: Checkout Repository
@@ -33,42 +39,50 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Rust Toolchain
+      - name: Setup Rust Toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
           cache: true
 
-      - name: Install Linux Dependencies
+      - name: Install Dependencies on Ubuntu
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1
-      - name: Build Tauri App for Linux
-        if: matrix.os != 'macos-latest'
-        run: |
-          npm ci
-          rm -rf node_modules package-lock.json
-          npm install
-          npm install @tauri-apps/cli-linux-x64-gnu
-          npm run tauri build
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          npm install --global yarn
 
-      - name: Install macOS Targets and Build Tauri Binaries
+      - name: Add Rust Targets for macOS
         if: matrix.os == 'macos-latest'
         run: |
-          npm ci
-          rustup target add x86_64-apple-darwin
-          npm run tauri build -- --target aarch64-apple-darwin
-          npm run tauri build -- --target x86_64-apple-darwin
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Cache Node Modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.yarn
+            node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Node Modules
+        run: |
+          yarn config set "strict-ssl" false -g
+          yarn install --network-timeout 10000000 --non-interactive
+
+      - name: Build Tauri Application
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            yarn tauri build --target x86_64-apple-darwin
+            yarn tauri build --target aarch64-apple-darwin
+          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+            yarn tauri build
+          else
+            yarn tauri build
+          fi
+
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NODE_OPTIONS: ${{ matrix.os == 'macos-latest' && '--max-old-space-size=8192' || '' }}

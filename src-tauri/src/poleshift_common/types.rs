@@ -20,6 +20,8 @@ pub enum PoleshiftError {
     ProgressError(String),
     #[error("Serialization error: {0}")]
     SerializationError(String),
+    #[error("Unsupported OS: {0}")]
+    UnsupportedOS(String),
     #[error("Unknown error: {0}")]
     Other(String),
 }

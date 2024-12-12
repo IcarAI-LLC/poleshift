@@ -1,177 +1,197 @@
-import React, { useMemo, useState } from 'react';
-import {ComputedDatum, ResponsiveSunburst} from '@nivo/sunburst';
-import { Box, Button, Typography } from '@mui/material';
-
-interface TaxonomyNode {
-    name: string;
-    tax_id: number;
-    rank: string;
-    percentage: number;
-    reads: number;
-    taxReads: number;
-    depth: number;
-    kmers: number;
-    dup: number;
-    cov: number;
-}
-
-interface TreeNode {
-    id: string;
-    name: string;
-    rank: string;
-    children?: TreeNode[];
-    value: number; // This will be taxReads - direct reads for this node
-    depth: number;
-}
+import React, { useEffect, useRef, useMemo } from 'react';
+import Plotly from 'plotly.js-dist';
+import { Box, Button, Typography, CircularProgress } from '@mui/material';
+import {useHierarchyTree, TaxonomyHierarchyNode, TaxonomyNode} from '../../lib/hooks/useHierarchyTree.ts';
 
 interface TaxonomyStarburstProps {
     nodes: TaxonomyNode[];
+    width?: number;
+    height?: number;
 }
 
-const buildTree = (nodes: TaxonomyNode[]): TreeNode => {
-    if (!nodes || nodes.length === 0) {
-        throw new Error("No nodes provided to build the tree.");
-    }
+const nivoColors = [
+    '#e8c1a0', '#f47560', '#f1e15b', '#e8a838', '#61cdbb',
+    '#97e3d5', '#83bcb6', '#f471af', '#cbd5e8', '#e8c1a0'
+];
 
-    // Find root node (Life or Root)
-    const rootNodeData = nodes.find(node =>
-        node.name === "Life" || node.name === "Root"
-    );
+interface CustomLayout extends Partial<Plotly.Layout> {
+    sunburstcolorway?: string[];
+}
 
-    if (!rootNodeData) {
-        throw new Error("No root node (Life or Root) found.");
-    }
+const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 800, height = 800 }) => {
+    const plotRef = useRef<HTMLDivElement | null>(null);
+    // Utilize the useHierarchyTree hook
+    //@ts-ignore
+    const { hierarchyData, stats, loading, error } = useHierarchyTree(nodes);
 
-    // Create root node
-    const rootNode: TreeNode = {
-        id: `${rootNodeData.name}-${rootNodeData.tax_id}`,
-        name: rootNodeData.name,
-        rank: rootNodeData.rank,
-        value: rootNodeData.taxReads,
-        children: [],
-        depth: rootNodeData.depth
+    // Function to process hierarchical data for Plotly
+    const processHierarchyData = (hierarchy: TaxonomyHierarchyNode[]) => {
+        const labels: string[] = [];
+        const parents: string[] = [];
+        const values: number[] = [];
+        const ids: string[] = [];
+        const ranks: string[] = [];
+
+        const traverse = (node: TaxonomyHierarchyNode, parentId: string = '') => {
+            const nodeId = `${node.name}-${node.tax_id}`;
+            labels.push(node.name);
+            parents.push(parentId);
+            values.push(node.reads); // Assuming 'reads' corresponds to 'taxReads'
+            ids.push(nodeId);
+            ranks.push(node.rank);
+
+            if (node.children && node.children.length > 0) {
+                node.children.forEach(child => traverse(child, nodeId));
+            }
+        };
+
+        hierarchy.forEach(root => traverse(root));
+
+        return { labels, parents, values, ids, ranks };
     };
 
-    const stack: TreeNode[] = [rootNode];
+    const processedData = useMemo(() => {
+        if (!hierarchyData || hierarchyData.length === 0) {
+            return null;
+        }
+        return processHierarchyData(hierarchyData);
+    }, [hierarchyData]);
 
-    // Process all nodes except root
-    nodes
-        .filter(node => node !== rootNodeData)
-        .forEach((node) => {
-            const treeNode: TreeNode = {
-                id: `${node.name}-${node.tax_id}`,
-                name: node.name,
-                rank: node.rank,
-                value: node.taxReads,
-                children: [],
-                depth: node.depth,
-            };
+    const initializePlot = (div: HTMLDivElement) => {
+        if (!processedData) {
+            return;
+        }
 
-            // Adjust the stack based on the depth
-            while (stack.length > 0 && stack[stack.length - 1].depth >= node.depth) {
-                stack.pop();
+        const data: Partial<Plotly.PlotData>[] = [
+            {
+                type: 'sunburst',
+                labels: processedData.labels,
+                parents: processedData.parents,
+                values: processedData.values,
+                ids: processedData.ids,
+                customdata: processedData.ranks,
+                textinfo: 'label',
+                marker: {
+                    colors: nivoColors,
+                    line: {
+                        color: '#ffffff',
+                        width: 0,
+                    },
+                },
+                hovertemplate: `
+                    <b>%{label}</b> (%{customdata})<br>
+                    %{value:,.0f} reads<br>
+                    <extra></extra>
+                `,
+                branchvalues: "total",
+            },
+        ];
+
+        const layout: CustomLayout = {
+            margin: { l: 0, r: 0, b: 0, t: 0 },
+            width,
+            height,
+            showlegend: false,
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+        };
+
+        const config: Partial<Plotly.Config> = {
+            responsive: true,
+            displayModeBar: false,
+        };
+
+        Plotly.newPlot(div, data, layout, config);
+    };
+
+    useEffect(() => {
+        const div = plotRef.current;
+        if (div && processedData) {
+            initializePlot(div);
+        }
+
+        return () => {
+            if (div) {
+                Plotly.purge(div);
             }
+        };
+    }, [processedData, width, height]);
 
-            if (stack.length > 0) {
-                // Add as a child to the last node in stack
-                const parent = stack[stack.length - 1];
-                parent.children = parent.children || [];
-                parent.children.push(treeNode);
-            }
-
-            // Push current node onto the stack
-            stack.push(treeNode);
-        });
-
-    return rootNode;
-};
-
-const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes }) => {
-    const [currentNode, setCurrentNode] = useState<TreeNode | null>(null);
-    const [overlayText, setOverlayText] = useState<string>('');
-
-    const data = useMemo(() => {
-        const treeData = buildTree(nodes);
-        return currentNode || treeData;
-    }, [nodes, currentNode]);
-
-    const handleClick = (node: any) => {
-        if (node.data.children && node.data.children.length > 0) {
-            setCurrentNode(node.data);
-            setOverlayText(node.data.name);
+    const handleReset = () => {
+        const div = plotRef.current;
+        if (div && processedData) {
+            initializePlot(div); // Reinitialize the plot
         }
     };
 
-    const handleReset = () => {
-        setCurrentNode(null);
-        setOverlayText('');
-    };
+    if (loading) {
+        return (
+            <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                height="100vh"
+            >
+                <CircularProgress />
+            </Box>
+        );
+    }
 
-    const formatTooltip = (node: ComputedDatum<TreeNode>) => {
-        const totalValue = node.value;
-        const percentage = node.percentage;
-        return `${node.data.name} (${node.data.rank}): ${totalValue.toLocaleString()} reads (${percentage}%)`;
-    };
+    if (error) {
+        return (
+            <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                height="100vh"
+            >
+                <Typography color="error">Error: {error}</Typography>
+            </Box>
+        );
+    }
+
+    if (!hierarchyData || hierarchyData.length === 0) {
+        return (
+            <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                height="100vh"
+            >
+                <Typography color="text.secondary">No hierarchy data available</Typography>
+            </Box>
+        );
+    }
 
     return (
-        <Box position="relative" height={600}>
-            <ResponsiveSunburst
-                data={data}
-                margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-                id="id"
-                value="value"
-                cornerRadius={2}
-                borderColor={{ theme: 'background' }}
-                colors={{ scheme: 'nivo' }}
-                childColor={{ from: 'color' }}
-                animate={true}
-                motionConfig="gentle"
-                onClick={handleClick}
-                enableArcLabels={true}
-                arcLabel="name"
-                arcLabelsSkipAngle={10}
-                tooltip={(node) => (
-                    <Box
-                        sx={{
-                            bgcolor: 'rgba(0, 0, 0, 0.75)',
-                            color: 'white',
-                            padding: '5px 10px',
-                            borderRadius: '4px',
-                        }}
-                    >
-                        <Typography variant="body2">
-                            {formatTooltip(node)}
-                        </Typography>
-                    </Box>
-                )}
-            />
-
-            {overlayText && (
-                <Box
+        <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            height="80vh"
+        >
+            <Box
+                sx={{
+                    position: 'relative',
+                    width: width,
+                    height: height,
+                }}
+            >
+                <div ref={plotRef} style={{ width: '100%', height: '100%' }} />
+                <Button
+                    onClick={handleReset}
                     sx={{
                         position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        bgcolor: 'rgba(0, 0, 0, 0.7)',
+                        top: 16,
+                        right: 16,
+                        bgcolor: 'primary.main',
                         color: 'white',
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-                        textAlign: 'center',
+                        '&:hover': { bgcolor: 'primary.dark' },
                     }}
                 >
-                    <Typography variant="h6">{overlayText}</Typography>
-                </Box>
-            )}
-
-            {currentNode && (
-                <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
-                    <Button variant="contained" onClick={handleReset}>
-                        Reset
-                    </Button>
-                </Box>
-            )}
+                    Reset
+                </Button>
+            </Box>
         </Box>
     );
 };

@@ -1,16 +1,12 @@
-// src/components/DistributionChart.tsx
-
 import React from 'react';
+import { Chart } from "react-google-charts";
 import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    Tooltip,
-    ResponsiveContainer,
-    CartesianGrid,
-} from 'recharts';
-import { Card, CardHeader, CardContent, Typography } from '@mui/material';
+    Card,
+    CardHeader,
+    CardContent,
+    Typography,
+    Box,
+} from '@mui/material';
 
 interface DistributionData {
     taxon: string;
@@ -27,53 +23,16 @@ interface DistributionChartProps {
     title: string;
 }
 
-const formatNumber = (value: number): string => {
-    return new Intl.NumberFormat('en-US').format(value);
-};
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload?.[0]) {
-        const data = payload[0];
-        return (
-            <div
-                style={{
-                    backgroundColor: '#fff',
-                    color: '#000',
-                    padding: '10px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    boxShadow: '0px 0px 10px rgba(0,0,0,0.5)',
-                }}
-            >
-                <p style={{ margin: '0 0 5px 0' }}>
-                    <strong>{label}</strong>
-                </p>
-                <p style={{ margin: '0 0 5px 0' }}>
-                    Percentage: {data.value?.toFixed(2) ?? '0.00'}%
-                </p>
-                <p style={{ margin: '0 0 5px 0' }}>
-                    Reads: {formatNumber(data.payload?.reads ?? 0)}
-                </p>
-                <p style={{ margin: '0' }}>
-                    Tax Reads: {formatNumber(data.payload?.taxReads ?? 0)}
-                </p>
-            </div>
-        );
-    }
-    return null;
-};
-
-const DistributionChart: React.FC<DistributionChartProps> = ({
-                                                                 data = [],
-                                                                 title,
-                                                             }) => {
-    // Check if we have valid data to display
+const DistributionChart: React.FC<DistributionChartProps> = ({ data = [], title }) => {
     if (!Array.isArray(data) || data.length === 0) {
         return (
-            <Card sx={{ mt: 3 }}>
-                <CardHeader title={title} />
+            <Card sx={{ bgcolor: 'black' }}>
+                <CardHeader
+                    title={title}
+                    sx={{ color: 'white' }}
+                />
                 <CardContent>
-                    <Typography variant="body1" color="text.secondary" align="center">
+                    <Typography variant="body1" color="white" align="center">
                         No data available for visualization
                     </Typography>
                 </CardContent>
@@ -81,50 +40,103 @@ const DistributionChart: React.FC<DistributionChartProps> = ({
         );
     }
 
-    // Take top 20 taxa for visualization
-    const chartData = data
-        .slice(0, 20)
-        .map((item) => ({
-            ...item,
-            taxonShort: item.taxon
-                ? item.taxon.length > 20
-                    ? `${item.taxon.substring(0, 17)}...`
-                    : item.taxon
-                : 'Unknown',
-            percentage: item.percentage ?? 0,
-            reads: item.reads ?? 0,
-            taxReads: item.taxReads ?? 0,
-        }));
+    // Take top 20 taxa and process data
+    const processedData = data.slice(0, 20).map((item) => ({
+        taxon: item.taxon
+            ? (item.taxon.length > 20 ? `${item.taxon.substring(0, 17)}...` : item.taxon)
+            : 'Unknown',
+        percentage: item.percentage ?? 0,
+        reads: item.reads ?? 0,
+        taxReads: item.taxReads ?? 0
+    }));
+
+    const chartData = [
+        ['Taxon', 'Percentage', { role: 'tooltip', type: 'string', p: { html: true } }],
+        ...processedData.map((item) => [
+            item.taxon,
+            item.percentage,
+            `<div style="padding: 10px; background: rgba(0,0,0,0.8); color: white; border: 1px solid white;">
+                <strong>${item.taxon}</strong><br/>
+                Percentage: ${item.percentage.toFixed(2)}%<br/>
+                Reads: ${item.reads.toLocaleString()}<br/>
+                Tax Reads: ${item.taxReads.toLocaleString()}
+             </div>`
+        ])
+    ];
+
+    const options = {
+        title,
+        backgroundColor: '#000000',
+        titleTextStyle: {
+            color: '#ffffff'
+        },
+        tooltip: {
+            isHtml: true,
+            trigger: 'hover'
+        },
+        hAxis: {
+            title: 'Taxon',
+            titleTextStyle: {
+                color: '#ffffff'
+            },
+            textStyle: {
+                color: '#ffffff'
+            },
+            slantedText: true,
+            slantedTextAngle: 45,
+            gridlines: {
+                color: '#333333'
+            }
+        },
+        vAxis: {
+            title: 'Percentage (%)',
+            titleTextStyle: {
+                color: '#ffffff'
+            },
+            textStyle: {
+                color: '#ffffff'
+            },
+            gridlines: {
+                color: '#333333'
+            },
+            minValue: 0,
+            maxValue: Math.ceil(Math.max(...data.map(item => item.percentage ?? 0)) * 1.1),
+        },
+        legend: { position: 'none' },
+        colors: ['#2196f3'],
+        annotations: {
+            textStyle: {
+                color: '#ffffff',
+                fontSize: 12,
+            },
+            alwaysOutside: false,
+        },
+        chartArea: {
+            left: 60,
+            top: 30,
+            right: 20,
+            bottom: 100,
+            width: '100%',
+            height: '100%'
+        }
+    };
 
     return (
-        <Card sx={{ mt: 3 }}>
-            <CardHeader title={title} />
+        <Card sx={{ bgcolor: 'black' }}>
+            <CardHeader
+                title={title}
+                sx={{ color: 'white' }}
+            />
             <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                    <BarChart
+                <Box style={{ width: '100%', height: 400 }}>
+                    <Chart
+                        chartType="ColumnChart"
+                        width="100%"
+                        height="350px"
                         data={chartData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                            dataKey="taxonShort"
-                            angle={-45}
-                            textAnchor="end"
-                            interval={0}
-                            height={100}
-                        />
-                        <YAxis
-                            label={{
-                                value: 'Percentage',
-                                angle: -90,
-                                position: 'insideLeft',
-                                style: { textAnchor: 'middle' },
-                            }}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="percentage" fill="#2196f3" name="Percentage" />
-                    </BarChart>
-                </ResponsiveContainer>
+                        options={options}
+                    />
+                </Box>
             </CardContent>
         </Card>
     );

@@ -3,7 +3,6 @@ import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react'
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
 import globeImage from '../assets/globe.jpg';
-
 import { useData } from '../lib/hooks/useData';
 import { useUI } from '../lib/hooks/useUI';
 import { useQuery } from '@powersync/react'; // Import useQuery

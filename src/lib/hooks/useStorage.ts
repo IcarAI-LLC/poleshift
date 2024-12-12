@@ -12,7 +12,8 @@ import {
 } from '../utils/uploadQueue';
 import { v4 as uuidv4 } from 'uuid';
 import { useNetworkStatus } from './useNetworkStatus';
-import { useSnackbar } from 'notistack';
+// Import the Snackbar store
+import { useSnackbarStore } from '../stores/snackbarStore';
 
 interface UploadProgress {
     progress: number; // now represents % of files processed
@@ -29,7 +30,8 @@ interface DownloadProgress {
 export const useStorage = () => {
     const connector = supabaseConnector;
     const { isOnline } = useNetworkStatus();
-    const { enqueueSnackbar } = useSnackbar();
+    // Use the Snackbar store's showSnackbar method
+    const showSnackbar = useSnackbarStore((state: { showSnackbar: any; }) => state.showSnackbar);
 
     const getStorageClient = useCallback(() => {
         if (!connector) {
@@ -76,7 +78,7 @@ export const useStorage = () => {
             const exists = await fileExists(path);
             if (exists) {
                 await removeFromQueue(id);
-                enqueueSnackbar(`File "${file.name}" already exists. Removed from queue.`, { variant: 'info' });
+                showSnackbar(`File "${file.name}" already exists. Removed from queue.`, 'info');
                 continue;
             }
 
@@ -84,7 +86,7 @@ export const useStorage = () => {
                 await uploadFile(file, path, bucket);
                 // On success, remove from queue
                 await removeFromQueue(id);
-                enqueueSnackbar(`Successfully uploaded "${file.name}".`, { variant: 'success' });
+                showSnackbar(`Successfully uploaded "${file.name}".`, 'success');
                 console.log(`Successfully uploaded ${file.name} from queue.`);
             } catch (error) {
                 console.error(`Failed to upload ${file.name}:`, error);
@@ -95,17 +97,17 @@ export const useStorage = () => {
                         ...uploadTask,
                         retries: retries + 1,
                     });
-                    enqueueSnackbar(`Retrying upload for "${file.name}". Attempt ${retries + 1}`, { variant: 'warning' });
+                    showSnackbar(`Retrying upload for "${file.name}". Attempt ${retries + 1}`, 'warning');
                     console.log(`Retrying upload for ${file.name}. Attempt ${retries + 1}`);
                 } else {
                     // Exceeded retry attempts, notify the user
-                    enqueueSnackbar(`Max retries exceeded for "${file.name}". Upload failed.`, { variant: 'error' });
+                    showSnackbar(`Max retries exceeded for "${file.name}". Upload failed.`, 'error');
                     console.error(`Max retries exceeded for ${file.name}. Upload failed.`);
                     await removeFromQueue(id);
                 }
             }
         }
-    }, [isOnline, uploadFile, enqueueSnackbar]);
+    }, [isOnline, uploadFile, showSnackbar]);
 
     useEffect(() => {
         // When back online, process the queue
@@ -156,7 +158,7 @@ export const useStorage = () => {
                         // Check if file exists before uploading
                         const exists = await fileExists(path);
                         if (exists) {
-                            enqueueSnackbar(`File "${file.name}" already exists. Skipping upload.`, { variant: 'info' });
+                            showSnackbar(`File "${file.name}" already exists. Skipping upload.`, 'info');
                             paths.push(path);
                             filesProcessed += 1;
                             if (onProgress) {
@@ -194,7 +196,7 @@ export const useStorage = () => {
                                 progress: 0,
                             };
                             await addToQueue(uploadTask);
-                            enqueueSnackbar(`Queued upload for "${file.name}".`, { variant: 'warning' });
+                            showSnackbar(`Queued upload for "${file.name}".`, 'warning');
                             paths.push(path);
                             filesProcessed += 1;
                             if (onProgress) {
@@ -219,7 +221,7 @@ export const useStorage = () => {
                             progress: 0,
                         };
                         await addToQueue(uploadTask);
-                        enqueueSnackbar(`Queued upload for "${file.name}" (Offline).`, { variant: 'info' });
+                        showSnackbar(`Queued upload for "${file.name}" (Offline).`, 'info');
                         paths.push(path);
                         filesProcessed += 1;
                         if (onProgress) {
@@ -239,7 +241,7 @@ export const useStorage = () => {
 
             return paths;
         },
-        [uploadFile, isOnline, fileExists, enqueueSnackbar]
+        [uploadFile, isOnline, fileExists, showSnackbar]
     );
 
     const downloadFile = useCallback(
