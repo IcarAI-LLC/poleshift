@@ -2,6 +2,7 @@ import { useAuthStore } from '../stores/authStore';
 import { supabaseConnector } from '../powersync/SupabaseConnector';
 import { useCallback, useEffect } from 'react';
 import { fetchUserProfile, fetchOrganization } from '../services/userService';
+import {db} from "../powersync/db.ts";
 
 export const useAuth = () => {
     const user = useAuthStore((state) => state.user);
@@ -101,6 +102,7 @@ export const useAuth = () => {
             setLoading(true);
             await supabaseConnector.login(email, password);
             const loggedInSession = await supabaseConnector.fetchCredentials();
+            await db.connect(supabaseConnector);
             const loggedInUser = loggedInSession?.user;
             setUser(loggedInUser || null);
 
@@ -157,6 +159,7 @@ export const useAuth = () => {
         try {
             setLoading(true);
             await supabaseConnector.logout();
+            await db.disconnectAndClear();
             setUser(null);
             setUserProfile(null);
             setOrganization(null);
