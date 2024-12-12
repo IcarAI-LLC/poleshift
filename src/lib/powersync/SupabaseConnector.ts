@@ -8,7 +8,9 @@ export class SupabaseConnector {
 
     constructor() {
         this.client = createClient(
-            import.meta.env.VITE_SUPABASE_URL!,
+            //@ts-ignore
+            import.meta.env.VITE_SUPABASE_URL,
+            //@ts-ignore
             import.meta.env.VITE_SUPABASE_ANON_KEY!,
             { auth: { persistSession: true } }
         );
@@ -16,6 +18,7 @@ export class SupabaseConnector {
 
         // Subscribe to authentication state changes
         this.client.auth.onAuthStateChange((event, session) => {
+            console.debug("AUTH STATE CHANGE");
             // Only process certain auth events that indicate real state changes
             if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED'].includes(event)) {
                 this.handleSessionChange(session);
@@ -95,6 +98,7 @@ export class SupabaseConnector {
             console.debug('Credentials fetched successfully.');
 
             return {
+                //@ts-ignore
                 endpoint: import.meta.env.VITE_POWERSYNC_URL,
                 token: data.session.access_token ?? '',
                 expiresAt: data.session.expires_at
