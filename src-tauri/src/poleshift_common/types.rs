@@ -1,3 +1,4 @@
+//poleshift/src-tauri/src/poleshift_common/types.rs
 use serde::Serialize;
 
 #[derive(Debug, thiserror::Error, serde::Serialize)]
@@ -22,8 +23,16 @@ pub enum PoleshiftError {
     SerializationError(String),
     #[error("Unsupported OS: {0}")]
     UnsupportedOS(String),
+    #[error("Unsupported OS: {0}")]
+    InvalidInput(String),
     #[error("Unknown error: {0}")]
     Other(String),
+}
+
+impl From<std::io::Error> for PoleshiftError {
+    fn from(e: std::io::Error) -> Self {
+        PoleshiftError::InvalidInput(e.to_string())
+    }
 }
 
 impl From<std::io::Error> for PoleshiftError {
