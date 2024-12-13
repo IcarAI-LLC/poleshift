@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../lib/hooks';
 import type { PreAuthView } from '../../lib/types';
 import LoadingScreen from './LoadingScreen.tsx';
@@ -8,42 +8,19 @@ import ResetPassword from './ResetPassword.tsx';
 import MainApp from '../MainApp.tsx';
 import ActivateLicense from './ActivateLicense.tsx';
 
-const WAIT_TIME_MS = 20000; // 20 seconds
-
 const PreAuth: React.FC = () => {
-  const { isAuthenticated, loading: authLoading, userProfile } = useAuth();
+  const {
+    isAuthenticated,
+    loading: authLoading,
+    profileLoading,
+    profileFetchTimedOut,
+  } = useAuth();
+
   const [currentView, setCurrentView] = useState<PreAuthView>('login');
 
   // State to handle prefilled login email and message after signup
   const [prefillEmail, setPrefillEmail] = useState<string>('');
   const [loginMessage, setLoginMessage] = useState<string>('');
-
-  // State to handle waiting for userProfile
-  const [waitingForProfile, setWaitingForProfile] = useState<boolean>(false);
-  const [profileFetchTimedOut, setProfileFetchTimedOut] = useState<boolean>(false);
-
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-
-    if (isAuthenticated && !userProfile) {
-      setWaitingForProfile(true);
-      setProfileFetchTimedOut(false);
-
-      // Start a 20-second timer
-      timeoutId = setTimeout(() => {
-        setProfileFetchTimedOut(true);
-        setWaitingForProfile(false);
-      }, WAIT_TIME_MS);
-    } else {
-      // If we get a profile or user logs out, clear waiting states
-      setWaitingForProfile(false);
-      setProfileFetchTimedOut(false);
-    }
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [isAuthenticated, userProfile]);
 
   if (authLoading) {
     return <LoadingScreen message="Authenticating..." />;
@@ -81,22 +58,17 @@ const PreAuth: React.FC = () => {
     }
   }
 
-  if (isAuthenticated && !userProfile) {
-    // If still waiting for the profile within the 20-second window
-    if (waitingForProfile && !profileFetchTimedOut) {
-      return <LoadingScreen message="Loading your profile, please wait..." />;
-    }
-
-    // If timed out (no profile after 20 seconds), show ActivateLicense
-    if (profileFetchTimedOut) {
-      return <ActivateLicense />;
-    }
-
-    // If not timed out but somehow waitingForProfile is false and still no profile,
-    // fallback to a loading screen (this scenario should be rare).
+  // User is authenticated but we still might not have the profile
+  if (profileLoading) {
     return <LoadingScreen message="Loading your profile, please wait..." />;
   }
 
+  // If timed out (no profile after waiting), show ActivateLicense
+  if (profileFetchTimedOut) {
+    return <ActivateLicense />;
+  }
+
+  // If userProfile is present, go to MainApp
   return <MainApp />;
 };
 

@@ -75,31 +75,31 @@ const AccountActions: React.FC = () => {
             },
           }}
       >
-        <DialogTitle
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: theme.spacing(2),
-              borderBottom: `1px solid ${theme.palette.divider}`,
-              color: theme.palette.text.primary,
-            }}
-        >
-          <Typography variant="h6">Account</Typography>
-          <IconButton
-              onClick={closeModal}
-              aria-label="Close"
-              size="small"
+          <DialogTitle
               sx={{
-                color: theme.palette.text.primary,
-                '&:hover': {
-                  backgroundColor: theme.palette.action.hover,
-                },
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: theme.spacing(2),
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                  color: theme.palette.text.primary,
               }}
           >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
+              <Typography variant="h6">Account</Typography>
+              <IconButton
+                  onClick={closeModal}
+                  aria-label="Close"
+                  size="small"
+                  sx={{
+                      color: theme.palette.text.primary,
+                      '&:hover': {
+                          backgroundColor: theme.palette.action.hover,
+                      },
+                  }}
+              >
+                  <CloseIcon />
+              </IconButton>
+          </DialogTitle>
 
         <DialogContent
             sx={{
