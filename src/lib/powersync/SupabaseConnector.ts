@@ -1,6 +1,6 @@
 import { SupabaseClient, createClient, Session } from '@supabase/supabase-js';
 import { useAuthStore } from '../stores/authStore';
-import { UpdateType } from '@powersync/web';
+import {AbstractPowerSyncDatabase, UpdateType} from '@powersync/web';
 
 export class SupabaseConnector {
     readonly client: SupabaseClient;
@@ -8,9 +8,7 @@ export class SupabaseConnector {
 
     constructor() {
         this.client = createClient(
-            //@ts-ignore
             import.meta.env.VITE_SUPABASE_URL,
-            //@ts-ignore
             import.meta.env.VITE_SUPABASE_ANON_KEY!,
             { auth: { persistSession: true } }
         );
@@ -111,7 +109,8 @@ export class SupabaseConnector {
             throw error;
         }
     }
-    //@ts-ignore
+
+    private FATAL_RESPONSE_CODES: any;
     async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
 
@@ -132,8 +131,10 @@ export class SupabaseConnector {
                 if (op.table === 'processed_data' && typeof op.opData === 'object') {
                     const fieldsToParse = ['raw_file_paths', 'processed_file_paths', 'metadata', 'data'];
                     fieldsToParse.forEach((field) => {
+                        // @ts-ignore
                         if (op.opData[field] && typeof op.opData[field] === 'string') {
                             try {
+                                // @ts-ignore
                                 op.opData[field] = JSON.parse(op.opData[field]);
                             } catch (e) {
                                 console.error(`Failed to parse ${field}:`, e);
@@ -167,8 +168,7 @@ export class SupabaseConnector {
             console.debug('Data upload successful.');
         } catch (error: any) {
             console.error('Error uploading data:', error, 'Last operation:', lastOp);
-            //@ts-ignore
-            if (typeof error.code === 'string' && FATAL_RESPONSE_CODES.some((regex) => regex.test(error.code))) {
+            if (typeof error.code === 'string' && this.FATAL_RESPONSE_CODES.some((regex: { test: (arg0: any) => any; }) => regex.test(error.code))) {
                 console.error('Fatal error during upload - discarding transaction:', error);
                 await transaction.complete();
             } else {
