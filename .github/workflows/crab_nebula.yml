@@ -21,6 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
       - name: Checkout LFS objects
         run: |
           git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
@@ -54,6 +55,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Checkout LFS objects
         run: |
@@ -125,6 +128,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
       - name: Checkout LFS objects
         run: |
           git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
