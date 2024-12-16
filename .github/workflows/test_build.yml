@@ -36,7 +36,9 @@ jobs:
         with:
           lfs: true
       - name: Checkout LFS objects
-        run: git lfs checkout
+        run: |
+          git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
+          git lfs checkout
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
