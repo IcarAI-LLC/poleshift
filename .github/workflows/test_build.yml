@@ -87,7 +87,7 @@ jobs:
           elif [ "${{ matrix.os }}" == "windows-latest" ]; then
             yarn tauri build --verbose
           else
-            yarn tauri build
+            yarn tauri build --verbose
           fi
 
         env:
