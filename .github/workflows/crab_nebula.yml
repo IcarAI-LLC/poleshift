@@ -19,6 +19,12 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Checkout LFS objects
+        run: |
+          git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
+          git lfs checkout
 
       - name: Create Draft Release
         uses: crabnebula-dev/cloud-release@v0
@@ -32,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-latest, windows-latest]
+        os: [ubuntu-22.04, macos-latest]
 
     env:
       NODE_OPTIONS: "--max-old-space-size=8192"
@@ -52,13 +58,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '23'
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          cache: true
+          cache: false
 
       - name: Install Dependencies on Ubuntu
         if: matrix.os == 'ubuntu-22.04'
@@ -94,7 +100,7 @@ jobs:
             yarn tauri build --target x86_64-apple-darwin
             yarn tauri build --target aarch64-apple-darwin
           elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-            yarn tauri build
+            yarn tauri build --verbose
           else
             yarn tauri build
           fi
@@ -112,6 +118,10 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Checkout LFS objects
+        run: git lfs checkout
 
       - name: Publish Release
         uses: crabnebula-dev/cloud-release@v0

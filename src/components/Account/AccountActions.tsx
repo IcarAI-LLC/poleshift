@@ -85,7 +85,7 @@ const AccountActions: React.FC = () => {
                   color: theme.palette.text.primary,
               }}
           >
-              <Typography variant="h6">Account</Typography>
+              <Typography>Account</Typography>
               <IconButton
                   onClick={closeModal}
                   aria-label="Close"
