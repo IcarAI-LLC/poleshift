@@ -3,7 +3,6 @@ use crate::poleshift_common::types::{
 };
 use crate::poleshift_common::utils::emit_progress;
 use std::path::PathBuf;
-use futures_util::TryFutureExt;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
