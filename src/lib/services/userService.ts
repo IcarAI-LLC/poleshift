@@ -36,25 +36,3 @@ export const fetchOrganization = async (orgId: string): Promise<Organization | n
     );
     return result as Organization | null;
 };
-
-/**
- * Creates a new user profile with the role 'lead'.
- * @param userId - The UUID of the user.
- * @param organizationId - The UUID of the organization.
- * @returns A promise that resolves if the insertion is successful.
- */
-export const createUserProfile = async (userId: string, organizationId: string): Promise<void> => {
-    try {
-        await db.execute(
-            `
-            INSERT INTO user_profiles (id, organization_id, user_tier)
-            VALUES (?, ?, 'lead')
-            `,
-            [userId, organizationId]
-        );
-        console.log(`User profile created for user ID: ${userId}`);
-    } catch (error) {
-        console.error('Error creating user profile:', error);
-        throw new Error('Failed to create user profile.');
-    }
-};

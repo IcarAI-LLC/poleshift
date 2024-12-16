@@ -55,6 +55,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Checkout LFS objects
+        run: |
+          git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
+          git lfs checkout
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -121,7 +126,9 @@ jobs:
         with:
           lfs: true
       - name: Checkout LFS objects
-        run: git lfs checkout
+        run: |
+          git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
+          git lfs checkout
 
       - name: Publish Release
         uses: crabnebula-dev/cloud-release@v0

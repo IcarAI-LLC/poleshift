@@ -3,8 +3,9 @@ import { supabaseConnector } from '../powersync/SupabaseConnector';
 import {useCallback, useEffect, useMemo, useRef} from 'react';
 import { fetchUserProfile, fetchOrganization } from '../services/userService';
 import { db } from "../powersync/db.ts";
+import {SyncStreamConnectionMethod} from "@powersync/web";
 
-const WAIT_TIME_MS = 20000; // 20 seconds
+const WAIT_TIME_MS = 60000; // 60 seconds
 const POLL_INTERVAL_MS = 2000; // 2 seconds
 
 export const useAuth = () => {
@@ -99,7 +100,7 @@ export const useAuth = () => {
             setLoading(true);
             await supabaseConnector.login(email, password);
             const loggedInSession = await supabaseConnector.fetchCredentials();
-            await db.connect(supabaseConnector);
+            await db.connect(supabaseConnector, { connectionMethod: SyncStreamConnectionMethod.HTTP });
             const loggedInUser = loggedInSession?.user;
             setUser(loggedInUser || null);
 
