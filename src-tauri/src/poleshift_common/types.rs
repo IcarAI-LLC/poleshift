@@ -31,12 +31,6 @@ pub enum PoleshiftError {
 
 impl From<std::io::Error> for PoleshiftError {
     fn from(e: std::io::Error) -> Self {
-        PoleshiftError::InvalidInput(e.to_string())
-    }
-}
-
-impl From<std::io::Error> for PoleshiftError {
-    fn from(e: std::io::Error) -> Self {
         PoleshiftError::IoError(e.to_string())
     }
 }

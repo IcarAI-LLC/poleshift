@@ -3,12 +3,12 @@ use crate::poleshift_common::types::{
 };
 use crate::poleshift_common::utils::emit_progress;
 use std::path::PathBuf;
-use std::vec;
 use futures_util::TryFutureExt;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tokio::fs;
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 use crate::handle_sequence_data::KrakenReport;
 
@@ -19,17 +19,7 @@ const TAXDB_FLAG: &str = "-a";
 const THREADS_FLAG: &str = "-t";
 const PRELOAD_FLAG: &str = "-M";
 const REPORT_FILE_FLAG: &str = "-r";
-/*
-const QUICK_FLAG: &str = "-q";
-const UNCLASSIFIED_OUT_FLAG: &str = "-U";
-const CLASSIFIED_OUT_FLAG: &str = "-C";
-const MIN_HITS_FLAG: &str = "-m";
-const OUTFILE_FLAG: &str = "-o";
-const ONLY_CLASSIFIED_OUTPUT_FLAG: &str = "-c";
-const PRELOAD_SIZE_FLAG: &str = "-x";
-const PRINT_SEQUENCE_FLAG: &str = "-s";
-const HLL_PRECISION_FLAG: &str = "-p";
-*/
+
 #[tauri::command]
 pub async fn handle_paired_end_sequence_data<R: Runtime>(
     app_handle: AppHandle<R>,
@@ -52,7 +42,9 @@ pub async fn handle_paired_end_sequence_data<R: Runtime>(
 
     if file_paths.len() > 2 {
         println!("Too many files provided for paired-end processing.");
-        return Err(PoleshiftError::InvalidInput("Only two input files are allowed for paired-end processing.".into()));
+        return Err(PoleshiftError::InvalidInput(
+            "Only two input files are allowed for paired-end processing.".into(),
+        ));
     }
 
     let window = app_handle.get_window("main").ok_or_else(|| {
@@ -68,7 +60,10 @@ pub async fn handle_paired_end_sequence_data<R: Runtime>(
         .map_err(|e| PoleshiftError::PathResolution(e.to_string()))?
         .join("resources");
 
-    let data_dir = app_handle.path().temp_dir().map_err(|e| PoleshiftError::PathResolution(e.to_string()))?;
+    let data_dir = app_handle
+        .path()
+        .temp_dir()
+        .map_err(|e| PoleshiftError::PathResolution(e.to_string()))?;
 
     let report_filename = format!("kraken_report_{}.txt", Uuid::new_v4());
     let report_file_path = data_dir.join(&report_filename);
@@ -81,11 +76,24 @@ pub async fn handle_paired_end_sequence_data<R: Runtime>(
         let merged_path = data_dir.join(&merged_filename);
 
         println!("Merging paired-end files into: {}", merged_path.display());
-        let mut merged_file = fs::File::create(&merged_path).map_err(|e| PoleshiftError::IoError(e.to_string()))?;
 
+        // Create the merged file
+        let mut merged_file = fs::File::create(&merged_path)
+            .await
+            .map_err(|e| PoleshiftError::IoError(e.to_string()))?;
+
+        // Iterate over each file and write its contents to the merged file
         for path in &file_paths {
-            let content = fs::read_to_string(path).map_err(|e| PoleshiftError::IoError(e.to_string()))?;
-            merged_file.write_all(content.as_bytes()).map_err(|e| PoleshiftError::IoError(e.to_string()))?;
+            // Read the content asynchronously
+            let content = fs::read_to_string(path)
+                .await
+                .map_err(|e| PoleshiftError::IoError(e.to_string()))?;
+
+            // Write the content to the merged file asynchronously
+            merged_file
+                .write_all(content.as_bytes())
+                .await
+                .map_err(|e| PoleshiftError::IoError(e.to_string()))?;
         }
 
         Some(merged_path)
@@ -100,21 +108,24 @@ pub async fn handle_paired_end_sequence_data<R: Runtime>(
     };
 
     let config = KrakenConfig::hardcoded(resource_dir, report_file_path.clone(), input_files);
-    let sidecar_command = app_handle.shell().sidecar("classifyExact").map_err(|e| {
-        println!("Error spawning sidecar: {}", e);
-        PoleshiftError::SidecarSpawnError(e.to_string())
-    })?;
+    let sidecar_command = app_handle
+        .shell()
+        .sidecar("classifyExact")
+        .map_err(|e| {
+            println!("Error spawning sidecar: {}", e);
+            PoleshiftError::SidecarSpawnError(e.to_string())
+        })?;
 
     // Build command with updated paths
     let mut sidecar_command = sidecar_command
         .arg(DATABASE_FLAG)
-        .arg(config.db_file)
+        .arg(&config.db_file)
         .arg(INDEX_FLAG)
-        .arg(config.idx_file)
+        .arg(&config.idx_file)
         .arg(TAXDB_FLAG)
-        .arg(config.taxdb_file)
+        .arg(&config.taxdb_file)
         .arg(REPORT_FILE_FLAG)
-        .arg(config.report_file)
+        .arg(&config.report_file)
         .arg(PRELOAD_FLAG)
         .arg(THREADS_FLAG)
         .arg(config.threads.to_string());
@@ -184,7 +195,7 @@ pub async fn handle_paired_end_sequence_data<R: Runtime>(
         )));
     }
 
-    let report_content = tokio::fs::read_to_string(&report_file_path)
+    let report_content = fs::read_to_string(&report_file_path)
         .await
         .map_err(|e| {
             println!(
