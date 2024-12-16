@@ -1,6 +1,6 @@
 [package]
 name = "poleshift"
-version = "0.0.21"
+version = "0.0.22"
 description = "Research Application"
 authors = ["Nikolas Yanek-Chrones"]
 edition = "2021"
@@ -19,16 +19,16 @@ tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["default", "unstable"] }
-tauri-plugin-shell = "2"
-tauri-plugin-store = "2"
-serde = { version = "1.0.215", features = ["derive"] }
+tauri-plugin-shell = "2.2.0"
+tauri-plugin-store = "2.1.0"
+serde = { version = "1.0.216", features = ["derive"] }
 serde_json = "1.0.133"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
 uuid = "1.3.2"
-chrono = "0.4.38"
-tauri-plugin-dialog = "2.0.4"
-tauri-plugin-fs = "2"
-thiserror = "2.0.4"
+chrono = "0.4.39"
+tauri-plugin-dialog = "2.2.0"
+tauri-plugin-fs = "2.2.0"
+thiserror = "2.0.7"
 reqwest = "0.12.9"
 tokio = { version = "1.42.0", features = ["full"] }
 flate2 = { version = "1.0.35", features = ["default"] }
@@ -38,7 +38,7 @@ log = "0.4.22"
 async-compression = { version = "0.4.18", features = ["futures-io"] }
 async-tar = "0.5.0"
 xz2 = "0.1.7"
-tauri-plugin-process = "2"
+tauri-plugin-process = "2.2.0"
 rayon = "1.10.0"
 tauri-plugin-os = "2"
 
