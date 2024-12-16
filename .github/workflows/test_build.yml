@@ -35,27 +35,34 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
       - name: Checkout LFS objects
         run: |
           git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
           git lfs checkout
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "23"
+          node-version: lts/*
+          cache: 'yarn' # Set this to npm, yarn or pnpm.
 
-      - name: Setup Rust Toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable # Set this to dtolnay/rust-toolchain@nightly
         with:
-          toolchain: stable
-          cache: false
+          # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
 
       - name: Install Dependencies on Ubuntu
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y webkit2gtk-4.1
+          sudo apt-get install -y webkit2gtk-4.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
           npm install --global yarn
 
       - name: Add Rust Targets for macOS
@@ -63,31 +70,19 @@ jobs:
         run: |
           rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
-      - name: Cache Node Modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.yarn
-            node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-
       - name: Install Node Modules
-        run: |
-          yarn config set "strict-ssl" false -g
-          yarn install --network-timeout 10000000 --non-interactive
+        run: yarn install
 
       - name: Build Tauri Application
         shell: bash
+        # elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+        # yarn tauri build --verbose
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             yarn tauri build --target x86_64-apple-darwin
             yarn tauri build --target aarch64-apple-darwin
-          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-            yarn tauri build --verbose
           else
-            yarn tauri build
+            yarn tauri build --verbose --bundles appimage deb updater
           fi
 
         env:
