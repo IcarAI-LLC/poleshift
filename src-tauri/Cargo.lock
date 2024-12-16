@@ -3252,7 +3252,7 @@ dependencies = [
 
 [[package]]
 name = "poleshift"
-version = "0.0.2"
+version = "0.0.21"
 dependencies = [
  "async-compression",
  "async-tar",

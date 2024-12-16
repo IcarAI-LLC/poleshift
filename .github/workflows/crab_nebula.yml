@@ -100,7 +100,7 @@ jobs:
             yarn tauri build --target x86_64-apple-darwin
             yarn tauri build --target aarch64-apple-darwin
           elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-            yarn tauri build
+            yarn tauri build --verbose
           else
             yarn tauri build
           fi
