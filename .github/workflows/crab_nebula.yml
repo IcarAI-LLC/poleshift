@@ -11,6 +11,7 @@ concurrency:
 
 env:
   CN_APPLICATION: "icarai/poleshift"
+  CN_API_KEY: ${{ secrets.CN_API_KEY }}
 
 jobs:
   draft:
@@ -23,7 +24,7 @@ jobs:
         uses: crabnebula-dev/cloud-release@v0
         with:
           command: release draft ${{ env.CN_APPLICATION }} --framework tauri
-          api-key: ${{ secrets.CN_API_KEY }}
+          api-key: ${{ env.CN_API_KEY }}
 
   build:
     needs: draft
@@ -102,7 +103,7 @@ jobs:
         uses: crabnebula-dev/cloud-release@v0
         with:
           command: release upload ${{ env.CN_APPLICATION }} --framework tauri
-          api-key: ${{ secrets.CN_API_KEY }}
+          api-key: ${{ env.CN_API_KEY }}
           path: ./src-tauri
 
   publish:
@@ -116,4 +117,4 @@ jobs:
         uses: crabnebula-dev/cloud-release@v0
         with:
           command: release publish ${{ env.CN_APPLICATION }} --framework tauri
-          api-key: ${{ secrets.CN_API_KEY }}
+          api-key: ${{ env.CN_API_KEY }}
