@@ -14,10 +14,11 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { useUI } from '../../lib/hooks';
 import { useAuth } from '../../lib/hooks';
+import ResetComponent from "../ResetComponent.tsx";
 
 const AccountActions: React.FC = () => {
   const { showAccountActions, setShowAccountActions } = useUI();
-  const { user, logout, userProfile, organization } = useAuth(); // Destructure userProfile and organization
+  const { user, logout, userProfile, organization, resetApp } = useAuth(); // Destructure userProfile and organization
   const theme = useTheme();
 
   const closeModal = () => {
@@ -35,6 +36,18 @@ const AccountActions: React.FC = () => {
     }
     return '';
   };
+
+    // Define the reset logic
+    const handleReset = async () => {
+        try {
+            resetApp();
+
+            // Additional reset actions can be added here
+        } catch (error) {
+            console.error('Error during reset:', error);
+            throw error; // Let ResetComponent handle the alert
+        }
+    };
 
   const infoRowStyles = {
     display: 'flex',
@@ -143,6 +156,7 @@ const AccountActions: React.FC = () => {
                   marginTop: theme.spacing(3),
                 }}
             >
+                <ResetComponent onReset={ handleReset }></ResetComponent>
               <Button
                   variant="contained"
                   onClick={handleLogoutClick}
@@ -153,6 +167,7 @@ const AccountActions: React.FC = () => {
                       backgroundColor: theme.palette.error.dark,
                     },
                     minWidth: '100px',
+                      marginLeft: 'auto',
                   }}
               >
                 Logout

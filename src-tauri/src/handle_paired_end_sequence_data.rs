@@ -1,3 +1,4 @@
+use crate::handle_sequence_data::KrakenReport;
 use crate::poleshift_common::types::{
     FileMeta, FilesResponse, KrakenConfig, PoleshiftError, StandardResponse,
 };
@@ -9,7 +10,6 @@ use tauri_plugin_shell::ShellExt;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
-use crate::handle_sequence_data::KrakenReport;
 
 // Flag Constants
 const DATABASE_FLAG: &str = "-d";
@@ -32,7 +32,10 @@ pub async fn handle_paired_end_sequence_data<R: Runtime>(
         ));
     }
 
-    println!("handle_sequence_data called with file_paths: {:?}", file_paths);
+    println!(
+        "handle_sequence_data called with file_paths: {:?}",
+        file_paths
+    );
 
     if file_paths.is_empty() {
         println!("No files provided.");
@@ -107,13 +110,10 @@ pub async fn handle_paired_end_sequence_data<R: Runtime>(
     };
 
     let config = KrakenConfig::hardcoded(resource_dir, report_file_path.clone(), input_files);
-    let sidecar_command = app_handle
-        .shell()
-        .sidecar("classifyExact")
-        .map_err(|e| {
-            println!("Error spawning sidecar: {}", e);
-            PoleshiftError::SidecarSpawnError(e.to_string())
-        })?;
+    let sidecar_command = app_handle.shell().sidecar("classifyExact").map_err(|e| {
+        println!("Error spawning sidecar: {}", e);
+        PoleshiftError::SidecarSpawnError(e.to_string())
+    })?;
 
     // Build command with updated paths
     let mut sidecar_command = sidecar_command
@@ -194,16 +194,14 @@ pub async fn handle_paired_end_sequence_data<R: Runtime>(
         )));
     }
 
-    let report_content = fs::read_to_string(&report_file_path)
-        .await
-        .map_err(|e| {
-            println!(
-                "Failed to read report file '{}': {}",
-                report_file_path.display(),
-                e
-            );
-            PoleshiftError::IoError(e.to_string())
-        })?;
+    let report_content = fs::read_to_string(&report_file_path).await.map_err(|e| {
+        println!(
+            "Failed to read report file '{}': {}",
+            report_file_path.display(),
+            e
+        );
+        PoleshiftError::IoError(e.to_string())
+    })?;
     emit_progress(&window, 100, "Complete")?;
 
     let raw_files: Vec<FileMeta> = file_paths

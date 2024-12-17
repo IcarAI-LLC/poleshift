@@ -1,6 +1,6 @@
 [package]
 name = "poleshift"
-version = "0.1.0"
+version = "0.1.1"
 description = "Research Application"
 authors = ["Nikolas Yanek-Chrones"]
 edition = "2021"
@@ -33,6 +33,7 @@ tokio = { version = "1.42.0", features = ["full"] }
 tauri-plugin-process = "2.2.0"
 rayon = "1.10.0"
 tauri-plugin-os = "2"
+tauri-plugin-websocket = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-cli = "2"

@@ -1,6 +1,6 @@
 // src/lib/powersync/db.ts
 
-import {PowerSyncDatabase, SyncStreamConnectionMethod} from '@powersync/web';
+import {PowerSyncDatabase} from '@powersync/web';
 import { SupabaseConnector } from './SupabaseConnector';
 import { AppSchema } from './Schema';
 
@@ -26,6 +26,7 @@ export const getDatabaseInstance = (): PowerSyncDatabase => {
             },
             flags: {
                 useWebWorker: false,
+                enableMultiTabs: true,
             }
 
         });
@@ -43,6 +44,7 @@ export const getDatabaseInstance = (): PowerSyncDatabase => {
             },
             flags: {
                 useWebWorker: true,
+                enableMultiTabs: true,
             }
         });
         console.log('PowerSyncDatabase instance created (with web worker). This instance is now primary.');
@@ -74,7 +76,7 @@ export const setupPowerSync = async () => {
     console.log('Connector created');
 
     try {
-        await db.connect(connector , { connectionMethod: SyncStreamConnectionMethod.HTTP });
+        await db.connect(connector /*{connectionMethod: SyncStreamConnectionMethod.HTTP}*/);
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);
         return;

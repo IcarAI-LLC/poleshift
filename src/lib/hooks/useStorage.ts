@@ -125,7 +125,7 @@ export const useStorage = () => {
                     .list(path);
 
                 if (error) throw error;
-                return data.length > 0;
+                return data?.length > 0;
             } catch (error) {
                 console.error('File check error:', error);
                 return false; // Assume file doesn't exist on error
