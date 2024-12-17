@@ -1,6 +1,6 @@
 [package]
 name = "poleshift"
-version = "0.1.1"
+version = "0.1.2"
 description = "Research Application"
 authors = ["Nikolas Yanek-Chrones"]
 edition = "2021"
@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["default", "unstable"] }
+tauri = { version = "2", features = ["default", "unstable", "devtools"] }
 tauri-plugin-shell = "2.2.0"
 tauri-plugin-store = "2.1.0"
 serde = { version = "1.0.216", features = ["derive"] }
