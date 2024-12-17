@@ -1763,6 +1763,13 @@
   dependencies:
     "@tauri-apps/api" "^2.0.0"
 
+"@tauri-apps/plugin-websocket@~2":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/plugin-websocket/-/plugin-websocket-2.2.0.tgz#82b3b802fb26d84d192ddc5b4e3aebb1cffecd67"
+  integrity sha512-OJ9rSkoDq1X6iKOUWJWbT3eIE09v+7q3YOB7YsCtYzR+u/5wADvjtp5eOEvn0YCmHbokYAZHyUO2QZHmTGPO5A==
+  dependencies:
+    "@tauri-apps/api" "^2.0.0"
+
 "@total-typescript/ts-reset@^0.5.1":
   version "0.5.1"
   resolved "https://registry.yarnpkg.com/@total-typescript/ts-reset/-/ts-reset-0.5.1.tgz#93b0535d00faa588518bcfb0db30182e63e4f7af"

@@ -7,6 +7,7 @@ import SignUp from './SignUp.tsx';
 import ResetPassword from './ResetPassword.tsx';
 import MainApp from '../MainApp.tsx';
 import ActivateLicense from './ActivateLicense.tsx';
+import ResetComponent from "../ResetComponent.tsx";
 
 const PreAuth: React.FC = () => {
   const {
@@ -14,7 +15,32 @@ const PreAuth: React.FC = () => {
     loading: authLoading,
     profileLoading,
     profileFetchTimedOut,
+    logout,
+    resetApp
   } = useAuth();
+
+  // Define the reset logic
+  const handleReset = async () => {
+    try {
+      // 1. Logout the user if authenticated
+      if (isAuthenticated) {
+        await logout();
+      }
+
+      // 2. Reset authentication state
+      resetApp();
+
+      // 3. Clear any other relevant state
+      setCurrentView('login');
+      setPrefillEmail('');
+      setLoginMessage('');
+
+      // Additional reset actions can be added here
+    } catch (error) {
+      console.error('Error during reset:', error);
+      throw error; // Let ResetComponent handle the alert
+    }
+  };
 
   const [currentView, setCurrentView] = useState<PreAuthView>('login');
 
@@ -49,11 +75,14 @@ const PreAuth: React.FC = () => {
         return <ResetPassword onNavigate={handleNavigate} />;
       default:
         return (
+            <div>
+            <ResetComponent onReset={ handleReset } />
             <Login
                 onNavigate={handleNavigate}
                 prefillEmail={prefillEmail}
                 message={loginMessage}
             />
+            </div>
         );
     }
   }

@@ -3,7 +3,7 @@ import { supabaseConnector } from '../powersync/SupabaseConnector';
 import {useCallback, useEffect, useMemo, useRef} from 'react';
 import { fetchUserProfile, fetchOrganization } from '../services/userService';
 import { db } from "../powersync/db.ts";
-import {SyncStreamConnectionMethod} from "@powersync/web";
+// import {SyncStreamConnectionMethod} from "@powersync/web";
 
 const WAIT_TIME_MS = 60000; // 60 seconds
 const POLL_INTERVAL_MS = 2000; // 2 seconds
@@ -13,7 +13,6 @@ export const useAuth = () => {
         user, userProfile, organization, error, loading,
         setError, setLoading, setUser, setUserProfile, setOrganization
     } = useAuthStore();
-
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const didTimeoutRef = useRef<boolean>(false);
@@ -83,7 +82,7 @@ export const useAuth = () => {
                 }
             } catch (err) {
                 console.error('Failed to load user data:', err);
-                setError('Failed to load user data');
+                // setError('Failed to load user data');
             }
         }, POLL_INTERVAL_MS);
     };
@@ -100,7 +99,9 @@ export const useAuth = () => {
             setLoading(true);
             await supabaseConnector.login(email, password);
             const loggedInSession = await supabaseConnector.fetchCredentials();
-            await db.connect(supabaseConnector, { connectionMethod: SyncStreamConnectionMethod.HTTP });
+            if (!db.connected) {
+                await db.connect(supabaseConnector /*{connectionMethod: SyncStreamConnectionMethod.HTTP}*/);
+            }
             const loggedInUser = loggedInSession?.user;
             setUser(loggedInUser || null);
 
@@ -155,6 +156,9 @@ export const useAuth = () => {
     const logout = useCallback(async () => {
         try {
             setLoading(true);
+            setUser(null);
+            setUserProfile(null);
+            setOrganization(null);
             await supabaseConnector.logout();
             await db.disconnectAndClear();
             setUser(null);
@@ -167,6 +171,21 @@ export const useAuth = () => {
             setLoading(false);
         }
     }, [setError, setLoading, setUser, setUserProfile, setOrganization]);
+
+    const resetApp = () => {
+        try {
+            setUser(null);
+            setUserProfile(null);
+            setOrganization(null);
+            localStorage.clear();
+            db.disconnectAndClear();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Reset failed');
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const resetPassword = useCallback(async (email: string) => {
         try {
@@ -196,6 +215,7 @@ export const useAuth = () => {
         login,
         signUp,
         logout,
+        resetApp,
         resetPassword,
         activateLicense,
         setError,
@@ -211,6 +231,7 @@ export const useAuth = () => {
         login,
         signUp,
         logout,
+        resetApp,
         resetPassword,
         activateLicense,
         setError,

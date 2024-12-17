@@ -10,7 +10,8 @@ export class SupabaseConnector {
         this.client = createClient(
             import.meta.env.VITE_SUPABASE_URL,
             import.meta.env.VITE_SUPABASE_ANON_KEY!,
-            { auth: { persistSession: true } }
+            { auth: { persistSession: true,
+                autoRefreshToken: true} }
         );
         this.lastUserId = null;
 

@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, {useEffect} from 'react';
+import {useEffect, useState} from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { ThemeProvider } from '@mui/material/styles';
@@ -8,16 +8,16 @@ import { PowerSyncContext } from '@powersync/react';
 import { theme } from './theme';
 import PreAuth from './components/PreAuth/PreAuth.tsx';
 import './App.css';
-import { db, setupPowerSync } from './lib/powersync/db';
+import {db, setupPowerSync} from './lib/powersync/db';
 import { checkForAppUpdates } from './updater';
 
 function App() {
     useEffect(() => {
         checkForAppUpdates();
     }, []);
-    const [initialized, setInitialized] = React.useState(false);
+    const [initialized, setInitialized] = useState(false);
 
-    React.useEffect(() => {
+    useEffect(() => {
         (async () => {
             await setupPowerSync(); // Connect to PowerSync
             setInitialized(true);
@@ -27,7 +27,6 @@ function App() {
     if (!initialized) {
         return <div>Initializing PowerSync...</div>;
     }
-
     return (
         <PowerSyncContext.Provider value={db}>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
