@@ -82,7 +82,7 @@ jobs:
             yarn tauri build --target x86_64-apple-darwin
             yarn tauri build --target aarch64-apple-darwin
           else
-            yarn tauri build
+            yarn tauri build --verbose --bundles appimage deb updater
           fi
 
         env:
