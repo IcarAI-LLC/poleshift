@@ -1,6 +1,6 @@
 // src/lib/powersync/db.ts
 
-import {PowerSyncDatabase, SyncStreamConnectionMethod} from '@powersync/web';
+import {PowerSyncDatabase} from '@powersync/web';
 import { SupabaseConnector } from './SupabaseConnector';
 import { AppSchema } from './Schema';
 
@@ -76,7 +76,7 @@ export const setupPowerSync = async () => {
     console.log('Connector created');
 
     try {
-        await db.connect(connector, {connectionMethod: SyncStreamConnectionMethod.HTTP});
+        await db.connect(connector);
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);
         return;

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@powersync/react';
-import { db } from '../powersync/db';
+import { usePowerSync } from '@powersync/react';
 import type { FileNode, SampleGroupMetadata } from '../types';
 
 // Helper to build a record by ID from an array of rows
@@ -15,6 +15,7 @@ function arrayToRecord<T extends { id: string }>(arr: T[]): Record<string, T> {
 }
 
 export const useData = () => {
+    const db =usePowerSync();
     // Fetch reactive data using useQuery
     const {
         data: locations = [],

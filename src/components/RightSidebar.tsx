@@ -236,7 +236,7 @@ const RightSidebar: React.FC = () => {
           <Card sx={styles.sliderCard}>
             <CardContent sx={styles.cardContent}>
               <Typography variant="h6" gutterBottom>
-                Sequence Confidence Threshold
+                Sequence Abundance Threshold
               </Typography>
               <Box sx={{ px: 2 }}>
                 <Slider

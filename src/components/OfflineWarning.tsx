@@ -1,5 +1,5 @@
 // src/renderer/components/OfflineWarning/OfflineWarning.tsx
-
+//TODO add back online notification
 import React from 'react';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
