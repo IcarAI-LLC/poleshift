@@ -1,8 +1,7 @@
 // src/lib/hooks/useProcessedData.ts
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@powersync/react';
-import { db } from '../powersync/db';
+import { useQuery, usePowerSync } from '@powersync/react';
 import type { Organization, SampleGroupMetadata } from '../types';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 import { invoke } from '@tauri-apps/api/core';
@@ -50,7 +49,7 @@ export const useProcessedData = ({
     const [error, setError] = useState<string | null>(null);
 
     const sampleId = sampleGroup?.id || null;
-
+    const db = usePowerSync()
     const {
         data: rawResults = [],
         isLoading,

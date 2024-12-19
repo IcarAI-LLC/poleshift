@@ -1,7 +1,7 @@
 // src/lib/hooks/useStorage.ts
 
 import { useCallback, useEffect } from 'react';
-import { db } from '../powersync/db';
+import { usePowerSync } from '@powersync/react';
 import { supabaseConnector } from '../powersync/SupabaseConnector';
 import {
     addToQueue,
@@ -32,7 +32,7 @@ export const useStorage = () => {
     const { isOnline } = useNetworkStatus();
     // Use the Snackbar store's showSnackbar method
     const showSnackbar = useSnackbarStore((state: { showSnackbar: any; }) => state.showSnackbar);
-
+    const db = usePowerSync();
     const getStorageClient = useCallback(() => {
         if (!connector) {
             throw new Error('No auth connector available');

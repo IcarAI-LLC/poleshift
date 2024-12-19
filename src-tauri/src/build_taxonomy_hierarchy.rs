@@ -30,51 +30,51 @@ pub async fn build_taxonomy_hierarchy(
     let mut root_nodes: Vec<TaxonomyNode> = Vec::new();
     let mut stack: Vec<TaxonomyNode> = Vec::new();
 
-    // Process nodes in the order they come in
     for mut node in nodes {
         // Initialize empty children vector
         node.children = Vec::new();
 
         // Adjust stack based on depth
-        while !stack.is_empty() && stack.last().unwrap().depth >= node.depth {
-            stack.pop();
+        while let Some(last_node) = stack.last() {
+            if last_node.depth >= node.depth {
+                stack.pop();
+            } else {
+                break;
+            }
         }
 
         if stack.is_empty() {
             // No parent, this is a root node
             root_nodes.push(node.clone());
         } else {
-            // Add as child to the last node in the stack
-            let parent_depth = stack.last().unwrap().depth;
-            let parent_name = Arc::clone(&stack.last().unwrap().name);
+            // Add as a child to the last node in the stack
+            if let Some(parent) = stack.last() {
+                let parent_depth = parent.depth;
+                let parent_name = Arc::clone(&parent.name);
 
-            // Helper function to find and modify parent node
-            fn add_child_to_parent(
-                nodes: &mut Vec<TaxonomyNode>,
-                parent_depth: i16,
-                parent_name: Arc<str>,
-                child: TaxonomyNode,
-            ) {
-                for node in nodes.iter_mut() {
-                    if node.depth == parent_depth && node.name == parent_name {
-                        node.children.push(child);
-                        return;
-                    }
-                    if !node.children.is_empty() {
-                        add_child_to_parent(
-                            &mut node.children,
-                            parent_depth,
-                            Arc::clone(&parent_name),
-                            child.clone(),
-                        );
+                fn add_child_to_parent(
+                    nodes: &mut Vec<TaxonomyNode>,
+                    parent_depth: i16,
+                    parent_name: Arc<str>,
+                    child: TaxonomyNode,
+                ) {
+                    for node in nodes.iter_mut() {
+                        if node.depth == parent_depth && node.name == parent_name {
+                            node.children.push(child);
+                            return;
+                        }
+                        if !node.children.is_empty() {
+                            // We clone the parent_name here so that we don't lose ownership
+                            let cloned_parent_name = Arc::clone(&parent_name);
+                            add_child_to_parent(&mut node.children, parent_depth, cloned_parent_name, child.clone());
+                        }
                     }
                 }
-            }
 
-            add_child_to_parent(&mut root_nodes, parent_depth, parent_name, node.clone());
+                add_child_to_parent(&mut root_nodes, parent_depth, parent_name, node.clone());
+            }
         }
 
-        // Push current node onto stack
         stack.push(node);
     }
 
@@ -86,7 +86,6 @@ pub async fn build_taxonomy_hierarchy(
 
 #[command]
 pub async fn validate_taxonomy_hierarchy(nodes: Vec<TaxonomyNode>) -> Result<bool, String> {
-    // Use references instead of clones for validation
     fn validate_node(node: &TaxonomyNode, parent_depth: i16) -> bool {
         if node.depth <= parent_depth {
             return false;

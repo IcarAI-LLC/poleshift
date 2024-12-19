@@ -1,9 +1,8 @@
 import { useAuthStore } from '../stores/authStore';
 import { supabaseConnector } from '../powersync/SupabaseConnector';
 import {useCallback, useEffect, useMemo, useRef} from 'react';
-import { fetchUserProfile, fetchOrganization } from '../services/userService';
-import { db } from "../powersync/db.ts";
-import {SyncStreamConnectionMethod} from "@powersync/web";
+import { usePowerSync } from "@powersync/react";
+import {Organization, UserProfile} from "../types";
 
 const WAIT_TIME_MS = 240000; // 240 seconds
 const POLL_INTERVAL_MS = 2000; // 2 seconds
@@ -13,6 +12,7 @@ export const useAuth = () => {
         user, userProfile, organization, error, loading,
         setError, setLoading, setUser, setUserProfile, setOrganization
     } = useAuthStore();
+    const db = usePowerSync()
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const didTimeoutRef = useRef<boolean>(false);
@@ -99,7 +99,7 @@ export const useAuth = () => {
             setLoading(true);
             await supabaseConnector.login(email, password);
             if (!db.connected) {
-                await db.connect(supabaseConnector, {connectionMethod: SyncStreamConnectionMethod.HTTP});
+                await db.connect(supabaseConnector);
             }
             const { data } = await supabaseConnector.client.auth.getSession();
 
@@ -117,6 +117,40 @@ export const useAuth = () => {
             setLoading(false);
         }
     }, [setError, setLoading, setUser, loadUserData]);
+
+    /**
+     * Fetches the user profile for a given user ID.
+     * @param userId - The UUID of the user.
+     * @returns The user profile or null if not found.
+     */
+    const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
+        const result = await db.get(
+            `
+            SELECT * FROM user_profiles
+            WHERE id = ?
+            LIMIT 1
+        `,
+            [userId]
+        );
+        return result as UserProfile | null;
+    };
+
+    /**
+     * Fetches the organization details for a given organization ID.
+     * @param orgId - The UUID of the organization.
+     * @returns The organization details or null if not found.
+     */
+    const fetchOrganization = async (orgId: string): Promise<Organization | null> => {
+        const result = await db.get(
+            `
+            SELECT * FROM organizations
+            WHERE id = ?
+            LIMIT 1
+        `,
+            [orgId]
+        );
+        return result as Organization | null;
+    };
 
     const signUp = useCallback(async (email: string, password: string) => {
         try {
