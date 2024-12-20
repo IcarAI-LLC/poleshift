@@ -33,7 +33,7 @@ pub async fn handle_nutrient_ammonia(
 
     emit_progress(&window, 50, "Converting to ammonium...")?;
 
-    let ammonium_value = ammonia_value * (17.0 / 14.0);
+    let ammonium_value = ammonia_value * 55.43;
 
     emit_progress(&window, 75, "Generating report...")?;
 
