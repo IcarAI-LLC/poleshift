@@ -181,7 +181,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
     }, []);
 
     return (
-        <LocalizationProvider dateAdapter={AdapterLuxon}>
+        (<LocalizationProvider dateAdapter={AdapterLuxon}>
             <Box
                 onClick={(e) => e.stopPropagation()}
                 sx={styles.container}
@@ -270,10 +270,12 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                                 {option.label}
                             </li>
                         )}
-                        ListboxProps={{
-                            style: {
-                                maxHeight: '200px',
-                            },
+                        slotProps={{
+                            listbox: {
+                                style: {
+                                    maxHeight: '200px',
+                                },
+                            }
                         }}
                     />
                 </FormControl>
@@ -302,7 +304,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                     </Button>
                 </Box>
             </Box>
-        </LocalizationProvider>
+        </LocalizationProvider>)
     );
 };
 

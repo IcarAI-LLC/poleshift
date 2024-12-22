@@ -13,7 +13,7 @@ import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
 import { useAuth } from '../../lib/hooks';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
-import type { SampleLocation } from '../../lib/types';
+import {FileNodeType, SampleLocation} from '../../lib/types';
 import { DateTime } from 'luxon';
 
 import Modal from '../Modal';
@@ -151,7 +151,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setModalState((prev) => ({ ...prev, isProcessing: true }));
 
         try {
-          if (configItem.processFunctionName === 'sampleGroup') {
+          if (configItem.processFunctionName === FileNodeType.SampleGroup) {
             const { collectionDate, collectionTime, locCharId } = modalInputs;
 
             if (!collectionDate || !locCharId) {
@@ -190,7 +190,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               id,
               org_id: organization.id,
               name: sampleGroupName,
-              type: 'sampleGroup',
+              type: FileNodeType.SampleGroup,
               parent_id: null,
               droppable: 0,
               children: [],
@@ -214,16 +214,19 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               notes: null,
               created_at: new Date().toISOString(),
               updated_at: DateTime.now().toISO(),
+              excluded: 0,
+              penguin_count: 0,
+              penguin_present: 0,
             };
 
             await createSampleGroup(sampleGroupData, newNode);
             setErrorMessage('');
-          } else if (configItem.processFunctionName === 'folder') {
+          } else if (configItem.processFunctionName === FileNodeType.Folder) {
             const newFolder = {
               id: uuidv4(),
               org_id: organization.id,
               name: modalInputs.name,
-              type: 'folder',
+              type: FileNodeType.Folder,
               parent_id: null,
               droppable: 1,
               children: [],

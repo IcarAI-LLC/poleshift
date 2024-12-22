@@ -1,15 +1,9 @@
 // src/lib/components/MainApp.tsx
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { SampleGroupMetadata } from '../lib/types';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {FileNodeType, SampleGroupMetadata} from '../lib/types';
 
-import {
-  useAuth,
-  useData,
-  useUI,
-  useNetworkStatus,
-  useStorage,
-} from '../lib/hooks';
-import { useProcessedData } from '../lib/hooks/useProcessedData';
+import {useAuth, useData, useNetworkStatus, useStorage, useUI,} from '../lib/hooks';
+import {useProcessedData} from '../lib/hooks/useProcessedData';
 
 import TopControls from './TopControls/TopControls';
 import LeftSidebar from './LeftSidebar/LeftSidebar';
@@ -19,12 +13,12 @@ import ErrorMessage from './ErrorMessage';
 import GlobeComponent from './GlobeComponent';
 import ContextMenu from './ContextMenu';
 import AccountActions from './Account/AccountActions';
-import SampleGroupMetadataComponent from './SampleGroupMetadata';
+import SampleGroupMetadataComponent from './SampleGroupMetadataComponent.tsx';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
 import MoveModal from "./LeftSidebar/MoveModal";
 import UploadQueueStatus from "./UploadQueueStatus";
-import { getAllQueuedUploads, removeFromQueue, UploadTask } from "../lib/utils/uploadQueue";
+import {getAllQueuedUploads, removeFromQueue, UploadTask} from "../lib/utils/uploadQueue";
 
 const MainApp: React.FC = () => {
   // All hooks at the top level
@@ -61,8 +55,8 @@ const MainApp: React.FC = () => {
 
   // Memoized values
   const sampleGroup = useMemo<SampleGroupMetadata | null>(() => {
-    if (!selectedLeftItem || selectedLeftItem.type !== 'sampleGroup') return null;
-    return sampleGroups[selectedLeftItem.id];
+    if (!selectedLeftItem || selectedLeftItem.type !== FileNodeType.SampleGroup) return null;
+    return sampleGroups[selectedLeftItem.id] as SampleGroupMetadata;
   }, [selectedLeftItem, sampleGroups]);
 
   // Move hook to top level instead of inside useMemo
@@ -129,7 +123,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   const renderContent = useMemo(() => {
-    if (selectedLeftItem?.type === 'sampleGroup') {
+    if (selectedLeftItem?.type === FileNodeType.SampleGroup) {
       return <DropBoxes onError={setErrorMessage} />;
     }
     return <GlobeComponent />;

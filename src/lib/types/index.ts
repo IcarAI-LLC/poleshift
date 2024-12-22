@@ -40,6 +40,47 @@ export enum UserRole {
     Viewer = 'viewer',
 }
 
+export enum Permissions {
+    AddUser = 'organizations.add_user',
+    RemoveUser = 'organizations.remove_user',
+    ViewUser = 'organizations.view_user',
+    ModifyUser = 'organizations.modify_user',
+    DeleteSampleGroup = 'sample_groups.delete',
+    CreateSampleGroup = 'sample_groups.create',
+    ModifySampleGroup = 'sample_groups.modify',
+    ShareSampleGroup = 'sample_groups.share',
+}
+
+export const adminPermissions: Permissions[] = [
+    Permissions.AddUser,
+    Permissions.RemoveUser,
+    Permissions.ViewUser,
+    Permissions.ModifyUser,
+    Permissions.DeleteSampleGroup,
+    Permissions.CreateSampleGroup,
+    Permissions.ModifySampleGroup,
+    Permissions.ShareSampleGroup
+]
+
+export const leadPermissions: Permissions[] = [
+    Permissions.AddUser,
+    Permissions.RemoveUser,
+    Permissions.ViewUser,
+    Permissions.ModifyUser,
+    Permissions.DeleteSampleGroup,
+    Permissions.CreateSampleGroup,
+    Permissions.ModifySampleGroup,
+    Permissions.ShareSampleGroup
+]
+
+export const researcherPermissions: Permissions[] = [
+    Permissions.ViewUser,
+    Permissions.CreateSampleGroup,
+    Permissions.ModifySampleGroup
+]
+
+export const viewerPermissions: Permissions[] = []
+
 export interface UserProfile {
     id: string;
     organization_id?: string | null;
@@ -63,13 +104,18 @@ export interface LicenseKey {
     created_at?: string;
 }
 
+export enum FileNodeType {
+    Folder = 'folder',
+    SampleGroup = 'sampleGroup',
+}
+
 // Data related types
 export interface FileNode {
     id: string;
     org_id: string;
     parent_id?: string | null;
     name: string;
-    type: string;
+    type: FileNodeType;
     created_at?: string;
     updated_at?: string;
     version: number;
@@ -80,6 +126,12 @@ export interface FileNode {
      * for building the tree structure in-memory for MUI.
      */
     children?: FileNode[];
+}
+
+export enum ProximityCategory {
+    Close = 'Immediate',
+    Far1 = 'Far1',
+    Far2 = 'Far2'
 }
 
 export interface SampleGroupMetadata {
@@ -96,6 +148,10 @@ export interface SampleGroupMetadata {
     longitude_recorded?: number | null;
     notes: string | null;
     updated_at: string;
+    proximity_category?: ProximityCategory | null;
+    excluded: number;
+    penguin_count: number;
+    penguin_present: number;
 }
 
 export interface SampleLocation {

@@ -19,12 +19,14 @@ const SearchInput: React.FC<SearchInputProps> = ({
     placeholder={placeholder || 'Search taxa...'}
     value={value}
     onChange={(e) => onChange(e.target.value)}
-    InputProps={{
-      startAdornment: (
-        <InputAdornment position="start">
-          <Search />
-        </InputAdornment>
-      ),
+    slotProps={{
+      input: {
+        startAdornment: (
+          <InputAdornment position="start">
+            <Search />
+          </InputAdornment>
+        ),
+      }
     }}
   />
 );

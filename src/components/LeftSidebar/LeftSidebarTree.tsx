@@ -1,26 +1,22 @@
 //src/components/LeftSidebar/LeftSidebarTree.tsx
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, {useCallback, useEffect, useRef} from 'react';
 import Box from '@mui/material/Box';
-import {
-    Folder as FolderIcon,
-    FolderOpen as FolderOpenIcon,
-    Science as ScienceIcon,
-} from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
-import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
-import { useTreeItem2, UseTreeItem2Parameters } from '@mui/x-tree-view/useTreeItem2';
+import {Folder as FolderIcon, FolderOpen as FolderOpenIcon, Science as ScienceIcon, Block as ExcludedIcon} from '@mui/icons-material';
+import PenguinIcon from '../../assets/penguin.svg';
+import {styled} from '@mui/material/styles';
+import {RichTreeView} from '@mui/x-tree-view/RichTreeView';
+import {useTreeItem2, UseTreeItem2Parameters} from '@mui/x-tree-view/useTreeItem2';
 import {
     TreeItem2Content,
-    TreeItem2IconContainer,
     TreeItem2GroupTransition,
+    TreeItem2IconContainer,
     TreeItem2Label,
     TreeItem2Root,
 } from '@mui/x-tree-view/TreeItem2';
-import { TreeItem2Icon } from '@mui/x-tree-view/TreeItem2Icon';
-import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider';
-import { useUI } from '../../lib/hooks';
-import { useData } from '../../lib/hooks';
-import type { FileNode } from '../../lib/types';
+import {TreeItem2Icon} from '@mui/x-tree-view/TreeItem2Icon';
+import {TreeItem2Provider} from '@mui/x-tree-view/TreeItem2Provider';
+import {useData, useUI} from '../../lib/hooks';
+import {FileNode, FileNodeType} from '../../lib/types';
 
 const CustomTreeItemContent = styled(TreeItem2Content)(({ theme }) => ({
     padding: theme.spacing(0.5, 1),
@@ -61,7 +57,7 @@ const CustomTreeItem = React.forwardRef(function CustomTreeItem(
     // This is the correct item corresponding to itemId
     const item = publicAPI.getItem(itemId) as FileNode;
     const isFolder = item.type === 'folder';
-    const isSampleGroup = item.type === 'sampleGroup';
+    const isSampleGroup = item.type === FileNodeType.SampleGroup;
 
     const { handleLeftSidebarContextMenu } = useUI();
     const contentProps = getContentProps();

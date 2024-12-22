@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@powersync/react';
 import { usePowerSync } from '@powersync/react';
-import type { FileNode, SampleGroupMetadata } from '../types';
+import {FileNode, FileNodeType, SampleGroupMetadata} from '../types';
 import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
 import {
     DrizzleSchema, file_nodes, sample_group_metadata, sample_locations
@@ -192,15 +192,15 @@ export const useData = () => {
     }, [locations]);
 
     const getNodeChildren = useCallback(
-        (nodeId: string): FileNode[] => {
-            const children = Object.values(fileNodes).filter((node) => node.parent_id === nodeId);
-            return children
+        (nodeId: string) => {
+            return Object.values(fileNodes).filter((node) => node.parent_id === nodeId);
         },
         [fileNodes]
     );
 
     type FileNodeWithChildren = FileNode & {
         children: FileNodeWithChildren[];
+        type: FileNodeType;
     };
 
     const fileTree = useMemo(() => {
@@ -210,7 +210,7 @@ export const useData = () => {
         for (const nodeId in fileNodes) {
             const node = fileNodes[nodeId];
             // Spread node so we don’t modify the DB version
-            nodesById[nodeId] = { ...node, children: [] };
+            nodesById[nodeId] = { ...node, children: [], type: node.type as FileNodeType };
         }
 
         // 3. Build the tree

@@ -31,7 +31,7 @@ const ActivateLicense: React.FC = () => {
     const displayError = localError || error;
 
     return (
-        <Box
+        (<Box
             display="flex"
             alignItems="center"
             justifyContent="center"
@@ -77,8 +77,10 @@ const ActivateLicense: React.FC = () => {
                     onChange={(e) => setLicenseKey(e.target.value)}
                     required
                     disabled={loading || !!message}
-                    inputProps={{
-                        'aria-label': 'License Key',
+                    slotProps={{
+                        htmlInput: {
+                            'aria-label': 'License Key',
+                        }
                     }}
                 />
 
@@ -94,7 +96,7 @@ const ActivateLicense: React.FC = () => {
                     {loading ? 'Activating...' : 'Activate'}
                 </Button>
             </Box>
-        </Box>
+        </Box>)
     );
 };
 

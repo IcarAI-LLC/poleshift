@@ -4,6 +4,8 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 import { useData } from '../lib/hooks';
 import type { SampleGroupMetadata } from '../lib/types';
+// If you need the ProximityCategory in this file for any reason, import it as well:
+// import { ProximityCategory } from '../lib/types';
 
 interface Coordinate {
     value: string;
@@ -26,7 +28,7 @@ export const LocationFields: React.FC<LocationFieldsProps> = ({
                                                                   sampleGroup,
                                                                   metadataItemStyles,
                                                                   labelStyles,
-                                                                  darkFieldStyles,
+                                                                  darkFieldStyles
                                                               }) => {
     const { updateSampleGroup } = useData();
 
@@ -51,123 +53,131 @@ export const LocationFields: React.FC<LocationFieldsProps> = ({
     }, [sampleGroup.latitude_recorded, sampleGroup.longitude_recorded]);
 
     // Memoized field configurations
-    const fieldConfigs = useMemo(() => ({
-        latitude: {
-            label: 'Latitude:',
-            placeholder: 'Enter latitude (-90 to 90)',
-            min: COORDINATE_LIMITS.latitude.min,
-            max: COORDINATE_LIMITS.latitude.max,
-            errorMessage: 'Invalid latitude. Must be between -90 and 90 degrees'
-        },
-        longitude: {
-            label: 'Longitude:',
-            placeholder: 'Enter longitude (-180 to 180)',
-            min: COORDINATE_LIMITS.longitude.min,
-            max: COORDINATE_LIMITS.longitude.max,
-            errorMessage: 'Invalid longitude. Must be between -180 and 180 degrees'
-        }
-    }), []);
+    const fieldConfigs = useMemo(
+        () => ({
+            latitude: {
+                label: 'Latitude:',
+                placeholder: 'Enter latitude (-90 to 90)',
+                min: COORDINATE_LIMITS.latitude.min,
+                max: COORDINATE_LIMITS.latitude.max,
+                errorMessage: 'Invalid latitude. Must be between -90 and 90 degrees'
+            },
+            longitude: {
+                label: 'Longitude:',
+                placeholder: 'Enter longitude (-180 to 180)',
+                min: COORDINATE_LIMITS.longitude.min,
+                max: COORDINATE_LIMITS.longitude.max,
+                errorMessage: 'Invalid longitude. Must be between -180 and 180 degrees'
+            }
+        }),
+        []
+    );
 
     // Validation function
-    const validateCoordinate = useCallback((
-        value: string,
-        type: 'latitude' | 'longitude'
-    ): boolean => {
-        if (!value) return true;
-
-        const num = parseFloat(value);
-        if (isNaN(num)) return false;
-
-        const limits = COORDINATE_LIMITS[type];
-        return num >= limits.min && num <= limits.max;
-    }, []);
+    const validateCoordinate = useCallback(
+        (value: string, type: 'latitude' | 'longitude'): boolean => {
+            if (!value) return true;
+            const num = parseFloat(value);
+            if (isNaN(num)) return false;
+            const limits = COORDINATE_LIMITS[type];
+            return num >= limits.min && num <= limits.max;
+        },
+        []
+    );
 
     // Handle coordinate changes
-    const handleCoordinateChange = useCallback((
-        value: string,
-        type: 'latitude' | 'longitude'
-    ) => {
-        setCoordinates(prev => ({
-            ...prev,
-            [type]: {
-                value,
-                error: !validateCoordinate(value, type)
-                    ? fieldConfigs[type].errorMessage
-                    : ''
-            }
-        }));
-    }, [validateCoordinate, fieldConfigs]);
+    const handleCoordinateChange = useCallback(
+        (value: string, type: 'latitude' | 'longitude') => {
+            setCoordinates(prev => ({
+                ...prev,
+                [type]: {
+                    value,
+                    error: !validateCoordinate(value, type)
+                        ? fieldConfigs[type].errorMessage
+                        : ''
+                }
+            }));
+        },
+        [validateCoordinate, fieldConfigs]
+    );
 
     // Handle coordinate updates
-    const handleCoordinateUpdate = useCallback(async (
-        type: 'latitude' | 'longitude'
-    ) => {
-        if (!sampleGroup.id) return;
+    const handleCoordinateUpdate = useCallback(
+        async (type: 'latitude' | 'longitude') => {
+            if (!sampleGroup.id) return;
 
-        const value = coordinates[type].value;
-        if (!validateCoordinate(value, type)) {
-            handleCoordinateChange(
-                sampleGroup[`${type}_recorded`]?.toString() || '',
-                type
-            );
-            return;
-        }
+            const value = coordinates[type].value;
+            if (!validateCoordinate(value, type)) {
+                // Revert to previous value if invalid
+                handleCoordinateChange(
+                    sampleGroup[`${type}_recorded`]?.toString() || '',
+                    type
+                );
+                return;
+            }
 
-        try {
-            const numericValue = value ? parseFloat(value) : null;
-            await updateSampleGroup(sampleGroup.id, {
-                [`${type}_recorded`]: numericValue
-            });
-        } catch (error) {
-            console.error(`Error updating ${type}:`, error);
-            // Reset to previous value on error
-            handleCoordinateChange(
-                sampleGroup[`${type}_recorded`]?.toString() || '',
-                type
-            );
-        }
-    }, [sampleGroup, coordinates, validateCoordinate, handleCoordinateChange, updateSampleGroup]);
+            try {
+                const numericValue = value ? parseFloat(value) : null;
+                await updateSampleGroup(sampleGroup.id, {
+                    [`${type}_recorded`]: numericValue
+                });
+            } catch (error) {
+                console.error(`Error updating ${type}:`, error);
+                // Reset to previous value on error
+                handleCoordinateChange(
+                    sampleGroup[`${type}_recorded`]?.toString() || '',
+                    type
+                );
+            }
+        },
+        [sampleGroup, coordinates, validateCoordinate, handleCoordinateChange, updateSampleGroup]
+    );
 
     // Render coordinate field
-    const renderCoordinateField = useCallback((type: 'latitude' | 'longitude') => {
-        const config = fieldConfigs[type];
-        const coordinate = coordinates[type];
+    const renderCoordinateField = useCallback(
+        (type: 'latitude' | 'longitude') => {
+            const config = fieldConfigs[type];
+            const coordinate = coordinates[type];
 
-        return (
-            <Box sx={metadataItemStyles} key={type}>
-                <Typography sx={labelStyles}>{config.label}</Typography>
-                <TextField
-                    value={coordinate.value}
-                    onChange={e => handleCoordinateChange(e.target.value, type)}
-                    onBlur={() => handleCoordinateUpdate(type)}
-                    placeholder={config.placeholder}
-                    type="number"
-                    inputProps={{
-                        step: 'any',
-                        min: config.min,
-                        max: config.max,
-                    }}
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    error={!!coordinate.error}
-                    helperText={coordinate.error}
-                    sx={{
-                        ...darkFieldStyles,
-                        flex: 1,
-                    }}
-                />
-            </Box>
-        );
-    }, [
-        coordinates,
-        fieldConfigs,
-        metadataItemStyles,
-        labelStyles,
-        darkFieldStyles,
-        handleCoordinateChange,
-        handleCoordinateUpdate
-    ]);
+            return (
+                <Box sx={metadataItemStyles} key={type}>
+                    <Typography sx={labelStyles}>{config.label}</Typography>
+                    <TextField
+                        value={coordinate.value}
+                        onChange={e => handleCoordinateChange(e.target.value, type)}
+                        onBlur={() => handleCoordinateUpdate(type)}
+                        placeholder={config.placeholder}
+                        type="number"
+                        fullWidth
+                        variant="outlined"
+                        size="small"
+                        error={!!coordinate.error}
+                        helperText={coordinate.error}
+                        sx={{
+                            ...darkFieldStyles,
+                            flex: 1,
+                        }}
+                        slotProps={{
+                            htmlInput: {
+                                step: 'any',
+                                min: config.min,
+                                max: config.max,
+                            }
+                        }}
+                    />
+                </Box>
+            );
+        },
+        [
+            coordinates,
+            fieldConfigs,
+            metadataItemStyles,
+            labelStyles,
+            darkFieldStyles,
+            handleCoordinateChange,
+            handleCoordinateUpdate
+        ]
+    );
 
     return (
         <>

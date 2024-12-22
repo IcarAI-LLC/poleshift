@@ -1,13 +1,14 @@
 // src/lib/stores/authStore.ts
 
 import { create } from 'zustand';
-import {User, UserProfile, Organization, UserRole} from '../types';
+import {User, UserProfile, Organization, UserRole, Permissions} from '../types';
 
 interface AuthState {
     user: User | null;
     userProfile: UserProfile | null;
     organization: Organization | null;
     organizationId: string | null;
+    userPermissions: Permissions[] | null
     role: UserRole | null;
     error: string | null;
     loading: boolean;
@@ -20,6 +21,7 @@ interface AuthState {
     setOrganization: (org: Organization | null) => void;
     setRole: (role: UserRole | null) => void;
     setOrganizationId: (organizationId: string | null) => void;
+    setPermissions: (userPermissions: null | Permissions[]) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -30,6 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     error: null,
     loading: false,
     organizationId: null,
+    userPermissions: null,
 
     setError: (error: string | null) => set({ error }),
     setLoading: (loading: boolean) => set({ loading }),
@@ -38,4 +41,5 @@ export const useAuthStore = create<AuthState>((set) => ({
     setOrganization: (org: Organization | null) => set({ organization: org }),
     setRole: (role: UserRole | null) => set({ role: role }),
     setOrganizationId: (organizationId: string | null) => set({ organizationId }),
+    setPermissions: (userPermissions: Permissions[] | null) => set({ userPermissions: userPermissions }),
 }));

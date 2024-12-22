@@ -62,6 +62,10 @@ export const sample_group_metadata = sqliteTable("sample_group_metadata", {
     longitude_recorded: real("longitude_recorded"),
     notes: text("notes"),
     updated_at: text("updated_at").notNull(),
+    proximity_category: text("proximity_category"),
+    excluded: integer("excluded").notNull(),
+    penguin_count: integer("penguin_count"),
+    penguin_present: integer("penguin_present").notNull(),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -95,18 +99,12 @@ export const license_keys = sqliteTable("license_keys", {
  *  9) processed_data
  *  ────────────────────────────────────────────────────────────────────────────**/
 export const processed_data = sqliteTable("processed_data", {
-    // There appear to be two PK definitions: "key" and "id".
-    // We'll keep them both if the table actually has a multi-column PK
-    // or if there's a data mismatch, pick the one that truly is the PK.
-    // The metadata says `is_primary_key=1` for both "key" and "id".
-    // We'll define a composite primary key.
-    key: text("key").notNull(),
+    key: text("key").notNull().unique(),
     id: text("id").notNull().primaryKey(),
     config_id: text("config_id").notNull(),
     data: text("data").notNull(),
     raw_file_paths: text("raw_file_paths").notNull(),
     processed_path: text("processed_path"),
-    text: text("text").notNull().default(DateTime.now().toISO()),
     status: text("status").notNull(),
     metadata: text("metadata"),
     sample_id: text("sample_id").references(() => sample_group_metadata.id),

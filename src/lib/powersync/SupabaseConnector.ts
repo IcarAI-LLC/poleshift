@@ -1,8 +1,15 @@
-import { SupabaseClient, createClient, Session } from '@supabase/supabase-js';
-import { useAuthStore } from '../stores/authStore';
+import {createClient, Session, SupabaseClient} from '@supabase/supabase-js';
+import {useAuthStore} from '../stores/authStore';
 import {AbstractPowerSyncDatabase, CrudEntry, UpdateType} from '@powersync/web';
-import { jwtDecode, JwtPayload } from 'jwt-decode'
-import {UserRole} from "../types";
+import {jwtDecode, JwtPayload} from 'jwt-decode'
+import {
+    UserRole,
+    leadPermissions,
+    adminPermissions,
+    researcherPermissions,
+    viewerPermissions,
+    Permissions
+} from "../types";
 
 interface SupabaseJwtPayload extends JwtPayload {
     user_role?: UserRole; // or user_role: string if you're certain it's always set
@@ -59,12 +66,34 @@ export class SupabaseConnector {
                     userOrg: userOrg,
                 });
                 this.lastUserId = newUserId;
-                const {setUser, setRole, setOrganizationId } = useAuthStore.getState();
+                const {setUser, setRole, setOrganizationId, setPermissions } = useAuthStore.getState();
 
                 setUser(session.user);
                 setRole(userRole);
                 setOrganizationId(userOrg);
+                setPermissions(this.getPermissionsForRole(userRole))
             }
+        }
+    }
+
+    private getPermissionsForRole (role: UserRole | null): Permissions[] | null {
+        if (role == null){
+            return null;
+        }
+        if (role == UserRole.Admin){
+            return adminPermissions
+        }
+        if (role == UserRole.Lead){
+            return leadPermissions
+        }
+        if (role == UserRole.Researcher){
+            return researcherPermissions
+        }
+        if (role == UserRole.Viewer){
+            return viewerPermissions
+        }
+        else{
+            return null;
         }
     }
 
