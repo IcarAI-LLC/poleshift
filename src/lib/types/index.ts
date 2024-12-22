@@ -33,6 +33,13 @@ export interface User {
     factors?: Factor[]
 }
 
+export enum UserRole {
+    Admin = 'admin',
+    Lead = 'lead',
+    Researcher = 'researcher',
+    Viewer = 'viewer',
+}
+
 export interface UserProfile {
     id: string;
     organization_id?: string | null;

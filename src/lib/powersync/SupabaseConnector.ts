@@ -1,7 +1,13 @@
 import { SupabaseClient, createClient, Session } from '@supabase/supabase-js';
 import { useAuthStore } from '../stores/authStore';
 import {AbstractPowerSyncDatabase, CrudEntry, UpdateType} from '@powersync/web';
-import { jwtDecode } from 'jwt-decode'
+import { jwtDecode, JwtPayload } from 'jwt-decode'
+import {UserRole} from "../types";
+
+interface SupabaseJwtPayload extends JwtPayload {
+    user_role?: UserRole; // or user_role: string if you're certain it's always set
+    user_org?: string; // or user_role: string if you're certain it's always set
+}
 
 export class SupabaseConnector {
     readonly client: SupabaseClient;
@@ -18,17 +24,11 @@ export class SupabaseConnector {
 
         // Subscribe to authentication state changes
         this.client.auth.onAuthStateChange((event, session) => {
-            console.debug("AUTH STATE CHANGE");
-            if (session) {
-                const jwt = jwtDecode(session.access_token);
-                console.debug(jwt);
-            }
             // Only process certain auth events that indicate real state changes
             if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED'].includes(event)) {
                 this.handleSessionChange(session);
             }
         });
-
         // Initialize session
         this.initSession();
     }
@@ -43,22 +43,27 @@ export class SupabaseConnector {
     }
 
     private handleSessionChange(session: Session | null) {
-        const newUserId = session?.user?.id || null;
+        if (session) {
+            const jwtDecoded: SupabaseJwtPayload = jwtDecode(session?.access_token);
+            const userRole: UserRole | null = jwtDecoded.user_role  || null;
+            const userOrg: string | null = jwtDecoded.user_org  || null;
 
-        // Only proceed if the user ID has actually changed
-        if (this.lastUserId !== newUserId) {
-            console.log("User state changed:", {
-                previousUserId: this.lastUserId,
-                newUserId: newUserId
-            });
+            const newUserId = session.user.id || null;
 
-            const { setUser } = useAuthStore.getState();
-            this.lastUserId = newUserId;
+            // Only proceed if the user ID has actually changed
+            if (this.lastUserId !== newUserId) {
+                console.log("User state changed:", {
+                    previousUserId: this.lastUserId,
+                    newUserId: newUserId,
+                    userRole: userRole,
+                    userOrg: userOrg,
+                });
+                this.lastUserId = newUserId;
+                const {setUser, setRole, setOrganizationId } = useAuthStore.getState();
 
-            if (session?.user) {
                 setUser(session.user);
-            } else {
-                setUser(null);
+                setRole(userRole);
+                setOrganizationId(userOrg);
             }
         }
     }

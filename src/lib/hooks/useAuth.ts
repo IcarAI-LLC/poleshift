@@ -12,7 +12,7 @@ const POLL_INTERVAL_MS = 2000; // 2 seconds
 
 export const useAuth = () => {
     const {
-        user, userProfile, organization, error, loading,
+        user, userProfile, organization, error, loading, organizationId,
         setError, setLoading, setUser, setUserProfile, setOrganization
     } = useAuthStore();
     const db = usePowerSync()
@@ -21,14 +21,13 @@ export const useAuth = () => {
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const didTimeoutRef = useRef<boolean>(false);
-    console.log('Auth rerender');
     const loadUserData = useCallback(async (userId: string) => {
         try {
             const profile = await fetchUserProfile(userId);
             setUserProfile(profile);
 
-            if (profile?.organization_id) {
-                const org = await fetchOrganization(profile.organization_id);
+            if (organizationId) {
+                const org = await fetchOrganization(organizationId);
                 setOrganization(org);
             } else {
                 setOrganization(null);

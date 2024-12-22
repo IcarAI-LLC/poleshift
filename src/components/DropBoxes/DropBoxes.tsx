@@ -20,8 +20,8 @@ import type {
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
 
 import dropboxConfig from '../../config/dropboxConfig';
-import { processKrakenDataForModal } from '../../lib/utils/dataProcessingUtils';
-import { processCTDDataForModal } from '../../lib/utils/processCTDDataForModal';
+import { processKrakenDataForModal } from '../../lib/utils';
+import { processCTDDataForModal } from '../../lib/utils';
 import Modal from '../Modal';
 import DataTable from '../DataTable';
 import DataChart from '../DataChart';
