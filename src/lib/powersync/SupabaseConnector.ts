@@ -33,6 +33,7 @@ export class SupabaseConnector {
         this.client.auth.onAuthStateChange((event, session) => {
             // Only process certain auth events that indicate real state changes
             if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED'].includes(event)) {
+                console.debug(session);
                 this.handleSessionChange(session);
             }
         });

@@ -156,21 +156,36 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 80
         const parents: string[] = [];
         const values: number[] = [];
         const ids: string[] = [];
-        const ranks: string[] = [];
+
+        // For each node, we'll store a custom data array,
+        // e.g. [tax_id, rank, reads, percentage, depth]
+        const customdata: Array<[number, string, number, number, number]> = [];
+
         const depths: number[] = [];
         const colors: string[] = [];
 
         let secondLevelColorIndex = 0;
 
-        const traverse = (node: TaxonomyHierarchyNode, parentId = '', depth = 0, baseColor?: string) => {
+        const traverse = (
+            node: TaxonomyHierarchyNode,
+            parentId = '',
+            depth = 0,
+            baseColor?: string
+        ) => {
             const nodeId = `${node.name}-${node.tax_id}`;
+
             labels.push(node.name);
             parents.push(parentId);
             values.push(node.reads);
             ids.push(nodeId);
-            ranks.push(node.rank);
+
+            // Build the customdata entry:
+            // We store the extra fields in customdata:
+            customdata.push([node.tax_id, node.rank, node.percentage, node.reads, node.depth]);
+
             depths.push(depth);
 
+            // Coloring logic
             let nodeColor: string;
             let currentBaseColor = baseColor;
 
@@ -191,14 +206,17 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 80
 
             colors.push(nodeColor);
 
+            // Recurse into children
             if (node.children && node.children.length > 0) {
                 node.children.forEach(child => traverse(child, nodeId, depth + 1, currentBaseColor));
             }
         };
 
         hierarchy.forEach(root => traverse(root));
-        return { labels, parents, values, ids, ranks, depths, colors };
+
+        return { labels, parents, values, ids, customdata, depths, colors };
     };
+
 
     const processedData = useMemo(() => {
         const activeHierarchy = getActiveHierarchy();
@@ -219,20 +237,25 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 80
                 type: 'sunburst',
                 labels: processedData.labels,
                 parents: processedData.parents,
-                values: processedData.values,
                 ids: processedData.ids,
-                customdata: processedData.ranks,
-                textinfo: 'label',
+                values: processedData.values,
+
+                customdata: processedData.customdata,
+                hovertemplate: `
+                <b>%{label}</b><br>
+                Tax ID: %{customdata[0]}<br>
+                Rank: %{customdata[1]}<br>
+                Percentage: %{customdata[2]}%<br>
+                Reads: %{customdata[3]}<br>
+                Depth: %{customdata[4]}<br>
+                <extra></extra>`,
+
                 marker: {
                     colors: processedData.colors,
                     line: { color: '#ffffff', width: 0 },
                 },
-                hovertemplate: `
-                    <b>%{label}</b> (%{customdata})<br>
-                    %{value:,.0f} reads<br>
-                    <extra></extra>
-                `,
                 branchvalues: "total",
+                textinfo: 'label',
             },
         ];
 

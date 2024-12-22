@@ -117,17 +117,42 @@ export const useData = () => {
 
     const deleteNode = useCallback(async (id: string) => {
         try {
-            // First, retrieve the node's sample_group_id, if any
-            const [nodeResult] = await drizzleDB.select({sample_group_id: file_nodes.sample_group_id}).from(file_nodes).where(eq(file_nodes.id, id));
-            const sampleGroupId = nodeResult.sample_group_id;
-            // If there's a sample_group_id associated with the node, delete the corresponding sample group
-            if (sampleGroupId) {
-                console.debug('Deleting sample group', sampleGroupId);
-                await drizzleDB.delete(sample_group_metadata).where(eq(sample_group_metadata.id, sampleGroupId)).run();
+            // 1. Fetch the node to see if it’s a folder and/or has a sample group
+            const [nodeResult] = await drizzleDB
+                .select({
+                    type: file_nodes.type,
+                    sampleGroupId: file_nodes.sample_group_id,
+                })
+                .from(file_nodes)
+                .where(eq(file_nodes.id, id));
+
+            // If the node doesn't exist, just return
+            if (!nodeResult) return;
+
+            // 2. If it's a folder, recursively delete its children first
+            if (nodeResult.type === FileNodeType.Folder && nodeResult.sampleGroupId === null) {
+                const childNodes = await drizzleDB
+                    .select({ id: file_nodes.id })
+                    .from(file_nodes)
+                    .where(eq(file_nodes.parent_id, id));
+
+                for (const child of childNodes) {
+                    await deleteNode(child.id); // Recursively delete each child
+                }
             }
-            console.debug('sampleGroupId', sampleGroupId);
-            // Delete the file node
+
+            // 3. If there's a sample group, delete it
+            if (nodeResult.sampleGroupId) {
+                console.debug('Deleting sample group', nodeResult.sampleGroupId);
+                await drizzleDB
+                    .delete(sample_group_metadata)
+                    .where(eq(sample_group_metadata.id, nodeResult.sampleGroupId))
+                    .run();
+            }
+
+            // 4. Finally, delete the node itself
             await drizzleDB.delete(file_nodes).where(eq(file_nodes.id, id)).run();
+
         } catch (err: any) {
             setError(err.message || 'Failed to delete node');
             throw err;

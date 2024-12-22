@@ -6,6 +6,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import {v4 as uuidv4} from "uuid";
 import {DateTime} from "luxon";
+import {ProximityCategory} from "../types";
 
 /** ─────────────────────────────────────────────────────────────────────────────
  *  2) organizations
@@ -62,7 +63,7 @@ export const sample_group_metadata = sqliteTable("sample_group_metadata", {
     longitude_recorded: real("longitude_recorded"),
     notes: text("notes"),
     updated_at: text("updated_at").notNull(),
-    proximity_category: text("proximity_category"),
+    proximity_category: text("proximity_category").$type<ProximityCategory>(),
     excluded: integer("excluded").notNull(),
     penguin_count: integer("penguin_count"),
     penguin_present: integer("penguin_present").notNull(),

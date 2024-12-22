@@ -1,7 +1,7 @@
 // src/components/LeftSidebar.tsx
 
 import React, { useCallback, useState, useMemo } from 'react';
-import {Box, Button, SelectChangeEvent} from '@mui/material';
+import { Box, Button, SelectChangeEvent } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
   AddCircle as AddCircleIcon,
@@ -12,8 +12,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { useUI } from '../../lib/hooks';
 import { useData } from '../../lib/hooks';
 import { useAuth } from '../../lib/hooks';
+import {useAuthStore} from '../../lib/stores/authStore'; // <-- Import your Permissions enum
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
-import {FileNodeType, SampleLocation} from '../../lib/types';
+import { FileNodeType, SampleLocation, Permissions } from '../../lib/types';
 import { DateTime } from 'luxon';
 
 import Modal from '../Modal';
@@ -35,12 +36,16 @@ interface LeftSidebarProps {
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
   const theme = useTheme();
   const { sampleGroups, fileTree, createSampleGroup, locations, addFileNode } = useData();
-  const { organization, user } = useAuth();
+  const { organization, user } = useAuth(); // <-- make sure you have userPermissions
+  const { userPermissions } = useAuthStore.getState();
   const {
     isLeftSidebarCollapsed,
     setErrorMessage,
     setSelectedLeftItem,
   } = useUI();
+
+  // 1) Check if the user has the CreateSampleGroup permission
+  const hasCreatePermission = userPermissions?.includes(Permissions.CreateSampleGroup);
 
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -125,9 +130,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
   const handleModalChange = useCallback(
       (
-          e: React.ChangeEvent<HTMLTextAreaElement> |
-              React.ChangeEvent<{ name?: string; value: unknown }> |
-              SelectChangeEvent
+          e:
+              | React.ChangeEvent<HTMLTextAreaElement>
+              | React.ChangeEvent<{ name?: string; value: unknown }>
+              | SelectChangeEvent
       ) => {
         const { name, value } = e.target;
         if (typeof name === 'string') {
@@ -152,6 +158,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
         try {
           if (configItem.processFunctionName === FileNodeType.SampleGroup) {
+            // Create new sample group
             const { collectionDate, collectionTime, locCharId } = modalInputs;
 
             if (!collectionDate || !locCharId) {
@@ -164,7 +171,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             const existingNumbers = Object.values(sampleGroups)
                 .filter((group) => group.org_id === organization.id)
                 .map((group) => {
-                  const regex = new RegExp(`^${baseName}-(\\d{2})-${organization.org_short_id}$`);
+                  const regex = new RegExp(
+                      `^${baseName}-(\\d{2})-${organization.org_short_id}$`
+                  );
                   const match = group.human_readable_sample_id.match(regex);
                   return match ? parseInt(match[1], 10) : null;
                 })
@@ -206,7 +215,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               loc_id: location.id,
               storage_folder: rawDataFolderPath,
               collection_date: formattedDate,
-              collection_datetime_utc: collectionTime ? `${collectionDate}T${collectionTime}Z` : undefined,
+              collection_datetime_utc: collectionTime
+                  ? `${collectionDate}T${collectionTime}Z`
+                  : undefined,
               user_id: user.id,
               org_id: organization.id,
               latitude_recorded: null,
@@ -222,6 +233,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             await createSampleGroup(sampleGroupData, newNode);
             setErrorMessage('');
           } else if (configItem.processFunctionName === FileNodeType.Folder) {
+            // Create new folder
             const newFolder = {
               id: uuidv4(),
               org_id: organization.id,
@@ -235,7 +247,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               updated_at: new Date().toISOString(),
             };
 
-            await addFileNode(newFolder)
+            await addFileNode(newFolder);
             setErrorMessage('');
           }
         } catch (error: any) {
@@ -245,7 +257,18 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           closeModal();
         }
       },
-      [modalState, organization, user, locations, sampleGroups, createSampleGroup, setErrorMessage, closeModal, fileTree, addFileNode]
+      [
+        modalState,
+        organization,
+        user,
+        locations,
+        sampleGroups,
+        createSampleGroup,
+        setErrorMessage,
+        closeModal,
+        fileTree,
+        addFileNode,
+      ]
   );
 
   const handleModalActions = {
@@ -257,6 +280,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
   const createActions = {
     sampleGroup: useCallback(() => {
+      // If no permission, guard:
+      if (!hasCreatePermission) {
+        setErrorMessage('You do not have permission to create a new sampling event.');
+        return;
+      }
+
       const configItem: DropboxConfigItem = {
         id: 'create-sampleGroup',
         dataType: '',
@@ -276,7 +305,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             name: 'collectionTime',
             label: 'Collection Time (UTC)',
             type: 'time',
-            tooltip: 'Optionally specify the time when the sample was collected. Leave blank if unknown.',
+            tooltip:
+                'Optionally specify the time when the sample was collected. Leave blank if unknown.',
             required: false,
           },
           {
@@ -295,9 +325,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
       };
 
       handleModalActions.open('Create New Sampling Event', configItem);
-    }, [locations, handleModalActions]),
+    }, [locations, handleModalActions, hasCreatePermission, setErrorMessage]),
 
     folder: useCallback(() => {
+      // If no permission, guard:
+      if (!hasCreatePermission) {
+        setErrorMessage('You do not have permission to create a new folder.');
+        return;
+      }
+
       const configItem: DropboxConfigItem = {
         id: 'create-folder',
         dataType: '',
@@ -310,7 +346,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
       };
 
       handleModalActions.open('Create New Folder', configItem);
-    }, [handleModalActions]),
+    }, [handleModalActions, hasCreatePermission, setErrorMessage]),
   };
 
   const handleResetSelection = useCallback(() => {
@@ -324,27 +360,37 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
       >
         <Box sx={styles.contentContainer}>
           <Box sx={styles.buttonContainer}>
+            {/* New Sampling Event Button */}
             <Button
                 variant="contained"
-                onClick={createActions.sampleGroup}
+                onClick={
+                  hasCreatePermission
+                      ? createActions.sampleGroup
+                      : () => setErrorMessage('You do not have permission to create a new sampling event.')
+                }
                 aria-label="Create New Sampling Event"
                 sx={styles.sidebarButton}
                 disableElevation
+                disabled={!hasCreatePermission} // MUI visual disable
             >
               <AddCircleIcon />
               {!isLeftSidebarCollapsed && (
-                  <span style={{ marginLeft: theme.spacing(1) }}>
-                New Sampling Event
-              </span>
+                  <span style={{ marginLeft: theme.spacing(1) }}>New Sampling Event</span>
               )}
             </Button>
 
+            {/* New Folder Button */}
             <Button
                 variant="contained"
-                onClick={createActions.folder}
+                onClick={
+                  hasCreatePermission
+                      ? createActions.folder
+                      : () => setErrorMessage('You do not have permission to create a new folder.')
+                }
                 aria-label="Create New Folder"
                 sx={styles.sidebarButton}
                 disableElevation
+                disabled={!hasCreatePermission} // MUI visual disable
             >
               <CreateNewFolderIcon />
               {!isLeftSidebarCollapsed && (
@@ -352,6 +398,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               )}
             </Button>
 
+            {/* Reset Selection Button */}
             <Button
                 variant="contained"
                 onClick={handleResetSelection}
@@ -361,9 +408,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             >
               <PublicIcon />
               {!isLeftSidebarCollapsed && (
-                  <span style={{ marginLeft: theme.spacing(1) }}>
-                Reset Selection
-              </span>
+                  <span style={{ marginLeft: theme.spacing(1) }}>Reset Selection</span>
               )}
             </Button>
           </Box>
