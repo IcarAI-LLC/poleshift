@@ -19,13 +19,15 @@ import {
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+
 import type { SxProps, Theme } from '@mui/material/styles';
 
 import { useData, useUI } from '../lib/hooks';
+import { useAuthStore } from '../lib/stores/authStore.ts';
 import LocationFields from './LocationFields';
 
 import type { SampleGroupMetadata as TSampleGroupMetadata } from '../lib/types';
-import { ProximityCategory } from '../lib/types';
+import { ProximityCategory, Permissions } from '../lib/types';
 
 // Styles interface for better type safety
 interface StyleProps {
@@ -42,6 +44,10 @@ export const SampleGroupMetadataComponent: React.FC = () => {
   const theme = useTheme();
   const { locations, updateSampleGroup, sampleGroups } = useData();
   const { selectedLeftItem } = useUI();
+  const { userPermissions } = useAuthStore.getState();
+
+  // Check if the user has ModifySampleGroup permission
+  const hasModifyPermission = userPermissions?.includes(Permissions.ModifySampleGroup);
 
   // Local state
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
@@ -50,22 +56,19 @@ export const SampleGroupMetadataComponent: React.FC = () => {
     notes: string;
     proximityCategory: ProximityCategory | null;
     excluded: number; // 0 or 1
-    penguinCount: number; // NEW
-    penguinPresent: number; // NEW, 0 or 1
+    penguinCount: number | null; // ALLOW NULL
+    penguinPresent: number; // 0 or 1
   }>({
     collectionTimeUTC: '',
     notes: '',
     proximityCategory: null,
     excluded: 0,
-    penguinCount: 0,    // default to 0
-    penguinPresent: 0,  // default to 0
+    penguinCount: null, // DEFAULT TO NULL
+    penguinPresent: 0,
   });
 
   // Get current sample group
-  const sampleGroup = selectedLeftItem
-      ? sampleGroups[selectedLeftItem.id]
-      : null;
-
+  const sampleGroup = selectedLeftItem ? sampleGroups[selectedLeftItem.id] : null;
   const location = sampleGroup?.loc_id
       ? locations.find((loc) => loc.id === sampleGroup.loc_id)
       : null;
@@ -158,17 +161,16 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                 .substring(0, 8)
             : '',
         notes: sampleGroup.notes || '',
-        proximityCategory:
-            (sampleGroup.proximity_category as ProximityCategory) || null,
+        proximityCategory: (sampleGroup.proximity_category as ProximityCategory) || null,
         excluded: sampleGroup.excluded,
-        penguinCount: sampleGroup.penguin_count ?? 0,     // NEW
-        penguinPresent: sampleGroup.penguin_present ?? 0, // NEW
+        // If penguin_count is undefined or null, store null in local state
+        penguinCount: sampleGroup.penguin_count ?? null,
+        penguinPresent: sampleGroup.penguin_present ?? 0,
       });
     }
   }, [sampleGroup]);
 
   // Handlers
-
   const handleCollectionTimeUpdate = useCallback(
       async (timeString: string) => {
         if (!sampleGroup?.id) return;
@@ -253,7 +255,7 @@ export const SampleGroupMetadataComponent: React.FC = () => {
 
   // Handle Proximity Category
   const handleProximityUpdate = useCallback(
-      async (newProximity: ProximityCategory) => {
+      async (newProximity: ProximityCategory | null) => {
         if (!sampleGroup?.id) return;
 
         try {
@@ -269,17 +271,16 @@ export const SampleGroupMetadataComponent: React.FC = () => {
           console.error('Error updating proximity category:', error);
           setLocalState((prev) => ({
             ...prev,
-            proximityCategory:
-                (sampleGroup.proximity_category as ProximityCategory) || null,
+            proximityCategory: (sampleGroup.proximity_category as ProximityCategory) || null,
           }));
         }
       },
       [sampleGroup, updateSampleGroup]
   );
 
-  // NEW: Handle Penguin Count
+  // Allow null in addition to number
   const handlePenguinCountUpdate = useCallback(
-      async (count: number) => {
+      async (count: number | null) => {
         if (!sampleGroup?.id) return;
 
         try {
@@ -294,14 +295,14 @@ export const SampleGroupMetadataComponent: React.FC = () => {
           // Reset on error
           setLocalState((prev) => ({
             ...prev,
-            penguinCount: sampleGroup.penguin_count ?? 0,
+            penguinCount: sampleGroup.penguin_count ?? null,
           }));
         }
       },
       [sampleGroup, updateSampleGroup]
   );
 
-  // NEW: Handle Penguin Present (0 or 1)
+  // Handle Penguin Present (0 or 1)
   const handlePenguinPresentUpdate = useCallback(
       async (isPresent: boolean) => {
         if (!sampleGroup?.id) return;
@@ -390,15 +391,11 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                     <TimePicker
                         value={
                           localState.collectionTimeUTC
-                              ? parse(
-                                  localState.collectionTimeUTC,
-                                  'HH:mm:ss',
-                                  new Date()
-                              )
+                              ? parse(localState.collectionTimeUTC, 'HH:mm:ss', new Date())
                               : null
                         }
                         onChange={(newValue) => {
-                          if (newValue && !isNaN(newValue.getTime())) {
+                          if (newValue && !isNaN(newValue.getTime()) && hasModifyPermission) {
                             const timeString = format(newValue, 'HH:mm:ss');
                             handleCollectionTimeUpdate(timeString);
                           }
@@ -413,8 +410,10 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                             fullWidth: true,
                             size: 'small',
                             sx: styles.darkFieldStyles,
+                            disabled: !hasModifyPermission,
                           },
                         }}
+                        disabled={!hasModifyPermission}
                     />
                   </LocalizationProvider>
                 </Box>
@@ -436,12 +435,13 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                     rows={3}
                     value={localState.notes}
                     onChange={(e) =>
+                        hasModifyPermission &&
                         setLocalState((prev) => ({
                           ...prev,
                           notes: e.target.value,
                         }))
                     }
-                    onBlur={() => handleNotesUpdate(localState.notes)}
+                    onBlur={() => hasModifyPermission && handleNotesUpdate(localState.notes)}
                     placeholder="Add notes about this sample..."
                     fullWidth
                     variant="outlined"
@@ -450,6 +450,7 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                       ...styles.darkFieldStyles,
                       flex: 1,
                     }}
+                    disabled={!hasModifyPermission}
                 />
               </Box>
 
@@ -462,17 +463,30 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                       fullWidth
                       size="small"
                       sx={styles.darkFieldStyles}
+                      disabled={!hasModifyPermission}
                   >
                     <InputLabel id="proximity-category-label">Proximity</InputLabel>
                     <Select
                         labelId="proximity-category-label"
                         label="Proximity"
+                        /* Use empty string '' when localState.proximityCategory is null */
                         value={localState.proximityCategory ?? ''}
-                        onChange={(e) =>
-                            handleProximityUpdate(e.target.value as ProximityCategory)
-                        }
+                        onChange={(e) => {
+                          if (hasModifyPermission) {
+                            // Convert '' (the "None" selection) back to null
+                            const newValue =
+                                e.target.value === ''
+                                    ? null
+                                    : (e.target.value as ProximityCategory);
+
+                            // Update your state or call your handler
+                            handleProximityUpdate(newValue);
+                          }
+                        }}
                         renderValue={(value) => {
-                          return value;
+                          // If value is empty string, show "None" in the Select
+                          // @ts-ignore
+                          return value === '' ? <em>None</em> : (value as string);
                         }}
                     >
                       {/* Empty / None option */}
@@ -501,22 +515,29 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                   }}
                   labelStyles={styles.labelStyles}
                   darkFieldStyles={styles.darkFieldStyles}
+                  disabled={!hasModifyPermission}
               />
 
-              {/* NEW: Penguin Count Field */}
+              {/* Penguin Count Field (can be null) */}
               <Box sx={styles.metadataItemStyles}>
                 <Typography sx={styles.labelStyles}>Penguin Count:</Typography>
                 <TextField
+                    // Use type="number" (or "text" if you prefer to handle parsing more manually)
                     type="number"
-                    value={localState.penguinCount}
+                    value={localState.penguinCount ?? ''}
                     onChange={(e) => {
-                      const newCount = parseInt(e.target.value, 10);
+                      if (!hasModifyPermission) return;
+                      const val = e.target.value;
+                      // If the user clears the field (val === ""), store null
+                      // Otherwise, parse the integer
                       setLocalState((prev) => ({
                         ...prev,
-                        penguinCount: newCount,
+                        penguinCount: val === '' ? null : parseInt(val, 10),
                       }));
                     }}
-                    onBlur={() => handlePenguinCountUpdate(localState.penguinCount)}
+                    onBlur={() =>
+                        hasModifyPermission && handlePenguinCountUpdate(localState.penguinCount)
+                    }
                     fullWidth
                     variant="outlined"
                     size="small"
@@ -524,17 +545,19 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                       ...styles.darkFieldStyles,
                       flex: 1,
                     }}
+                    disabled={!hasModifyPermission}
                 />
               </Box>
 
-              {/* NEW: Penguins Present Field */}
+              {/* Penguins Present Field */}
               <Box sx={styles.metadataItemStyles}>
                 <Typography sx={styles.labelStyles}>Penguins Present:</Typography>
                 <Box sx={styles.valueStyles}>
                   <Switch
                       checked={Boolean(localState.penguinPresent)}
-                      onChange={(e) => handlePenguinPresentUpdate(e.target.checked)}
+                      onChange={(e) => hasModifyPermission && handlePenguinPresentUpdate(e.target.checked)}
                       color="primary"
+                      disabled={!hasModifyPermission}
                   />
                 </Box>
               </Box>
@@ -545,8 +568,9 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                 <Box sx={styles.valueStyles}>
                   <Switch
                       checked={Boolean(localState.excluded)}
-                      onChange={(e) => handleExcludedUpdate(e.target.checked)}
+                      onChange={(e) => hasModifyPermission && handleExcludedUpdate(e.target.checked)}
                       color="primary"
+                      disabled={!hasModifyPermission}
                   />
                 </Box>
               </Box>

@@ -150,7 +150,7 @@ export interface SampleGroupMetadata {
     updated_at: string;
     proximity_category?: ProximityCategory | null;
     excluded: number;
-    penguin_count: number;
+    penguin_count: number | null;
     penguin_present: number;
 }
 

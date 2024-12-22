@@ -215,7 +215,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               created_at: new Date().toISOString(),
               updated_at: DateTime.now().toISO(),
               excluded: 0,
-              penguin_count: 0,
+              penguin_count: null,
               penguin_present: 0,
             };
 

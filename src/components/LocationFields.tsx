@@ -4,8 +4,6 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 import { useData } from '../lib/hooks';
 import type { SampleGroupMetadata } from '../lib/types';
-// If you need the ProximityCategory in this file for any reason, import it as well:
-// import { ProximityCategory } from '../lib/types';
 
 interface Coordinate {
     value: string;
@@ -17,25 +15,30 @@ interface LocationFieldsProps {
     metadataItemStyles: SxProps<Theme>;
     labelStyles: SxProps<Theme>;
     darkFieldStyles: SxProps<Theme>;
+    /** New disabled prop */
+    disabled?: boolean;
 }
 
 const COORDINATE_LIMITS = {
     latitude: { min: -90, max: 90 },
-    longitude: { min: -180, max: 180 }
+    longitude: { min: -180, max: 180 },
 } as const;
 
 export const LocationFields: React.FC<LocationFieldsProps> = ({
                                                                   sampleGroup,
                                                                   metadataItemStyles,
                                                                   labelStyles,
-                                                                  darkFieldStyles
+                                                                  darkFieldStyles,
+                                                                  disabled = false, // default to false if not provided
                                                               }) => {
     const { updateSampleGroup } = useData();
 
     // Local state with proper typing
-    const [coordinates, setCoordinates] = useState<Record<'latitude' | 'longitude', Coordinate>>({
+    const [coordinates, setCoordinates] = useState<
+        Record<'latitude' | 'longitude', Coordinate>
+    >({
         latitude: { value: '', error: '' },
-        longitude: { value: '', error: '' }
+        longitude: { value: '', error: '' },
     });
 
     // Update local state when sample group changes
@@ -43,12 +46,12 @@ export const LocationFields: React.FC<LocationFieldsProps> = ({
         setCoordinates({
             latitude: {
                 value: sampleGroup.latitude_recorded?.toString() || '',
-                error: ''
+                error: '',
             },
             longitude: {
                 value: sampleGroup.longitude_recorded?.toString() || '',
-                error: ''
-            }
+                error: '',
+            },
         });
     }, [sampleGroup.latitude_recorded, sampleGroup.longitude_recorded]);
 
@@ -60,77 +63,69 @@ export const LocationFields: React.FC<LocationFieldsProps> = ({
                 placeholder: 'Enter latitude (-90 to 90)',
                 min: COORDINATE_LIMITS.latitude.min,
                 max: COORDINATE_LIMITS.latitude.max,
-                errorMessage: 'Invalid latitude. Must be between -90 and 90 degrees'
+                errorMessage: 'Invalid latitude. Must be between -90 and 90 degrees',
             },
             longitude: {
                 label: 'Longitude:',
                 placeholder: 'Enter longitude (-180 to 180)',
                 min: COORDINATE_LIMITS.longitude.min,
                 max: COORDINATE_LIMITS.longitude.max,
-                errorMessage: 'Invalid longitude. Must be between -180 and 180 degrees'
-            }
+                errorMessage: 'Invalid longitude. Must be between -180 and 180 degrees',
+            },
         }),
         []
     );
 
     // Validation function
-    const validateCoordinate = useCallback(
-        (value: string, type: 'latitude' | 'longitude'): boolean => {
-            if (!value) return true;
-            const num = parseFloat(value);
-            if (isNaN(num)) return false;
-            const limits = COORDINATE_LIMITS[type];
-            return num >= limits.min && num <= limits.max;
-        },
-        []
-    );
+    const validateCoordinate = useCallback((value: string, type: 'latitude' | 'longitude'): boolean => {
+        if (!value) return true; // empty string is acceptable (clears the value)
+        const num = parseFloat(value);
+        if (isNaN(num)) return false;
+        const limits = COORDINATE_LIMITS[type];
+        return num >= limits.min && num <= limits.max;
+    }, []);
 
     // Handle coordinate changes
     const handleCoordinateChange = useCallback(
         (value: string, type: 'latitude' | 'longitude') => {
-            setCoordinates(prev => ({
+            // If disabled, do not allow local state updates
+            if (disabled) return;
+
+            setCoordinates((prev) => ({
                 ...prev,
                 [type]: {
                     value,
-                    error: !validateCoordinate(value, type)
-                        ? fieldConfigs[type].errorMessage
-                        : ''
-                }
+                    error: !validateCoordinate(value, type) ? fieldConfigs[type].errorMessage : '',
+                },
             }));
         },
-        [validateCoordinate, fieldConfigs]
+        [validateCoordinate, fieldConfigs, disabled]
     );
 
     // Handle coordinate updates
     const handleCoordinateUpdate = useCallback(
         async (type: 'latitude' | 'longitude') => {
-            if (!sampleGroup.id) return;
+            if (disabled || !sampleGroup.id) return;
 
             const value = coordinates[type].value;
             if (!validateCoordinate(value, type)) {
                 // Revert to previous value if invalid
-                handleCoordinateChange(
-                    sampleGroup[`${type}_recorded`]?.toString() || '',
-                    type
-                );
+                handleCoordinateChange(sampleGroup[`${type}_recorded`]?.toString() || '', type);
                 return;
             }
 
             try {
                 const numericValue = value ? parseFloat(value) : null;
                 await updateSampleGroup(sampleGroup.id, {
-                    [`${type}_recorded`]: numericValue
+                    [`${type}_recorded`]: numericValue,
                 });
             } catch (error) {
                 console.error(`Error updating ${type}:`, error);
                 // Reset to previous value on error
-                handleCoordinateChange(
-                    sampleGroup[`${type}_recorded`]?.toString() || '',
-                    type
-                );
+                handleCoordinateChange(sampleGroup[`${type}_recorded`]?.toString() || '', type);
             }
         },
-        [sampleGroup, coordinates, validateCoordinate, handleCoordinateChange, updateSampleGroup]
+        [sampleGroup, coordinates, validateCoordinate, handleCoordinateChange, updateSampleGroup, disabled]
     );
 
     // Render coordinate field
@@ -144,7 +139,7 @@ export const LocationFields: React.FC<LocationFieldsProps> = ({
                     <Typography sx={labelStyles}>{config.label}</Typography>
                     <TextField
                         value={coordinate.value}
-                        onChange={e => handleCoordinateChange(e.target.value, type)}
+                        onChange={(e) => handleCoordinateChange(e.target.value, type)}
                         onBlur={() => handleCoordinateUpdate(type)}
                         placeholder={config.placeholder}
                         type="number"
@@ -162,8 +157,10 @@ export const LocationFields: React.FC<LocationFieldsProps> = ({
                                 step: 'any',
                                 min: config.min,
                                 max: config.max,
-                            }
+                            },
                         }}
+                        /** Apply the disabled prop here */
+                        disabled={disabled}
                     />
                 </Box>
             );
@@ -175,7 +172,8 @@ export const LocationFields: React.FC<LocationFieldsProps> = ({
             labelStyles,
             darkFieldStyles,
             handleCoordinateChange,
-            handleCoordinateUpdate
+            handleCoordinateUpdate,
+            disabled
         ]
     );
 
