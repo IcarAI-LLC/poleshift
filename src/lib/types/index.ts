@@ -81,22 +81,22 @@ export interface SampleGroupMetadata {
     org_id?: string | null;
     user_id?: string | null;
     human_readable_sample_id: string;
-    collection_date?: string;
-    storage_folder?: string;
+    collection_date: string;
+    storage_folder: string;
     collection_datetime_utc?: string | null;
-    loc_id?: string | null;
+    loc_id: string;
     latitude_recorded?: number | null;
     longitude_recorded?: number | null;
-    notes?: string | null;
-    updated_at?: string;
+    notes: string | null;
+    updated_at: string;
 }
 
 export interface SampleLocation {
     id: string;
     label: string;
-    lat?: number;
-    long?: number;
-    is_enabled: boolean;
+    lat: number;
+    long: number;
+    is_enabled: number;
     char_id: string;
 }
 

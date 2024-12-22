@@ -33,11 +33,14 @@ interface CustomTreeItemProps
     extends Omit<UseTreeItem2Parameters, 'rootRef'>,
         Omit<React.HTMLAttributes<HTMLLIElement>, 'onFocus'> {}
 
+// Make sure `props` only has `itemId`, not a separate `id`.
 const CustomTreeItem = React.forwardRef(function CustomTreeItem(
     props: CustomTreeItemProps,
     ref: React.Ref<HTMLLIElement>,
 ) {
-    const { id, itemId, label, disabled, children, ...other } = props;
+    // Notice we no longer destructure `id`.
+    // We just use `itemId, label, disabled, children, ...other`.
+    const { itemId, label, disabled, children, ...other } = props;
 
     const {
         getRootProps,
@@ -47,42 +50,50 @@ const CustomTreeItem = React.forwardRef(function CustomTreeItem(
         getGroupTransitionProps,
         status,
         publicAPI,
-    } = useTreeItem2({ id, itemId, children, label, disabled, rootRef: ref });
+    } = useTreeItem2({
+        itemId,
+        label,
+        disabled,
+        children,
+        rootRef: ref,
+    });
 
+    // This is the correct item corresponding to itemId
     const item = publicAPI.getItem(itemId) as FileNode;
     const isFolder = item.type === 'folder';
     const isSampleGroup = item.type === 'sampleGroup';
 
     const { handleLeftSidebarContextMenu } = useUI();
+    const contentProps = getContentProps();
 
     return (
         <TreeItem2Provider itemId={itemId}>
-            <TreeItem2Root
-                {...getRootProps({
-                    ...other,
-                    onContextMenu: (e) => {
+            <TreeItem2Root {...getRootProps({ ...other })}>
+                {/* Attach onContextMenu here instead of the root */}
+                <CustomTreeItemContent
+                    {...contentProps}
+                    onContextMenu={(e) => {
                         e.preventDefault();
-                        handleLeftSidebarContextMenu(e, item.id);
-                    },
-                })}
-            >
-                <CustomTreeItemContent {...getContentProps()}>
+                        e.stopPropagation();
+                        handleLeftSidebarContextMenu(e, itemId);
+                    }}
+                >
                     <TreeItem2IconContainer {...getIconContainerProps()}>
                         <TreeItem2Icon status={status} />
                     </TreeItem2IconContainer>
                     <Box sx={{ flexGrow: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
-                        {isSampleGroup && (
-                            <ScienceIcon sx={{ color: 'cyan' }} />
-                        )}
+                        {isSampleGroup && <ScienceIcon sx={{ color: 'cyan' }} />}
                         {isFolder && (status.expanded ? <FolderOpenIcon /> : <FolderIcon />)}
                         <TreeItem2Label {...getLabelProps()} />
                     </Box>
                 </CustomTreeItemContent>
+
                 {children && <TreeItem2GroupTransition {...getGroupTransitionProps()} />}
             </TreeItem2Root>
         </TreeItem2Provider>
     );
 });
+
 
 const LeftSidebarTree: React.FC = () => {
     const {
@@ -95,9 +106,7 @@ const LeftSidebarTree: React.FC = () => {
 
     const { fileTree, deleteNode } = useData();
     const contextMenuRef = useRef<HTMLDivElement>(null);
-
-    const getItemId = useCallback((item: FileNode) => item.id, []);
-    const getItemLabel = useCallback((item: FileNode) => item.name, []);
+    console.log(fileTree);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -176,8 +185,8 @@ const LeftSidebarTree: React.FC = () => {
                 <RichTreeView<FileNode>
                     items={fileTree}
                     slots={{ item: CustomTreeItem }}
-                    getItemId={getItemId}
-                    getItemLabel={getItemLabel}
+                    getItemId={(item) => item.id}      // Each FileNode's .id becomes the itemId
+                    getItemLabel={(item) => item.name} // For labeling
                     selectedItems={selectedLeftItem?.id || null}
                     onSelectedItemsChange={handleSelect}
                     aria-label="file system navigator"

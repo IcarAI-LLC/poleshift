@@ -1,6 +1,7 @@
 import { SupabaseClient, createClient, Session } from '@supabase/supabase-js';
 import { useAuthStore } from '../stores/authStore';
 import {AbstractPowerSyncDatabase, CrudEntry, UpdateType} from '@powersync/web';
+import { jwtDecode } from 'jwt-decode'
 
 export class SupabaseConnector {
     readonly client: SupabaseClient;
@@ -18,6 +19,10 @@ export class SupabaseConnector {
         // Subscribe to authentication state changes
         this.client.auth.onAuthStateChange((event, session) => {
             console.debug("AUTH STATE CHANGE");
+            if (session) {
+                const jwt = jwtDecode(session.access_token);
+                console.debug(jwt);
+            }
             // Only process certain auth events that indicate real state changes
             if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED'].includes(event)) {
                 this.handleSessionChange(session);

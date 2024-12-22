@@ -39,8 +39,8 @@ export const user_profiles = sqliteTable("user_profiles", {
 export const sample_locations = sqliteTable("sample_locations", {
     id: text("id").notNull().primaryKey().default(uuidv4()),
     label: text("label").notNull(),
-    lat: real("lat"),
-    long: real("long"),
+    lat: real("lat").notNull(),
+    long: real("long").notNull(),
     is_enabled: real("is_enabled").notNull(),
     char_id: text("char_id").notNull(),
 });

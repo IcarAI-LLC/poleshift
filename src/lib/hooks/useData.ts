@@ -118,21 +118,16 @@ export const useData = () => {
     const deleteNode = useCallback(async (id: string) => {
         try {
             // First, retrieve the node's sample_group_id, if any
-            const nodeResult = await db.get('SELECT sample_group_id FROM file_nodes WHERE id = ?', [id]);
-            console.debug('nodeResult', nodeResult);
-            // @ts-ignore
+            const [nodeResult] = await drizzleDB.select({sample_group_id: file_nodes.sample_group_id}).from(file_nodes).where(eq(file_nodes.id, id));
             const sampleGroupId = nodeResult.sample_group_id;
             // If there's a sample_group_id associated with the node, delete the corresponding sample group
             if (sampleGroupId) {
                 console.debug('Deleting sample group', sampleGroupId);
-                db.execute('DELETE FROM sample_group_metadata WHERE id = ?', [sampleGroupId]);
+                await drizzleDB.delete(sample_group_metadata).where(eq(sample_group_metadata.id, sampleGroupId)).run();
             }
-
             console.debug('sampleGroupId', sampleGroupId);
             // Delete the file node
-            db.execute('DELETE FROM file_nodes WHERE id = ?', [id]);
-
-
+            await drizzleDB.delete(file_nodes).where(eq(file_nodes.id, id)).run();
         } catch (err: any) {
             setError(err.message || 'Failed to delete node');
             throw err;
@@ -141,20 +136,11 @@ export const useData = () => {
 
     const updateSampleGroup = useCallback(async (id: string, updates: Partial<SampleGroupMetadata>) => {
         try {
-            const setClause = Object.keys(updates)
-                .map((key) => `${key} = ?`)
-                .join(', ');
-
-            const values = Object.values(updates);
-
-            await db.execute(
-                `
-          UPDATE sample_group_metadata
-          SET ${setClause}
-          WHERE id = ?
-        `,
-                [...values, id]
-            );
+            await drizzleDB
+                .update(sample_group_metadata)
+                .set(updates)
+                .where(eq(sample_group_metadata.id, id))
+                .run();
         } catch (err: any) {
             setError(err.message || 'Failed to update sample group');
             throw err;
@@ -164,31 +150,9 @@ export const useData = () => {
     const createSampleGroup = useCallback(
         async (sampleGroupData: SampleGroupMetadata, fileNodeData: FileNode) => {
             try {
-                await db.execute(
-                    `
-            INSERT INTO sample_group_metadata (
-              id, created_at, org_id, user_id, human_readable_sample_id,
-              collection_date, storage_folder, collection_datetime_utc,
-              loc_id, latitude_recorded, longitude_recorded, notes, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `,
-                    [
-                        sampleGroupData.id,
-                        sampleGroupData.created_at,
-                        sampleGroupData.org_id,
-                        sampleGroupData.user_id,
-                        sampleGroupData.human_readable_sample_id,
-                        sampleGroupData.collection_date,
-                        sampleGroupData.storage_folder,
-                        sampleGroupData.collection_datetime_utc,
-                        sampleGroupData.loc_id,
-                        sampleGroupData.latitude_recorded,
-                        sampleGroupData.longitude_recorded,
-                        sampleGroupData.notes,
-                        sampleGroupData.updated_at,
-                    ]
-                );
-
+                await drizzleDB
+                    .insert(sample_group_metadata)
+                    .values(sampleGroupData).run();
                 await addFileNode(fileNodeData);
             } catch (err: any) {
                 setError(err.message || 'Failed to create sample group');
@@ -208,56 +172,6 @@ export const useData = () => {
             }
         },
         [updateFileNode, setError]
-    );
-
-    const updateFileTree = useCallback(
-        async (updatedTreeData: FileNode[]) => {
-            try {
-                await db.execute('DELETE FROM file_nodes');
-                const insertNode = async (node: FileNode, parentId: string | null) => {
-                    const {
-                        id,
-                        org_id,
-                        name,
-                        type,
-                        created_at,
-                        updated_at,
-                        version,
-                        sample_group_id,
-                        droppable,
-                    } = node;
-
-                    await db.execute(
-                        `
-              INSERT INTO file_nodes (
-                id, org_id, parent_id, name, type, created_at, updated_at,
-                version, sample_group_id, droppable
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `,
-                        [
-                            id,
-                            org_id,
-                            parentId,
-                            name,
-                            type,
-                            created_at,
-                            updated_at,
-                            version,
-                            sample_group_id,
-                            droppable ? 1 : 0,
-                        ]
-                    );
-                };
-
-                for (const node of updatedTreeData) {
-                    await insertNode(node, null);
-                }
-            } catch (err: any) {
-                setError(err.message || 'Failed to update file tree');
-                throw err;
-            }
-        },
-        [setError]
     );
 
     // Utility functions
@@ -333,7 +247,6 @@ export const useData = () => {
         deleteNode,
         updateSampleGroup,
         createSampleGroup,
-        updateFileTree,
         moveNode,
         setError,
 

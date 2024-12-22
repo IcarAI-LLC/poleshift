@@ -21,8 +21,6 @@ interface StyleProps {
 export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
   const {
     leftSidebarContextMenu,
-    //@ts-ignore
-    setLeftSidebarContextMenuState,
     selectedLeftItem,
     setSelectedLeftItem,
     closeLeftSidebarContextMenu,
@@ -32,7 +30,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
 
   const { userProfile } = useAuth();
   const { isVisible, x, y, itemId } = leftSidebarContextMenu;
-
+  console.debug('Left sidebar context menu:', leftSidebarContextMenu);
   // Memoized styles
   const styles = useMemo<StyleProps>(
       () => ({
@@ -121,7 +119,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
     selectedLeftItem,
     setSelectedLeftItem,
     setErrorMessage,
-    setLeftSidebarContextMenuState,
     closeLeftSidebarContextMenu,
   ]);
 

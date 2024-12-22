@@ -34,8 +34,7 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
   const theme = useTheme();
-  const { sampleGroups, updateFileTree, fileTree, createSampleGroup } = useData();
-  const { locations } = useData();
+  const { sampleGroups, fileTree, createSampleGroup, locations, addFileNode } = useData();
   const { organization, user } = useAuth();
   const {
     isLeftSidebarCollapsed,
@@ -193,7 +192,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               name: sampleGroupName,
               type: 'sampleGroup',
               parent_id: null,
-              droppable: false,
+              droppable: 0,
               children: [],
               version: 1,
               sample_group_id: id,
@@ -210,9 +209,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               collection_datetime_utc: collectionTime ? `${collectionDate}T${collectionTime}Z` : undefined,
               user_id: user.id,
               org_id: organization.id,
-              latitude_recorded: undefined,
-              longitude_recorded: undefined,
-              notes: undefined,
+              latitude_recorded: null,
+              longitude_recorded: null,
+              notes: null,
               created_at: new Date().toISOString(),
               updated_at: DateTime.now().toISO(),
             };
@@ -226,15 +225,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
               name: modalInputs.name,
               type: 'folder',
               parent_id: null,
-              droppable: true,
+              droppable: 1,
               children: [],
               version: 1,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             };
 
-            const updatedTree = [...fileTree, newFolder];
-            await updateFileTree(updatedTree);
+            await addFileNode(newFolder)
             setErrorMessage('');
           }
         } catch (error: any) {
@@ -244,7 +242,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           closeModal();
         }
       },
-      [modalState, organization, user, locations, sampleGroups, createSampleGroup, setErrorMessage, closeModal, fileTree, updateFileTree]
+      [modalState, organization, user, locations, sampleGroups, createSampleGroup, setErrorMessage, closeModal, fileTree, addFileNode]
   );
 
   const handleModalActions = {

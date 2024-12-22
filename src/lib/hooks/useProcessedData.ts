@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, usePowerSync } from '@powersync/react';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import { readFile } from '@tauri-apps/plugin-fs';
+import { useStorage } from './useStorage';
+
 import type { Organization, SampleGroupMetadata } from '../types';
 import type { DropboxConfigItem } from '../../config/dropboxConfig';
-import { invoke } from '@tauri-apps/api/core';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { useStorage } from './useStorage';
-import { readFile } from '@tauri-apps/plugin-fs'; // For reading local files selected by user
+
+import {toCompilableQuery, wrapPowerSyncWithDrizzle} from '@powersync/drizzle-driver';
+import { DrizzleSchema, processed_data } from '../powersync/DrizzleSchema';
+import {and, desc, eq} from "drizzle-orm";
 
 interface ProcessStatus {
     isProcessing: boolean;
@@ -34,7 +39,6 @@ interface UseProcessedDataParams {
     orgShortId?: string;
     orgId?: string;
     organization: Organization | null;
-    // storage is optional if you wish, but currently we still might need it for direct calls
     storage?: ReturnType<typeof useStorage>;
 }
 
@@ -43,28 +47,46 @@ export const useProcessedData = ({
                                      orgShortId = '',
                                      orgId = '',
                                      organization,
-                                     storage = useStorage()
+                                     storage = useStorage(),
                                  }: UseProcessedDataParams) => {
     const [processStatuses, setProcessStatuses] = useState<Record<string, ProcessStatus>>({});
     const [error, setError] = useState<string | null>(null);
 
     const sampleId = sampleGroup?.id || null;
-    const db = usePowerSync()
+    const db = usePowerSync();
+    const drizzleDB = wrapPowerSyncWithDrizzle(db, { schema: DrizzleSchema });
+
+    // Build query conditionally
+    const processedDataQuery = useMemo(() => {
+        if (!sampleId) {
+            // Return a dummy query that fetches no rows if no sampleId
+            return drizzleDB.select().from(processed_data).where(eq(processed_data.id, '__none__'));
+        }
+
+        return drizzleDB
+            .select()
+            .from(processed_data)
+            .where(
+                and(
+                    eq(processed_data.sample_id, sampleId),
+                    eq(processed_data.status, 'completed')
+                )
+            )
+            .orderBy(desc(processed_data.timestamp));
+    }, [drizzleDB, sampleId]);
+
+    // Compile the query for use with `useQuery`
+    const compiledProcessedDataQuery = useMemo(() => {
+        return toCompilableQuery(processedDataQuery);
+    }, [processedDataQuery]);
+
+    // Now fetch data with useQuery
     const {
         data: rawResults = [],
         isLoading,
         isFetching,
-        error: queryError
-    } = useQuery(
-        sampleId
-            ? `
-                    SELECT * FROM processed_data
-                    WHERE sample_id = ? AND status = 'completed'
-                    ORDER BY timestamp DESC
-            `
-            : 'SELECT * FROM processed_data WHERE 1=0',
-        sampleId ? [sampleId] : []
-    );
+        error: queryError,
+    } = useQuery(compiledProcessedDataQuery);
 
     const processedData = useMemo(() => {
         if (!sampleId) {
@@ -78,7 +100,7 @@ export const useProcessedData = ({
                 data: result.data ? JSON.parse(result.data) : null,
                 metadata: result.metadata ? JSON.parse(result.metadata) : null,
                 raw_file_paths: result.raw_file_paths ? JSON.parse(result.raw_file_paths) : null,
-                processed_file_paths: result.processed_file_paths ? JSON.parse(result.processed_file_paths) : null
+                processed_file_paths: result.processed_file_paths ? JSON.parse(result.processed_file_paths) : null,
             };
         }
         return dataMap;
@@ -90,20 +112,25 @@ export const useProcessedData = ({
         }
     }, [queryError]);
 
-    const withRetry = useCallback(async (operation: () => Promise<any>, maxAttempts: number, delayMs: number) => {
-        let lastError: Error | undefined;
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            try {
-                return await operation();
-            } catch (err) {
-                lastError = err instanceof Error ? err : new Error(String(err));
-                if (attempt < maxAttempts - 1) {
-                    await new Promise((resolve) => setTimeout(resolve, delayMs * Math.pow(2, attempt)));
+    const withRetry = useCallback(
+        async (operation: () => Promise<any>, maxAttempts: number, delayMs: number) => {
+            let lastError: Error | undefined;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                try {
+                    return await operation();
+                } catch (err) {
+                    lastError = err instanceof Error ? err : new Error(String(err));
+                    if (attempt < maxAttempts - 1) {
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, delayMs * Math.pow(2, attempt))
+                        );
+                    }
                 }
             }
-        }
-        throw lastError || new Error('Processing failed after retries');
-    }, []);
+            throw lastError || new Error('Processing failed after retries');
+        },
+        []
+    );
 
     const updateProcessStatus = useCallback((key: string, updates: Partial<ProcessStatus>) => {
         setProcessStatuses((prev) => ({
@@ -138,46 +165,28 @@ export const useProcessedData = ({
             processedPath: string
         ) => {
             const timestamp = Date.now();
-            await db.execute(
-                `
-                    INSERT INTO processed_data (
-                        key,
-                        id,
-                        sample_id,
-                        human_readable_sample_id,
-                        config_id,
-                        data,
-                        raw_file_paths,
-                        processed_file_paths,
-                        processed_path,
-                        timestamp,
-                        status,
-                        metadata,
-                        org_id,
-                        org_short_id,
-                        process_function_name
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                `,
-                [
-                    `${sampleId}:${configId}:${timestamp}`,
-                    `${sampleId}:${configId}:${timestamp}`,
-                    sampleId,
-                    humanReadableSampleId,
-                    configId,
-                    JSON.stringify(data),
-                    JSON.stringify(rawFilePaths),
-                    JSON.stringify(processedFilePaths),
-                    processedPath,
+            await drizzleDB
+                .insert(processed_data)
+                .values({
+                    key: `${sampleId}:${configId}:${timestamp}`,
+                    id: `${sampleId}:${configId}:${timestamp}`,
+                    sample_id: sampleId,
+                    human_readable_sample_id: humanReadableSampleId,
+                    config_id: configId,
+                    data: JSON.stringify(data),
+                    raw_file_paths: JSON.stringify(rawFilePaths),
+                    processed_file_paths: JSON.stringify(processedFilePaths),
+                    processed_path: processedPath,
                     timestamp,
-                    'completed',
-                    JSON.stringify(metadata),
-                    orgIdParam,
-                    orgShortIdParam,
-                    processFunctionName
-                ]
-            );
+                    status: 'completed',
+                    metadata: JSON.stringify(metadata),
+                    org_id: orgIdParam,
+                    org_short_id: orgShortIdParam,
+                    process_function_name: processFunctionName,
+                })
+                .run();
         },
-        []
+        [drizzleDB]
     );
 
     const processData = useCallback(
@@ -250,7 +259,9 @@ export const useProcessedData = ({
                     uploadedProcessedPaths,
                 };
 
-                const processedPath = uploadedProcessedPaths.length > 0 ? uploadedProcessedPaths[0] : (result.processedPath || '');
+                const processedPath = uploadedProcessedPaths.length > 0
+                    ? uploadedProcessedPaths[0]
+                    : result.processedPath || '';
                 const processedFilePaths = uploadedProcessedPaths;
                 const metadata = result.metadata || {};
                 const humanReadableSampleId = group.human_readable_sample_id || group.id;
@@ -290,84 +301,93 @@ export const useProcessedData = ({
                 }
             }
         },
-        [orgShortId, orgId, organization, processedData, saveProcessedData, setError, storage, updateProcessStatus, withRetry]
+        [
+            orgShortId,
+            orgId,
+            organization,
+            processedData,
+            saveProcessedData,
+            setError,
+            storage,
+            updateProcessStatus,
+            withRetry,
+        ]
     );
 
     /**
      * Handles reading raw files from local paths, uploading them, and then calling processData.
      */
-    const handleRawUploadAndProcess = useCallback(async (
-        configItem: DropboxConfigItem,
-        group: SampleGroupMetadata,
-        filePaths: string[],
-        inputs: Record<string, any>,
-        onError: (message: string) => void,
-        isOffline: boolean
-    ) => {
-        if (!group?.id || !organization) {
-            onError('Missing organization or group data.');
-            return;
-        }
+    const handleRawUploadAndProcess = useCallback(
+        async (
+            configItem: DropboxConfigItem,
+            group: SampleGroupMetadata,
+            filePaths: string[],
+            inputs: Record<string, any>,
+            onError: (message: string) => void,
+            isOffline: boolean
+        ) => {
+            if (!group?.id || !organization) {
+                onError('Missing organization or group data.');
+                return;
+            }
 
-        const key = `${group.id}:${configItem.id}`;
+            const key = `${group.id}:${configItem.id}`;
 
-        updateProcessStatus(key, {
-            uploadProgress: 0,
-            uploadStatus: 'Preparing files for upload...',
-        });
+            updateProcessStatus(key, {
+                uploadProgress: 0,
+                uploadStatus: 'Preparing files for upload...',
+            });
 
-        try {
-            // Read files locally
-            const files = await Promise.all(
-                filePaths.map(async (filePath) => {
-                    const fileContents = await readFile(filePath);
-                    const fileName = filePath.split('/').pop()?.split('\\').pop() || filePath;
-                    return new File([new Uint8Array(fileContents)], fileName);
-                })
-            );
+            try {
+                // Read files locally
+                const files = await Promise.all(
+                    filePaths.map(async (filePath) => {
+                        const fileContents = await readFile(filePath);
+                        const fileName = filePath.split('/').pop()?.split('\\').pop() || filePath;
+                        return new File([new Uint8Array(fileContents)], fileName);
+                    })
+                );
 
-            // Upload raw files
-            const basePath = `${organization.org_short_id}/${group.id}`;
-            const uploadedRawPaths = await storage.uploadFiles(
-                files,
-                basePath,
-                'raw-data',
-                (progress) => {
+                // Upload raw files
+                const basePath = `${organization.org_short_id}/${group.id}`;
+                const uploadedRawPaths = await storage.uploadFiles(files, basePath, 'raw-data', (progress) => {
                     updateProcessStatus(key, {
                         uploadProgress: progress.progress,
                         uploadStatus: 'Uploading raw data...',
                     });
+                });
+
+                updateProcessStatus(key, {
+                    uploadProgress: 100,
+                    uploadStatus: 'Raw data upload complete',
+                });
+
+                if (isOffline) {
+                    onError(
+                        'You are offline. Your files have been queued and will be uploaded when back online.'
+                    );
                 }
-            );
 
-            updateProcessStatus(key, {
-                uploadProgress: 100,
-                uploadStatus: 'Raw data upload complete',
-            });
-
-            if (isOffline) {
-                onError('You are offline. Your files have been queued and will be uploaded when back online.');
+                // Now call processData after raw upload
+                await processData(
+                    configItem.processFunctionName,
+                    group,
+                    inputs,
+                    filePaths,
+                    configItem,
+                    uploadedRawPaths
+                );
+            } catch (err: any) {
+                console.error('handleRawUploadAndProcess error:', err);
+                onError(err.message || 'Failed to upload and process files');
+                updateProcessStatus(key, {
+                    status: `Error: ${err.message || 'Failed to upload and process files'}`,
+                    isProcessing: false,
+                });
             }
-
-            // Now call processData after raw upload
-            await processData(
-                configItem.processFunctionName,
-                group,
-                inputs,
-                filePaths,
-                configItem,
-                uploadedRawPaths
-            );
-
-        } catch (err: any) {
-            console.error('handleRawUploadAndProcess error:', err);
-            onError(err.message || 'Failed to upload and process files');
-            updateProcessStatus(key, {
-                status: `Error: ${err.message || 'Failed to upload and process files'}`,
-                isProcessing: false,
-            });
-        }
-    }, [organization, processData, storage, updateProcessStatus]);
+        },
+        [organization, processData, storage, updateProcessStatus]
+    );
 
     // Utilities
     const isProcessing = useCallback(
@@ -412,38 +432,44 @@ export const useProcessedData = ({
         [processedData, sampleId]
     );
 
-    const getProgressState = useCallback((sId: string, cId: string) => {
-        const key = `${sId}:${cId}`;
-        const status = processStatuses[key] || createDefaultProcessStatus();
-        return {
-            progress: status.progress,
-            status: status.status,
-        };
-    }, [processStatuses]);
+    const getProgressState = useCallback(
+        (sId: string, cId: string) => {
+            const key = `${sId}:${cId}`;
+            const status = processStatuses[key] || createDefaultProcessStatus();
+            return {
+                progress: status.progress,
+                status: status.status,
+            };
+        },
+        [processStatuses]
+    );
 
-    const getUploadDownloadProgressState = useCallback((sId: string, cId: string) => {
-        const key = `${sId}:${cId}`;
-        const status = processStatuses[key] || createDefaultProcessStatus();
+    const getUploadDownloadProgressState = useCallback(
+        (sId: string, cId: string) => {
+            const key = `${sId}:${cId}`;
+            const status = processStatuses[key] || createDefaultProcessStatus();
 
-        const hasDownload = status.downloadProgress > 0;
-        let combinedProgress: number;
-        let currentStatus: string;
+            const hasDownload = status.downloadProgress > 0;
+            let combinedProgress: number;
+            let currentStatus: string;
 
-        if (hasDownload) {
-            // If download is actually happening
-            combinedProgress = (status.uploadProgress + status.downloadProgress) / 2;
-            currentStatus = status.uploadProgress < 100 ? status.uploadStatus : status.downloadStatus;
-        } else {
-            // No download phase, use uploadProgress directly
-            combinedProgress = status.uploadProgress;
-            currentStatus = status.uploadStatus;
-        }
+            if (hasDownload) {
+                // If download is actually happening
+                combinedProgress = (status.uploadProgress + status.downloadProgress) / 2;
+                currentStatus = status.uploadProgress < 100 ? status.uploadStatus : status.downloadStatus;
+            } else {
+                // No download phase, use uploadProgress directly
+                combinedProgress = status.uploadProgress;
+                currentStatus = status.uploadStatus;
+            }
 
-        return {
-            progress: combinedProgress,
-            status: currentStatus,
-        };
-    }, [processStatuses]);
+            return {
+                progress: combinedProgress,
+                status: currentStatus,
+            };
+        },
+        [processStatuses]
+    );
 
     const trackProgress = useCallback(
         (sId: string, cId: string, prog: number, stat: string) => {
