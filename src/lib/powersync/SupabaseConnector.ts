@@ -1,6 +1,6 @@
 import { SupabaseClient, createClient, Session } from '@supabase/supabase-js';
 import { useAuthStore } from '../stores/authStore';
-import {AbstractPowerSyncDatabase, UpdateType} from '@powersync/web';
+import {AbstractPowerSyncDatabase, CrudEntry, UpdateType} from '@powersync/web';
 
 export class SupabaseConnector {
     readonly client: SupabaseClient;
@@ -97,7 +97,6 @@ export class SupabaseConnector {
             console.debug('Credentials fetched successfully.');
 
             return {
-                //@ts-ignore
                 endpoint: import.meta.env.VITE_POWERSYNC_URL,
                 token: data.session.access_token ?? '',
                 expiresAt: data.session.expires_at
@@ -119,7 +118,6 @@ export class SupabaseConnector {
             console.debug('No transactions to upload.');
             return;
         }
-        //@ts-ignore
         let lastOp: CrudEntry | null = null;
 
         try {

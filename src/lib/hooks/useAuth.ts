@@ -3,6 +3,9 @@ import { supabaseConnector } from '../powersync/SupabaseConnector';
 import {useCallback, useEffect, useMemo, useRef} from 'react';
 import { usePowerSync } from "@powersync/react";
 import {Organization, UserProfile} from "../types";
+import {wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
+import {DrizzleSchema, organizations, user_profiles} from "../powersync/DrizzleSchema.ts";
+import {eq} from "drizzle-orm";
 
 const WAIT_TIME_MS = 240000; // 240 seconds
 const POLL_INTERVAL_MS = 2000; // 2 seconds
@@ -13,6 +16,8 @@ export const useAuth = () => {
         setError, setLoading, setUser, setUserProfile, setOrganization
     } = useAuthStore();
     const db = usePowerSync()
+    const drizzleDB = wrapPowerSyncWithDrizzle(db,{schema: DrizzleSchema})
+
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const didTimeoutRef = useRef<boolean>(false);
@@ -124,15 +129,8 @@ export const useAuth = () => {
      * @returns The user profile or null if not found.
      */
     const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
-        const result = await db.get(
-            `
-            SELECT * FROM user_profiles
-            WHERE id = ?
-            LIMIT 1
-        `,
-            [userId]
-        );
-        return result as UserProfile | null;
+        const [result] = await drizzleDB.select().from(user_profiles).where(eq(user_profiles.id, userId)).limit(1);
+        return result;
     };
 
     /**
@@ -141,15 +139,8 @@ export const useAuth = () => {
      * @returns The organization details or null if not found.
      */
     const fetchOrganization = async (orgId: string): Promise<Organization | null> => {
-        const result = await db.get(
-            `
-            SELECT * FROM organizations
-            WHERE id = ?
-            LIMIT 1
-        `,
-            [orgId]
-        );
-        return result as Organization | null;
+        const [result] = await drizzleDB.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+        return result;
     };
 
     const signUp = useCallback(async (email: string, password: string) => {

@@ -26,7 +26,6 @@ export const getDatabaseInstance = (): PowerSyncDatabase => {
             },
             flags: {
                 useWebWorker: false,
-                enableMultiTabs: true,
             }
 
         });
@@ -43,8 +42,7 @@ export const getDatabaseInstance = (): PowerSyncDatabase => {
                 dbFilename: 'powersync.db',
             },
             flags: {
-                useWebWorker: true,
-                enableMultiTabs: true,
+                useWebWorker: false,
             }
         });
         console.log('PowerSyncDatabase instance created (with web worker). This instance is now primary.');

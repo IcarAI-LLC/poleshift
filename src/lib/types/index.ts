@@ -37,6 +37,7 @@ export interface UserProfile {
     id: string;
     organization_id?: string | null;
     user_tier: string;
+    user_role: string;
     created_at?: string;
 }
 
@@ -66,8 +67,12 @@ export interface FileNode {
     updated_at?: string;
     version: number;
     sample_group_id?: string | null;
+    droppable: number;
+    /**
+     * This property is not stored in the DB, but is used
+     * for building the tree structure in-memory for MUI.
+     */
     children?: FileNode[];
-    droppable: boolean;
 }
 
 export interface SampleGroupMetadata {
@@ -78,11 +83,11 @@ export interface SampleGroupMetadata {
     human_readable_sample_id: string;
     collection_date?: string;
     storage_folder?: string;
-    collection_datetime_utc?: string;
+    collection_datetime_utc?: string | null;
     loc_id?: string | null;
-    latitude_recorded?: number;
-    longitude_recorded?: number;
-    notes?: string;
+    latitude_recorded?: number | null;
+    longitude_recorded?: number | null;
+    notes?: string | null;
     updated_at?: string;
 }
 
@@ -93,27 +98,6 @@ export interface SampleLocation {
     long?: number;
     is_enabled: boolean;
     char_id: string;
-}
-
-export interface SampleMetadata {
-    id: string;
-    created_at: string;
-    org_id?: string | null;
-    user_id?: string | null;
-    human_readable_sample_id: string;
-    file_name?: string;
-    file_type?: string;
-    data_type?: string;
-    lat?: number;
-    long?: number;
-    status?: string;
-    processed_storage_path?: string;
-    processed_datetime_utc?: string;
-    upload_datetime_utc?: string;
-    process_function_name?: string;
-    sample_group_id?: string | null;
-    raw_storage_paths?: string[] | null;
-    updated_at?: string;
 }
 
 // UI related types
