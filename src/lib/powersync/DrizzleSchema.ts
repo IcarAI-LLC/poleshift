@@ -6,7 +6,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import {v4 as uuidv4} from "uuid";
 import {DateTime} from "luxon";
-import {ProximityCategory} from "../types";
+import {ProximityCategory, TaxonomicRank} from "../types";
 
 /** ─────────────────────────────────────────────────────────────────────────────
  *  2) organizations
@@ -29,7 +29,6 @@ export const user_profiles = sqliteTable("user_profiles", {
     id: text("id").notNull().primaryKey(),
     organization_id: text("organization_id")
         .references(() => organizations.id),
-    user_tier: text("user_tier").notNull(),
     created_at: text("created_at").default(DateTime.now().toISO()).notNull(),
     user_role: text("user_role" /* user-defined type */).notNull(),
 });
@@ -136,14 +135,42 @@ export const user_roles = sqliteTable("user_roles", {
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  12) user_tiers
- *      - The metadata suggests a two-column PK: "name" and "id" both set as PK=1.
- *        That typically implies a multi-column PK or conflicting definitions.
- *        We'll define a composite primary key.
+ *  12) scar_locations
  *  ────────────────────────────────────────────────────────────────────────────**/
-export const user_tiers = sqliteTable("user_tiers", {
-    name: text("name").notNull(),
-    id: text("id").notNull().primaryKey().default(uuidv4()),
+export const scar_locations = sqliteTable("scar_locations", {
+    id: real("id").notNull().primaryKey(),
+    narrative: text("narrative").notNull(),
+});
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  13) penguin_data
+ *  ────────────────────────────────────────────────────────────────────────────**/
+export const penguin_data = sqliteTable("penguin_data", {
+    id: real("id").notNull().primaryKey(),
+    penguin_count: text("penguin_count").notNull(),
+    day: text("day"),
+    month: text("month"),
+    year: text("year").notNull(),
+});
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  13) organization_settings
+ *  ────────────────────────────────────────────────────────────────────────────**/
+export const organization_settings = sqliteTable("organization_settings", {
+    id: real("id").notNull().primaryKey(),
+});
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  13) user_settings
+ *  ────────────────────────────────────────────────────────────────────────────**/
+export const user_settings = sqliteTable("user_settings", {
+    id: real("id").primaryKey(),
+    user_id:text("user_id").notNull().references(() => user_profiles.id),
+    taxonomic_starburst_max_rank: text("taxonomic_starburst_max_rank").notNull().$type<TaxonomicRank>(),
+    taxonomic_starburst_min_rank: text("taxonomic_starburst_min_rank").notNull().$type<TaxonomicRank>(),
+    globe_datapoint_poles: integer("globe_datapoint_poles").notNull(),
+    globe_datapoint_color: text("globe_datapoint_color").notNull(),
+    globe_datapoint_diameter: text("globe_datapoint_diameter").notNull(),
 });
 
 export const DrizzleSchema = {
@@ -154,6 +181,9 @@ export const DrizzleSchema = {
     sample_locations,
     sample_group_metadata,
     processed_data,
-    user_tiers,
+    license_keys,
     file_nodes,
+    scar_locations,
+    penguin_data,
+    user_settings,
 }

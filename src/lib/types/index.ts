@@ -3,10 +3,6 @@ import {Factor, UserAppMetadata, UserIdentity, UserMetadata} from "@supabase/sup
 
 export type PreAuthView = 'login' | 'signup' | 'reset-password';
 
-export interface UserTier {
-    name: 'admin' | 'lead' | 'researcher';
-}
-
 export interface User {
     id: string
     app_metadata: UserAppMetadata
@@ -84,7 +80,6 @@ export const viewerPermissions: Permissions[] = []
 export interface UserProfile {
     id: string;
     organization_id?: string | null;
-    user_tier: string;
     user_role: string;
     created_at?: string;
 }
@@ -132,6 +127,34 @@ export enum ProximityCategory {
     Close = 'Immediate',
     Far1 = 'Far1',
     Far2 = 'Far2'
+}
+
+export enum TaxonomicRank {
+    Root = 'Root',
+    Domain = 'Domain',
+    Supergroup = 'Supergroup',
+    Division = 'Division',
+    Subdivision = 'Subdivision',
+    Class = 'Class',
+    Order = 'Order',
+    Family = 'Family',
+    Species = 'Species',
+    Genus = 'Genus',
+    Assembly = 'Assembly',
+    Sequence = 'Sequence',
+}
+
+/**
+ * TypeScript interface describing a single row in the user_settings table.
+ */
+export interface UserSetting {
+    id: number; // Matches real("id") in your schema
+    user_id: string; // Matches text("user_id").notNull()
+    taxonomic_starburst_max_rank: TaxonomicRank;
+    taxonomic_starburst_min_rank: TaxonomicRank;
+    globe_datapoint_poles: number;
+    globe_datapoint_color: string;
+    globe_datapoint_diameter: string;
 }
 
 export interface SampleGroupMetadata {

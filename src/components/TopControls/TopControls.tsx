@@ -1,5 +1,5 @@
 // src/components/TopControls/TopControls.tsx
-import React from 'react';
+import React, {useState} from 'react';
 import { Box } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
@@ -9,6 +9,8 @@ import SyncButton from './SyncButton';
 import AccountButton from './AccountButton';
 import FilterButton from './FilterButton';
 import UploadQueueButton from './UploadQueueButton';
+import SettingsButton from "./SettingsButton.tsx";
+import SettingsModal from "./SettingsModal.tsx";
 
 interface TopControlsProps {
     isSyncing: boolean;
@@ -39,6 +41,8 @@ const TopControls: React.FC<TopControlsProps> = ({
         zIndex: 1001,
     };
 
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
     return (
         <Box sx={styles}>
             <SidebarToggle onToggle={onToggleSidebar} />
@@ -46,6 +50,11 @@ const TopControls: React.FC<TopControlsProps> = ({
             <FilterButton onClick={onOpenFilters} buttonRef={filterButtonRef} />
             <UploadQueueButton queueCount={queuedUploadsCount} onClick={onToggleUploadQueue} />
             <AccountButton setShowAccountActions={setShowAccountActions} />
+            <SettingsButton onClick={() => setIsSettingsOpen(true)} />
+            <SettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+            />
         </Box>
     );
 };
