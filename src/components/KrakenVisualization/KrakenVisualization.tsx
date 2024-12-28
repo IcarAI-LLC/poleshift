@@ -17,7 +17,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Download } from '@mui/icons-material';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
-
+console.debug('KrakenVisualization Component');
 import SummaryCard from './SummaryCard';
 import DataTable from './DataTable';
 import SearchInput from './SearchInput';
@@ -25,20 +25,13 @@ import FilterSelect from './FilterSelect';
 import HierarchyTree from './HierarchyTree';
 import DistributionChart from './DistributionChart';
 import TaxonomyStarburst from './TaxonomyStarburst';
+import { ProcessedKrakenUniqReport } from "../../lib/types";
 
-// --------------------------------------------------
-// 1. Define enum for the sort direction
-// --------------------------------------------------
 enum SortDirection {
   ASC = 'asc',
   DESC = 'desc',
 }
 
-// --------------------------------------------------
-// 2. Define interfaces for your data
-// --------------------------------------------------
-
-// This represents a single "plotData" row
 interface PlotData {
   taxon: string;
   percentage: number;
@@ -47,72 +40,30 @@ interface PlotData {
   kmers: number;
   dup: number;
   cov: number;
-  depth: number;
-}
-
-interface RankData {
-  rankBase: string;
-  rankName: string;
-  plotData: PlotData[];
-}
-
-interface KrakenReportEntry {
-  depth: number;
-  percentage: number;
-  reads: number;
-  taxReads: number;
-  kmers: number;
-  dup: number;
-  cov: number;
-  tax_id: number;
-  rank: string;
-  name: string;
-}
-
-interface KrakenData {
-  type: 'report';
-  data: RankData[];
-  hierarchy: KrakenReportEntry[];
-  unclassifiedReads: number;
 }
 
 interface Props {
-  data?: KrakenData;
+  data: ProcessedKrakenUniqReport[];
   open: boolean;
   onClose: () => void;
 }
 
-// --------------------------------------------------
-// 3. Utility functions for formatting
-// --------------------------------------------------
-const formatNumber = (num: number): string => {
-  return new Intl.NumberFormat('en-US').format(num);
+const formatNumber = (num: number | string): string => {
+  const value = typeof num === 'string' ? parseInt(num) : num;
+  return new Intl.NumberFormat('en-US').format(value);
 };
 
 const formatPercentage = (num: number): string => {
   return `${num.toFixed(2)}%`;
 };
 
-// --------------------------------------------------
-// 4. Define a type for the valid sort keys
-//    (they must match the fields in PlotData)
-// --------------------------------------------------
 type SortableKeys = keyof PlotData;
-// i.e., 'taxon' | 'percentage' | 'reads' | 'taxReads' | 'kmers' | 'dup' | 'cov' | 'depth'
 
 const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
-  // Which tab is active
+  console.log('Kraken Visualization component inner');
   const [activeTab, setActiveTab] = useState(0);
-
-  // For searching within the taxonomy table
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Which rank is selected in the filter (or "all")
   const [selectedRank, setSelectedRank] = useState('all');
-
-  // --------------------------------------------------
-  // 5. Our sort config uses the union SortableKeys
-  // --------------------------------------------------
   const [sortConfig, setSortConfig] = useState<{
     key: SortableKeys;
     direction: SortDirection;
@@ -120,47 +71,65 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
     key: 'percentage',
     direction: SortDirection.DESC,
   });
-
-  // Export status
   const [exportStatus, setExportStatus] = useState<{
     open: boolean;
     message: string;
     severity: 'success' | 'error';
   }>({ open: false, message: '', severity: 'success' });
 
-  // --------------------------------------------------
-  // 6. Compute summary statistics
-  // --------------------------------------------------
-  const summaryStats = useMemo(() => {
-    if (!data?.hierarchy) {
-      return {
-        totalReads: 0,
-        classifiedReads: 0,
-        unclassifiedReads: 0,
-        classificationRate: 0,
-        uniqueTaxa: 0,
-      };
-    }
+  // Transform ProcessedKrakenUniqReport[] into PlotData[]
+  const transformedData = useMemo(() => {
+    return data.map(entry => ({
+      taxon: entry.tax_name,
+      percentage: entry.percentage,
+      reads: parseInt(entry.reads),
+      taxReads: parseInt(entry.tax_reads),
+      kmers: parseInt(entry.kmers),
+      dup: parseFloat(entry.duplication),
+      cov: parseFloat(entry.coverage),
+    }));
+  }, [data]);
 
-    // Find the root node (named "Life" or "Root")
-    const rootNode = data.hierarchy.find(
-        (node) => node.name === 'Life' || node.name === 'Root'
+  // Group data by rank
+  const rankGroups = useMemo(() => {
+    const groups = data.reduce((acc, entry) => {
+      if (!acc[entry.rank]) {
+        acc[entry.rank] = [];
+      }
+      acc[entry.rank].push(entry);
+      return acc;
+    }, {} as Record<string, ProcessedKrakenUniqReport[]>);
+
+    return Object.entries(groups).map(([rank, entries]) => ({
+      rankBase: rank,
+      rankName: rank,
+      plotData: entries.map(entry => ({
+        taxon: entry.tax_name,
+        percentage: entry.percentage,
+        reads: parseInt(entry.reads),
+        taxReads: parseInt(entry.tax_reads),
+        kmers: parseInt(entry.kmers),
+        dup: parseFloat(entry.duplication),
+        cov: parseFloat(entry.coverage),
+      }))
+    }));
+  }, [data]);
+
+  // Compute summary statistics
+  const summaryStats = useMemo(() => {
+    const rootNode = data.find(node =>
+        node.rank === 'Root' || node.tax_name === 'Root' || node.tax_name === 'Life'
     );
 
-    // Classified reads
-    const classifiedReads = rootNode?.reads ?? 0;
-
-    // Unclassified reads come directly from the top-level data
-    const unclassifiedReads = data.unclassifiedReads;
-
-    // Total reads + classification rate
-    const totalReads = classifiedReads + unclassifiedReads;
-    const classificationRate =
-        totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
-
-    // Unique taxa excludes the root itself
-    const uniqueTaxa = data.hierarchy.filter(
-        (node) => node.name !== 'Life' && node.name !== 'Root'
+    const totalReads = rootNode ? parseInt(rootNode.reads) : 0;
+    const unclassifiedNode = data.find(node => node.tax_name.toUpperCase() === 'UNCLASSIFIED');
+    const unclassifiedReads = unclassifiedNode ? parseInt(unclassifiedNode.reads) : 0;
+    const classifiedReads = totalReads - unclassifiedReads;
+    const classificationRate = totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
+    const uniqueTaxa = data.filter(node =>
+        node.tax_name !== 'Root' &&
+        node.tax_name !== 'Life' &&
+        node.tax_name.toUpperCase() !== 'UNCLASSIFIED'
     ).length;
 
     return {
@@ -172,70 +141,64 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
     };
   }, [data]);
 
-  // --------------------------------------------------
-  // 7. Build the list of available ranks for the filter
-  // --------------------------------------------------
+  // Available ranks for filter
   const availableRanks = useMemo(() => {
-    if (!data?.data) return [];
-    return data.data.map((rankData) => ({
-      value: rankData.rankBase,
-      label: rankData.rankName,
+    const ranks = [...new Set(data.map(entry => entry.rank))];
+    return ranks.map(rank => ({
+      value: rank,
+      label: rank,
     }));
   }, [data]);
 
-  // --------------------------------------------------
-  // 8. Filter data by rank + search term
-  // --------------------------------------------------
+  // Filter data by rank + search term
   const filteredData = useMemo(() => {
-    if (!data?.data) return [];
+    let filtered = transformedData;
 
-    const rankData =
-        selectedRank === 'all'
-            ? data.data.flatMap((d) => d.plotData || [])
-            : data.data.find((d) => d.rankBase === selectedRank)?.plotData || [];
+    if (selectedRank !== 'all') {
+      filtered = data
+          .filter(entry => entry.rank === selectedRank)
+          .map(entry => ({
+            taxon: entry.tax_name,
+            percentage: entry.percentage,
+            reads: parseInt(entry.reads),
+            taxReads: parseInt(entry.tax_reads),
+            kmers: parseInt(entry.kmers),
+            dup: parseFloat(entry.duplication),
+            cov: parseFloat(entry.coverage),
+          }));
+    }
 
-    return rankData.filter((item) =>
+    return filtered.filter(item =>
         item.taxon.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [data, searchTerm, selectedRank]);
+  }, [data, transformedData, searchTerm, selectedRank]);
 
-  // --------------------------------------------------
-  // 9. Sort the filtered data
-  // --------------------------------------------------
+  // Sort the filtered data
   const sortedData = useMemo(() => {
     const { key, direction } = sortConfig;
     return [...filteredData].sort((a, b) => {
       const aVal = a[key];
       const bVal = b[key];
 
-      // If sorting by "taxon" (string), do string comparison
       if (typeof aVal === 'string' && typeof bVal === 'string') {
         return direction === SortDirection.ASC
             ? aVal.localeCompare(bVal)
             : bVal.localeCompare(aVal);
       }
 
-      // Otherwise assume numeric comparison
       if (aVal < bVal) return direction === SortDirection.ASC ? -1 : 1;
       if (aVal > bVal) return direction === SortDirection.ASC ? 1 : -1;
       return 0;
     });
   }, [filteredData, sortConfig]);
 
-  // --------------------------------------------------
-  // 10. Export handler
-  // --------------------------------------------------
+  // Export handler
   const handleExport = useCallback(async () => {
     try {
-      if (!data) {
-        throw new Error('No data available for export');
-      }
-
       const exportData = {
         summary: summaryStats,
-        taxonomy: data.data,
-        hierarchy: data.hierarchy,
-        unclassifiedReads: data.unclassifiedReads,
+        taxonomy: rankGroups,
+        rawData: data,
         metadata: {
           exportDate: new Date().toISOString(),
           totalReads: summaryStats.totalReads,
@@ -244,15 +207,8 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       };
 
       const filePath = await save({
-        filters: [
-          {
-            name: 'JSON',
-            extensions: ['json'],
-          },
-        ],
-        defaultPath: `kraken-analysis-${new Date()
-            .toISOString()
-            .split('T')[0]}.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+        defaultPath: `kraken-analysis-${new Date().toISOString().split('T')[0]}.json`,
       });
 
       if (filePath) {
@@ -267,34 +223,23 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       console.error('Export failed:', error);
       setExportStatus({
         open: true,
-        message: `Export failed: ${
-            error instanceof Error ? error.message : 'Unknown error'
-        }`,
+        message: `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         severity: 'error',
       });
     }
-  }, [data, summaryStats]);
+  }, [data, summaryStats, rankGroups]);
 
-  // --------------------------------------------------
-  // 11. Close snackbar
-  // --------------------------------------------------
   const handleCloseSnackbar = useCallback(() => {
     setExportStatus((prev) => ({ ...prev, open: false }));
   }, []);
 
-  // --------------------------------------------------
-  // 12. Tab change handler
-  // --------------------------------------------------
   const handleTabChange = useCallback((_: any, newValue: number) => {
     setActiveTab(newValue);
   }, []);
 
-  // --------------------------------------------------
-  // 13. DataTable columns definition
-  // --------------------------------------------------
   const taxonomyColumns = [
     {
-      key: 'taxon' as SortableKeys,  // explicitly cast to SortableKeys
+      key: 'taxon' as SortableKeys,
       header: 'Name',
       sortable: true,
     },
@@ -336,10 +281,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
     },
   ];
 
-  // --------------------------------------------------
-  // 14. Fallback if data is missing
-  // --------------------------------------------------
-  if (!data) {
+  if (!data || data.length === 0) {
     return (
         <Box p={3}>
           <Typography>No data available</Typography>
@@ -347,9 +289,6 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
     );
   }
 
-  // --------------------------------------------------
-  // 15. Main component rendering
-  // --------------------------------------------------
   return (
       <Dialog open={open} onClose={onClose} fullScreen>
         <AppBar position="static" color="primary" sx={{ position: 'relative' }}>
@@ -361,7 +300,6 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
                 variant="outlined"
                 startIcon={<Download />}
                 onClick={handleExport}
-                disabled={!data}
                 sx={{ mr: 2, color: '#fff', borderColor: '#fff' }}
             >
               Export Data
@@ -385,7 +323,6 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
         </AppBar>
 
         <Box p={3}>
-          {/* --- Tab 0: Summary --- */}
           {activeTab === 0 && (
               <div>
                 <Grid container spacing={2}>
@@ -417,13 +354,13 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
                   </Grid>
                 </Grid>
 
-                {data.data?.length > 0 ? (
-                    data.data
+                {rankGroups.length > 0 ? (
+                    rankGroups
                         .filter((rankData) => rankData.rankBase.toUpperCase() !== 'NO RANK')
                         .map((rankData) => (
                             <DistributionChart
                                 key={rankData.rankBase}
-                                data={rankData.plotData || []}
+                                data={rankData.plotData}
                                 title={`${rankData.rankName} Distribution`}
                             />
                         ))
@@ -433,7 +370,6 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
               </div>
           )}
 
-          {/* --- Tab 1: Taxonomy Distribution --- */}
           {activeTab === 1 && (
               <div>
                 <Grid container spacing={2} alignItems="flex-end">
@@ -457,33 +393,30 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
                   </Grid>
                 </Grid>
                 <DataTable
-                    data={sortedData} // <-- Use sorted data
+                    data={sortedData}
                     columns={taxonomyColumns}
                     onSort={(key, direction) =>
-                        setSortConfig({ key: key as keyof PlotData, direction: direction as SortDirection })
+                        setSortConfig({
+                          key: key as SortableKeys,
+                          direction: direction as SortDirection
+                        })
                     }
                 />
               </div>
           )}
 
-          {/* --- Tab 2: Taxonomy Hierarchy --- */}
-          {activeTab === 2 && data.hierarchy && (
+          {activeTab === 2 && (
               <div>
-                <HierarchyTree
-                    nodes={data.hierarchy.filter(
-                        (node) => node.rank.toUpperCase() !== 'NO RANK'
-                    )}
-                />
+                <HierarchyTree data={data} />
               </div>
           )}
 
-          {/* --- Tab 3: Taxonomy Starburst --- */}
-          {activeTab === 3 && data.hierarchy && (
+          {activeTab === 3 && (
               <div className="flex min-h-[calc(100vh-200px)] w-full items-center justify-center p-4">
                 <div className="w-full max-w-4xl aspect-square">
                   <TaxonomyStarburst
-                      nodes={data.hierarchy.filter(
-                          (node) => node.name.toUpperCase() !== 'UNCLASSIFIED'
+                      data={data.filter(
+                          (node) => node.tax_name.toUpperCase() !== 'UNCLASSIFIED'
                       )}
                   />
                 </div>

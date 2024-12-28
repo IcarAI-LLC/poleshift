@@ -1,8 +1,8 @@
 // src/lib/powersync/db.ts
 
 import {PowerSyncDatabase} from '@powersync/web';
-import { SupabaseConnector } from './SupabaseConnector';
-import { AppSchema } from './Schema';
+import {SupabaseConnector} from './SupabaseConnector';
+import {AppSchema} from './Schema';
 
 // Variables to track the instance creation
 let instanceCount = 0;

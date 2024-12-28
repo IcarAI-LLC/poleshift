@@ -10,15 +10,10 @@ import {
   Alert,
   Stack
 } from '@mui/material';
-
-interface ProcessedCTDData {
-  processedData: Record<string, any>[];
-  variableUnits: Record<string, string>;
-}
+import { ProcessedCtdRbrDataValues } from '../lib/types';
 
 interface DataChartProps {
-  data: ProcessedCTDData['processedData'];
-  units: ProcessedCTDData['variableUnits'];
+  data: ProcessedCtdRbrDataValues[];
 }
 
 const colorArray = [
@@ -32,12 +27,46 @@ const colorArray = [
   '#FF8042',
 ];
 
-const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
-  const [selectedVariables, setSelectedVariables] = useState<string[]>([]);
+// Define which fields we want to plot (excluding metadata fields)
+const plottableFields: (keyof ProcessedCtdRbrDataValues)[] = [
+  'depth',
+  'pressure',
+  'sea_pressure',
+  'temperature',
+  'chlorophyll_a',
+  'salinity',
+  'speed_of_sound',
+  'specific_conductivity'
+];
 
-  const variableOptions = useMemo(() => {
-    if (data.length === 0) return [];
-    return Object.keys(data[0]).filter((key) => key !== 'depth');
+const getUnitFieldName = (field: keyof ProcessedCtdRbrDataValues): keyof ProcessedCtdRbrDataValues => {
+  return `${field}_unit` as keyof ProcessedCtdRbrDataValues;
+};
+
+const DataChart: React.FC<DataChartProps> = ({ data }) => {
+  const [selectedVariables, setSelectedVariables] = useState<(keyof ProcessedCtdRbrDataValues)[]>([]);
+
+  // Extract available variables and their units
+  const { variableOptions, units } = useMemo(() => {
+    if (data.length === 0) return { variableOptions: [], units: {} };
+
+    const firstRow = data[0];
+    const options = plottableFields.filter(field =>
+        firstRow[field] !== null &&
+        typeof firstRow[field] === 'number'
+    );
+
+    const extractedUnits = Object.fromEntries(
+        options.map(field => {
+          const unitField = getUnitFieldName(field);
+          return [field, firstRow[unitField] || 'N/A'];
+        })
+    );
+
+    return {
+      variableOptions: options,
+      units: extractedUnits
+    };
   }, [data]);
 
   // Custom legend component
@@ -62,7 +91,7 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
       </Stack>
   );
 
-  const handleToggle = (variableName: string) => {
+  const handleToggle = (variableName: keyof ProcessedCtdRbrDataValues) => {
     setSelectedVariables((prev) =>
         prev.includes(variableName)
             ? prev.filter((v) => v !== variableName)
@@ -86,7 +115,6 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
         <Card sx={{ bgcolor: 'black', color: 'white' }}>
           <CardContent>
             <Box>
-              {/* Variable toggles */}
               <Box display="flex" flexWrap="wrap" mb={2}>
                 {variableOptions.map((variableName) => (
                     <FormControlLabel
@@ -99,7 +127,7 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
                               color="primary"
                           />
                         }
-                        label={`${variableName} (${units[variableName] || 'N/A'})`}
+                        label={`${variableName} (${units[variableName]})`}
                         sx={{ color: 'white' }}
                     />
                 ))}
@@ -117,14 +145,14 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
     ...selectedVariables.flatMap((variableName, seriesIndex) =>
         data
             .map(item => {
-              const x = Number(item[variableName]);
-              const y = Number(item.depth);
-              if (isNaN(x)) return null;
+              const x = item[variableName];
+              const y = item.depth;
+              if (x === null || y === null) return null;
 
               return [
                 x,
                 y,
-                `${variableName}: ${x} ${units[variableName] || ''}\nDepth: ${y} m`,
+                `${variableName}: ${x} ${units[variableName]}\nDepth: ${y} ${units['depth']}`,
                 `point { size: 3; fill-color: ${colorArray[seriesIndex % colorArray.length]}; }`
               ];
             })
@@ -137,7 +165,7 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
     colors: selectedVariables.map((_, index) => colorArray[index % colorArray.length]),
     hAxis: {
       title: selectedVariables.length === 1
-          ? `${selectedVariables[0]} (${units[selectedVariables[0]] || ''})`
+          ? `${selectedVariables[0]} (${units[selectedVariables[0]]})`
           : 'Variable Value',
       gridlines: {
         color: '#444444'
@@ -152,7 +180,7 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
       }
     },
     vAxis: {
-      title: 'Depth (m)',
+      title: `Depth (${units['depth']})`,
       direction: -1,
       gridlines: {
         color: '#444444'
@@ -201,7 +229,7 @@ const DataChart: React.FC<DataChartProps> = ({ data, units }) => {
                             color="primary"
                         />
                       }
-                      label={`${variableName} (${units[variableName] || 'N/A'})`}
+                      label={`${variableName} (${units[variableName]})`}
                       sx={{ color: 'white' }}
                   />
               ))}

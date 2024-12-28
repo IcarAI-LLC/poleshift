@@ -2852,7 +2852,9 @@ name = "poleshift"
 version = "0.1.3"
 dependencies = [
  "chrono",
+ "flate2",
  "rayon",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",

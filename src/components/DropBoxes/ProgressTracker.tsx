@@ -7,7 +7,7 @@ interface ProgressTrackerProps {
   progress: number;
   status: string;
   showPercentage?: boolean;
-  type: 'processing' | 'uploadDownload';
+  type: 'processing';
 }
 
 const ProgressTracker: React.FC<ProgressTrackerProps> = memo(

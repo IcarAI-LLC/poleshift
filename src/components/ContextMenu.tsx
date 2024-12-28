@@ -14,7 +14,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
 import { useAuthStore } from "../lib/stores/authStore.ts";
-import { Permissions } from "../lib/types";
+import { PoleshiftPermissions } from "../lib/types";
 
 /**
  * Props for the ContextMenu component.
@@ -60,9 +60,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
    *    - `canModifySampleGroup`: True if the user has permission to modify sample groups.
    */
   const canDeleteSampleGroup =
-      userPermissions?.includes(Permissions.DeleteSampleGroup) ?? false;
+      userPermissions?.includes(PoleshiftPermissions.DeleteSampleGroup) ?? false;
   const canModifySampleGroup =
-      userPermissions?.includes(Permissions.ModifySampleGroup) ?? false;
+      userPermissions?.includes(PoleshiftPermissions.ModifySampleGroup) ?? false;
 
   /**
    * 2. **Memoize Styles**

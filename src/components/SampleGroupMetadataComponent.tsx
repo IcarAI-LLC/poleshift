@@ -27,7 +27,7 @@ import { useAuthStore } from '../lib/stores/authStore.ts';
 import LocationFields from './LocationFields';
 
 import type { SampleGroupMetadata as TSampleGroupMetadata } from '../lib/types';
-import { ProximityCategory, Permissions } from '../lib/types';
+import { ProximityCategory, PoleshiftPermissions } from '../lib/types';
 
 // Styles interface for better type safety
 interface StyleProps {
@@ -47,7 +47,7 @@ export const SampleGroupMetadataComponent: React.FC = () => {
   const { userPermissions } = useAuthStore.getState();
 
   // Check if the user has ModifySampleGroup permission
-  const hasModifyPermission = userPermissions?.includes(Permissions.ModifySampleGroup);
+  const hasModifyPermission = userPermissions?.includes(PoleshiftPermissions.ModifySampleGroup);
 
   // Local state
   const [isExpanded, setIsExpanded] = useState<boolean>(true);

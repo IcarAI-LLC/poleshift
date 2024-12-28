@@ -59,7 +59,6 @@ pub struct FileMeta {
 #[derive(Debug, Serialize)]
 pub struct FilesResponse {
     pub raw: Vec<FileMeta>,
-    pub processed: Vec<FileMeta>,
 }
 
 #[derive(Debug, Serialize)]
@@ -67,6 +66,12 @@ pub struct StandardResponse<T> {
     pub status: String,
     pub report: T,
     pub files: FilesResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StandardResponseNoFiles<T> {
+    pub status: String,
+    pub report: T,
 }
 
 #[derive(Debug)]
@@ -77,6 +82,7 @@ pub struct KrakenConfig {
     pub taxdb_file: String,
     pub threads: u32,
     pub report_file: String,
+    pub outfile: String,
     pub input_files: Vec<String>,
 }
 

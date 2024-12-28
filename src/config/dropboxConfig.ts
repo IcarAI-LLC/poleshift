@@ -1,5 +1,7 @@
 // src/renderer/config/dropboxConfig.ts
 
+import {DataType} from "../lib/types";
+
 export interface ModalField {
   name: string;
   label?: string;
@@ -10,9 +12,9 @@ export interface ModalField {
 }
 
 export interface DropboxConfigItem {
-  id: string;
+  id: DataType;
   label: string;
-  dataType: string;
+  dataType: DataType;
   expectedFileTypes: Record<string, string[]> | null;
   isEnabled: boolean;
   isModalInput: boolean;
@@ -25,9 +27,9 @@ export interface DropboxConfigItem {
 
 const dropboxConfig: DropboxConfigItem[] = [
   {
-    id: 'nutrient_ammonia',
+    id: DataType.NutrientAmmonia,
     label: 'Nutrient Ammonia',
-    dataType: 'nutrient_ammonia',
+    dataType: DataType.NutrientAmmonia,
     expectedFileTypes: null,
     isEnabled: true,
     isModalInput: true,
@@ -44,21 +46,21 @@ const dropboxConfig: DropboxConfigItem[] = [
   },
 
   {
-    id: 'ctd_data',
+    id: DataType.CTD,
     label: 'CTD Data',
-    dataType: 'ctd_data',
+    dataType: DataType.CTD,
     expectedFileTypes: { 'application/octet-stream': ['.rsk'] },
     isEnabled: true,
     isModalInput: false,
-    processFunctionName: 'handle_ctd_data_upload',
+    processFunctionName: 'handle_ctd_data',
     requiredSubscriptionLevel: 1,
     modalFields: [],
   },
 
   {
-    id: 'sequencing_data',
+    id: DataType.Sequence,
     label: 'Sequencing Data',
-    dataType: 'sequencing_data',
+    dataType: DataType.Sequence,
     expectedFileTypes: {
       'text/plain': ['.fastq', '.fq', '.fasta', '.fa', '.gz']
     },

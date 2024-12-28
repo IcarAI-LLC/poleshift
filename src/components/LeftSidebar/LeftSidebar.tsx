@@ -1,357 +1,98 @@
 // src/components/LeftSidebar.tsx
 
 import React, { useCallback, useState, useMemo } from 'react';
-import { Box, Button, SelectChangeEvent } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { Box, Button } from '@mui/material';
 import {
   AddCircle as AddCircleIcon,
   CreateNewFolder as CreateNewFolderIcon,
   Public as PublicIcon,
 } from '@mui/icons-material';
-import { v4 as uuidv4 } from 'uuid';
-import { useUI } from '../../lib/hooks';
-import { useData } from '../../lib/hooks';
-import { useAuth } from '../../lib/hooks';
-import {useAuthStore} from '../../lib/stores/authStore'; // <-- Import your Permissions enum
-import type { DropboxConfigItem } from '../../config/dropboxConfig';
-import { FileNodeType, SampleLocation, Permissions } from '../../lib/types';
-import { DateTime } from 'luxon';
+import { useTheme } from '@mui/material/styles';
+import { useUI, useData, useAuth } from '../../lib/hooks';
+import { useAuthStore } from '../../lib/stores/authStore';
+import { PoleshiftPermissions } from '../../lib/types';
 
-import Modal from '../Modal';
 import LeftSidebarTree from './LeftSidebarTree';
+import CreateSampleGroupModal from './CreateSampleGroupModal';
+import CreateFolderModal from './CreateFolderModal';
 
-interface ModalState {
-  isOpen: boolean;
-  title: string;
-  configItem: DropboxConfigItem | null;
-  modalInputs: Record<string, string>;
-  uploadedFiles: File[];
-  isProcessing: boolean;
-}
-
-interface LeftSidebarProps {
-  userTier: string;
-}
-
-const LeftSidebar: React.FC<LeftSidebarProps> = () => {
+const LeftSidebar: React.FC = () => {
   const theme = useTheme();
-  const { sampleGroups, fileTree, createSampleGroup, locations, addFileNode } = useData();
-  const { organization, user } = useAuth(); // <-- make sure you have userPermissions
+  const { setSelectedLeftItem, isLeftSidebarCollapsed, setErrorMessage } = useUI();
   const { userPermissions } = useAuthStore.getState();
-  const {
-    isLeftSidebarCollapsed,
-    setErrorMessage,
-    setSelectedLeftItem,
-  } = useUI();
+  const { organization } = useAuth();
+  const { sampleGroups, createSampleGroup, addFileNode, locations } = useData();
 
-  // 1) Check if the user has the CreateSampleGroup permission
-  const hasCreatePermission = userPermissions?.includes(Permissions.CreateSampleGroup);
+  // Permissions
+  const hasCreatePermission = userPermissions?.includes(PoleshiftPermissions.CreateSampleGroup);
 
-  const [modalState, setModalState] = useState<ModalState>({
-    isOpen: false,
-    title: '',
-    configItem: null,
-    modalInputs: {},
-    uploadedFiles: [],
-    isProcessing: false,
-  });
+  // Disentangled modals
+  const [isSampleGroupModalOpen, setIsSampleGroupModalOpen] = useState(false);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
 
-  const styles = useMemo(
-      () => ({
-        sidebar: {
-          width: 'var(--sidebar-width)',
-          height: '100vh',
-          backgroundColor: 'var(--color-sidebar)',
-          display: 'flex',
-          flexDirection: 'column',
-          transition: theme.transitions.create('width', {
-            duration: theme.transitions.duration.standard,
-          }),
-          overflow: 'hidden',
-          position: 'absolute',
-          zIndex: 1000,
-        } as const,
-        contentContainer: {
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          marginTop: 'var(--header-height)',
-        } as const,
-        buttonContainer: {
-          padding: theme.spacing(2),
-          display: 'flex',
-          flexDirection: 'column',
-          gap: theme.spacing(1),
-          borderBottom: '1px solid var(--color-border)',
-        } as const,
-        sidebarButton: {
-          width: '100%',
-          justifyContent: 'flex-start',
-          backgroundColor: 'var(--color-background)',
-          color: 'var(--color-text)',
-        } as const,
-        resetButton: {
-          width: '100%',
-          justifyContent: 'flex-start',
-          backgroundColor: 'var(--color-background)',
-          color: 'var(--color-text)',
-        } as const,
-      }),
-      [theme]
-  );
+  // Click handlers to open each modal
+  const openSampleGroupModal = useCallback(() => {
+    if (!hasCreatePermission) {
+      setErrorMessage('You do not have permission to create a new sampling event.');
+      return;
+    }
+    setIsSampleGroupModalOpen(true);
+  }, [hasCreatePermission, setErrorMessage]);
 
-  // Modal handlers
-  const closeModal = useCallback(() => {
-    setModalState({
-      isOpen: false,
-      title: '',
-      configItem: null,
-      modalInputs: {},
-      uploadedFiles: [],
-      isProcessing: false,
-    });
-  }, []);
+  const openFolderModal = useCallback(() => {
+    if (!hasCreatePermission) {
+      setErrorMessage('You do not have permission to create a new folder.');
+      return;
+    }
+    setIsFolderModalOpen(true);
+  }, [hasCreatePermission, setErrorMessage]);
 
-  const openModal = useCallback(
-      (title: string, configItem: DropboxConfigItem, uploadedFiles: File[] = []) => {
-        if (configItem.modalFields?.length) {
-          setModalState({
-            isOpen: true,
-            title,
-            configItem,
-            modalInputs: {},
-            uploadedFiles,
-            isProcessing: false,
-          });
-        }
-      },
-      []
-  );
-
-  const handleModalChange = useCallback(
-      (
-          e:
-              | React.ChangeEvent<HTMLTextAreaElement>
-              | React.ChangeEvent<{ name?: string; value: unknown }>
-              | SelectChangeEvent
-      ) => {
-        const { name, value } = e.target;
-        if (typeof name === 'string') {
-          const stringValue = typeof value === 'string' ? value : String(value);
-          setModalState((prev) => ({
-            ...prev,
-            modalInputs: { ...prev.modalInputs, [name]: stringValue },
-          }));
-        }
-      },
-      []
-  );
-
-  const handleModalSubmit = useCallback(
-      async (e?: React.FormEvent<HTMLFormElement>) => {
-        if (e) e.preventDefault();
-        const { configItem, modalInputs } = modalState;
-
-        if (!configItem || !organization?.id || !organization.org_short_id || !user?.id) return;
-
-        setModalState((prev) => ({ ...prev, isProcessing: true }));
-
-        try {
-          if (configItem.processFunctionName === FileNodeType.SampleGroup) {
-            // Create new sample group
-            const { collectionDate, collectionTime, locCharId } = modalInputs;
-
-            if (!collectionDate || !locCharId) {
-              throw new Error('Collection date and location are required to create a sample group.');
-            }
-
-            const formattedDate = new Date(collectionDate).toISOString().split('T')[0];
-            const baseName = `${formattedDate}-${locCharId}`;
-
-            const existingNumbers = Object.values(sampleGroups)
-                .filter((group) => group.org_id === organization.id)
-                .map((group) => {
-                  const regex = new RegExp(
-                      `^${baseName}-(\\d{2})-${organization.org_short_id}$`
-                  );
-                  const match = group.human_readable_sample_id.match(regex);
-                  return match ? parseInt(match[1], 10) : null;
-                })
-                .filter((num): num is number => num !== null);
-
-            let nextNumber = 0;
-            while (existingNumbers.includes(nextNumber)) {
-              nextNumber += 1;
-            }
-            const formattedNumber = String(nextNumber).padStart(2, '0');
-
-            const sampleGroupName = `${baseName}-${formattedNumber}-${organization.org_short_id}`;
-
-            const location = locations.find((loc) => loc.char_id === locCharId);
-            if (!location) {
-              throw new Error(`Location with char_id ${locCharId} not found.`);
-            }
-
-            const rawDataFolderPath = `${organization.org_short_id}/${sampleGroupName}/`;
-            const id: string = uuidv4();
-
-            const newNode = {
-              id,
-              org_id: organization.id,
-              name: sampleGroupName,
-              type: FileNodeType.SampleGroup,
-              parent_id: null,
-              droppable: 0,
-              children: [],
-              version: 1,
-              sample_group_id: id,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-
-            const sampleGroupData = {
-              id,
-              human_readable_sample_id: sampleGroupName,
-              loc_id: location.id,
-              storage_folder: rawDataFolderPath,
-              collection_date: formattedDate,
-              collection_datetime_utc: collectionTime
-                  ? `${collectionDate}T${collectionTime}Z`
-                  : undefined,
-              user_id: user.id,
-              org_id: organization.id,
-              latitude_recorded: null,
-              longitude_recorded: null,
-              notes: null,
-              created_at: new Date().toISOString(),
-              updated_at: DateTime.now().toISO(),
-              excluded: 0,
-              penguin_count: null,
-              penguin_present: 0,
-            };
-
-            await createSampleGroup(sampleGroupData, newNode);
-            setErrorMessage('');
-          } else if (configItem.processFunctionName === FileNodeType.Folder) {
-            // Create new folder
-            const newFolder = {
-              id: uuidv4(),
-              org_id: organization.id,
-              name: modalInputs.name,
-              type: FileNodeType.Folder,
-              parent_id: null,
-              droppable: 1,
-              children: [],
-              version: 1,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-
-            await addFileNode(newFolder);
-            setErrorMessage('');
-          }
-        } catch (error: any) {
-          console.error('Error creating item:', error);
-          setErrorMessage(error.message || 'An unexpected error occurred.');
-        } finally {
-          closeModal();
-        }
-      },
-      [
-        modalState,
-        organization,
-        user,
-        locations,
-        sampleGroups,
-        createSampleGroup,
-        setErrorMessage,
-        closeModal,
-        fileTree,
-        addFileNode,
-      ]
-  );
-
-  const handleModalActions = {
-    open: openModal,
-    close: closeModal,
-    change: handleModalChange,
-    submit: handleModalSubmit,
-  };
-
-  const createActions = {
-    sampleGroup: useCallback(() => {
-      // If no permission, guard:
-      if (!hasCreatePermission) {
-        setErrorMessage('You do not have permission to create a new sampling event.');
-        return;
-      }
-
-      const configItem: DropboxConfigItem = {
-        id: 'create-sampleGroup',
-        dataType: '',
-        expectedFileTypes: null,
-        isEnabled: false,
-        isModalInput: false,
-        label: '',
-        modalFields: [
-          {
-            name: 'collectionDate',
-            label: 'Collection Date',
-            type: 'date',
-            tooltip: 'Select the date when the sample was collected.',
-            required: true,
-          },
-          {
-            name: 'collectionTime',
-            label: 'Collection Time (UTC)',
-            type: 'time',
-            tooltip:
-                'Optionally specify the time when the sample was collected. Leave blank if unknown.',
-            required: false,
-          },
-          {
-            name: 'locCharId',
-            label: 'Location',
-            type: 'location',
-            options: locations.map((loc: SampleLocation) => ({
-              value: loc.char_id,
-              label: loc.label,
-            })),
-            tooltip: 'Select the location where the sample was collected.',
-            required: true,
-          },
-        ],
-        processFunctionName: 'sampleGroup',
-      };
-
-      handleModalActions.open('Create New Sampling Event', configItem);
-    }, [locations, handleModalActions, hasCreatePermission, setErrorMessage]),
-
-    folder: useCallback(() => {
-      // If no permission, guard:
-      if (!hasCreatePermission) {
-        setErrorMessage('You do not have permission to create a new folder.');
-        return;
-      }
-
-      const configItem: DropboxConfigItem = {
-        id: 'create-folder',
-        dataType: '',
-        expectedFileTypes: null,
-        isEnabled: false,
-        isModalInput: false,
-        label: '',
-        modalFields: [{ name: 'name', label: 'Folder Name', type: 'text' }],
-        processFunctionName: 'folder',
-      };
-
-      handleModalActions.open('Create New Folder', configItem);
-    }, [handleModalActions, hasCreatePermission, setErrorMessage]),
-  };
-
+  // Reset selection
   const handleResetSelection = useCallback(() => {
     setSelectedLeftItem(undefined);
   }, [setSelectedLeftItem]);
+
+  // Styles
+  const styles = useMemo(() => ({
+    sidebar: {
+      width: 'var(--sidebar-width)',
+      height: '100vh',
+      backgroundColor: 'var(--color-sidebar)',
+      display: 'flex',
+      flexDirection: 'column',
+      transition: theme.transitions.create('width', {
+        duration: theme.transitions.duration.standard,
+      }),
+      overflow: 'hidden',
+      position: 'absolute',
+      zIndex: 1000,
+    } as const,
+    contentContainer: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      marginTop: 'var(--header-height)',
+    } as const,
+    buttonContainer: {
+      padding: theme.spacing(2),
+      display: 'flex',
+      flexDirection: 'column',
+      gap: theme.spacing(1),
+      borderBottom: '1px solid var(--color-border)',
+    } as const,
+    sidebarButton: {
+      width: '100%',
+      justifyContent: 'flex-start',
+      backgroundColor: 'var(--color-background)',
+      color: 'var(--color-text)',
+    } as const,
+    resetButton: {
+      width: '100%',
+      justifyContent: 'flex-start',
+      backgroundColor: 'var(--color-background)',
+      color: 'var(--color-text)',
+    } as const,
+  }), [theme]);
 
   return (
       <Box
@@ -360,37 +101,32 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
       >
         <Box sx={styles.contentContainer}>
           <Box sx={styles.buttonContainer}>
+
             {/* New Sampling Event Button */}
             <Button
                 variant="contained"
-                onClick={
-                  hasCreatePermission
-                      ? createActions.sampleGroup
-                      : () => setErrorMessage('You do not have permission to create a new sampling event.')
-                }
+                onClick={openSampleGroupModal}
                 aria-label="Create New Sampling Event"
                 sx={styles.sidebarButton}
                 disableElevation
-                disabled={!hasCreatePermission} // MUI visual disable
+                disabled={!hasCreatePermission}
             >
               <AddCircleIcon />
               {!isLeftSidebarCollapsed && (
-                  <span style={{ marginLeft: theme.spacing(1) }}>New Sampling Event</span>
+                  <span style={{ marginLeft: theme.spacing(1) }}>
+                New Sampling Event
+              </span>
               )}
             </Button>
 
             {/* New Folder Button */}
             <Button
                 variant="contained"
-                onClick={
-                  hasCreatePermission
-                      ? createActions.folder
-                      : () => setErrorMessage('You do not have permission to create a new folder.')
-                }
+                onClick={openFolderModal}
                 aria-label="Create New Folder"
                 sx={styles.sidebarButton}
                 disableElevation
-                disabled={!hasCreatePermission} // MUI visual disable
+                disabled={!hasCreatePermission}
             >
               <CreateNewFolderIcon />
               {!isLeftSidebarCollapsed && (
@@ -408,7 +144,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             >
               <PublicIcon />
               {!isLeftSidebarCollapsed && (
-                  <span style={{ marginLeft: theme.spacing(1) }}>Reset Selection</span>
+                  <span style={{ marginLeft: theme.spacing(1) }}>
+                Reset Selection
+              </span>
               )}
             </Button>
           </Box>
@@ -416,16 +154,27 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
           <LeftSidebarTree />
         </Box>
 
-        {modalState.isOpen && modalState.configItem && (
-            <Modal
-                isOpen={modalState.isOpen}
-                title={modalState.title}
-                onClose={handleModalActions.close}
-                modalFields={modalState.configItem.modalFields}
-                modalInputs={modalState.modalInputs}
-                handleModalChange={handleModalActions.change}
-                handleModalSubmit={handleModalActions.submit}
-                isProcessing={modalState.isProcessing}
+        {/* 1) Create Sample Group Modal */}
+        {isSampleGroupModalOpen && (
+            <CreateSampleGroupModal
+                open={isSampleGroupModalOpen}
+                onClose={() => setIsSampleGroupModalOpen(false)}
+                organization={organization}
+                sampleGroups={sampleGroups}
+                locations={locations}
+                createSampleGroup={createSampleGroup}
+                setErrorMessage={setErrorMessage}
+            />
+        )}
+
+        {/* 2) Create Folder Modal */}
+        {isFolderModalOpen && (
+            <CreateFolderModal
+                open={isFolderModalOpen}
+                onClose={() => setIsFolderModalOpen(false)}
+                organization={organization}
+                addFileNode={addFileNode}
+                setErrorMessage={setErrorMessage}
             />
         )}
       </Box>

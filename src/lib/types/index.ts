@@ -1,6 +1,8 @@
 //src/lib/types/index.ts
 import {Factor, UserAppMetadata, UserIdentity, UserMetadata} from "@supabase/supabase-js";
-
+import {FileNodeType, ProximityCategory, TaxonomicRank, PoleshiftPermissions} from "./enums.ts";
+export * from './db_types.ts';
+export * from './enums.ts';
 export type PreAuthView = 'login' | 'signup' | 'reset-password';
 
 export interface User {
@@ -29,53 +31,35 @@ export interface User {
     factors?: Factor[]
 }
 
-export enum UserRole {
-    Admin = 'admin',
-    Lead = 'lead',
-    Researcher = 'researcher',
-    Viewer = 'viewer',
-}
-
-export enum Permissions {
-    AddUser = 'organizations.add_user',
-    RemoveUser = 'organizations.remove_user',
-    ViewUser = 'organizations.view_user',
-    ModifyUser = 'organizations.modify_user',
-    DeleteSampleGroup = 'sample_groups.delete',
-    CreateSampleGroup = 'sample_groups.create',
-    ModifySampleGroup = 'sample_groups.modify',
-    ShareSampleGroup = 'sample_groups.share',
-}
-
-export const adminPermissions: Permissions[] = [
-    Permissions.AddUser,
-    Permissions.RemoveUser,
-    Permissions.ViewUser,
-    Permissions.ModifyUser,
-    Permissions.DeleteSampleGroup,
-    Permissions.CreateSampleGroup,
-    Permissions.ModifySampleGroup,
-    Permissions.ShareSampleGroup
+export const adminPermissions: PoleshiftPermissions[] = [
+    PoleshiftPermissions.AddUser,
+    PoleshiftPermissions.RemoveUser,
+    PoleshiftPermissions.ViewUser,
+    PoleshiftPermissions.ModifyUser,
+    PoleshiftPermissions.DeleteSampleGroup,
+    PoleshiftPermissions.CreateSampleGroup,
+    PoleshiftPermissions.ModifySampleGroup,
+    PoleshiftPermissions.ShareSampleGroup
 ]
 
-export const leadPermissions: Permissions[] = [
-    Permissions.AddUser,
-    Permissions.RemoveUser,
-    Permissions.ViewUser,
-    Permissions.ModifyUser,
-    Permissions.DeleteSampleGroup,
-    Permissions.CreateSampleGroup,
-    Permissions.ModifySampleGroup,
-    Permissions.ShareSampleGroup
+export const leadPermissions: PoleshiftPermissions[] = [
+    PoleshiftPermissions.AddUser,
+    PoleshiftPermissions.RemoveUser,
+    PoleshiftPermissions.ViewUser,
+    PoleshiftPermissions.ModifyUser,
+    PoleshiftPermissions.DeleteSampleGroup,
+    PoleshiftPermissions.CreateSampleGroup,
+    PoleshiftPermissions.ModifySampleGroup,
+    PoleshiftPermissions.ShareSampleGroup
 ]
 
-export const researcherPermissions: Permissions[] = [
-    Permissions.ViewUser,
-    Permissions.CreateSampleGroup,
-    Permissions.ModifySampleGroup
+export const researcherPermissions: PoleshiftPermissions[] = [
+    PoleshiftPermissions.ViewUser,
+    PoleshiftPermissions.CreateSampleGroup,
+    PoleshiftPermissions.ModifySampleGroup
 ]
 
-export const viewerPermissions: Permissions[] = []
+export const viewerPermissions: PoleshiftPermissions[] = []
 
 export interface UserProfile {
     id: string;
@@ -99,11 +83,6 @@ export interface LicenseKey {
     created_at?: string;
 }
 
-export enum FileNodeType {
-    Folder = 'folder',
-    SampleGroup = 'sampleGroup',
-}
-
 // Data related types
 export interface FileNode {
     id: string;
@@ -121,27 +100,6 @@ export interface FileNode {
      * for building the tree structure in-memory for MUI.
      */
     children?: FileNode[];
-}
-
-export enum ProximityCategory {
-    Close = 'Immediate',
-    Far1 = 'Far1',
-    Far2 = 'Far2'
-}
-
-export enum TaxonomicRank {
-    Root = 'Root',
-    Domain = 'Domain',
-    Supergroup = 'Supergroup',
-    Division = 'Division',
-    Subdivision = 'Subdivision',
-    Class = 'Class',
-    Order = 'Order',
-    Family = 'Family',
-    Species = 'Species',
-    Genus = 'Genus',
-    Assembly = 'Assembly',
-    Sequence = 'Sequence',
 }
 
 /**

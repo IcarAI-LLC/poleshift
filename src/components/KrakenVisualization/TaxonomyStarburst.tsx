@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import Plotly from 'plotly.js-dist';
-import { Box, Button, Typography, CircularProgress } from '@mui/material';
-import { useHierarchyTree, TaxonomyHierarchyNode, TaxonomyNode } from '../../lib/hooks/useHierarchyTree';
+import { Box, Button, Typography } from '@mui/material';
+import { ProcessedKrakenUniqReport } from '../../lib/types';
 
 interface TaxonomyStarburstProps {
-    nodes: TaxonomyNode[];
+    data: ProcessedKrakenUniqReport[];
     width?: number;
     height?: number;
 }
@@ -12,7 +12,7 @@ interface TaxonomyStarburstProps {
 // Neutral beige for top-level nodes
 const topLevelBeige = '#f5f5dc';
 
-// Base colors for second-level nodes:
+// Base colors for second-level nodes
 const baseColors = [
     '#ff6d55',
     '#ffec4d',
@@ -95,140 +95,144 @@ const getColorForDepth = (baseColor: string, depth: number) => {
     const { h, s, l } = hexToHsl(baseColor);
     if (depth > 1) {
         const reduceSteps = depth - 1;
-        const newS = Math.max(s - (reduceSteps * 0.05), 0);
+        const newS = Math.max(s - (reduceSteps * 0.015), 0);
         return hslToHex(h, newS, l);
     } else {
         return baseColor;
     }
 };
 
-const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 800, height = 800 }) => {
+interface NodeInfo {
+    node: ProcessedKrakenUniqReport;
+    depth: number;
+    path: string[];
+}
+
+const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800, height = 800 }) => {
     const plotRef = useRef<HTMLDivElement | null>(null);
-    const { hierarchyData, loading, error } = useHierarchyTree(nodes);
-
-    // State for the current root of the sunburst
     const [currentRootId, setCurrentRootId] = useState<string | undefined>(undefined);
-
     const [parentMap, setParentMap] = useState<Record<string, string>>({});
 
+    // Build the hierarchy and parent map
     useEffect(() => {
-        if (!hierarchyData || hierarchyData.length === 0) return;
-
         const map: Record<string, string> = {};
+        data.forEach(node => {
+            if (node.parent_id) {
+                map[node.id] = node.parent_id;
+            }
+        });
+        setParentMap(map);
+    }, [data]);
 
-        const buildParentMap = (node: TaxonomyHierarchyNode, parentId: string) => {
-            const nodeId = `${node.name}-${node.tax_id}`;
-            if (parentId) {
-                map[nodeId] = parentId;
-            }
-            if (node.children) {
-                node.children.forEach(child => buildParentMap(child, nodeId));
-            }
+    const getNodeHierarchyInfo = (nodes: ProcessedKrakenUniqReport[]): NodeInfo[] => {
+        const nodeMap = new Map(nodes.map(node => [node.id, node]));
+        const result: NodeInfo[] = [];
+
+        const processNode = (node: ProcessedKrakenUniqReport, currentDepth: number, currentPath: string[]) => {
+            result.push({
+                node,
+                depth: currentDepth,
+                path: [...currentPath, node.id]
+            });
+
+            // Find all children
+            nodes.forEach(potentialChild => {
+                if (potentialChild.parent_id === node.id) {
+                    processNode(potentialChild, currentDepth + 1, [...currentPath, node.id]);
+                }
+            });
         };
 
-        hierarchyData.forEach(root => buildParentMap(root, ''));
-        setParentMap(map);
-    }, [hierarchyData]);
+        // Find root nodes (nodes without parents or with parents not in our dataset)
+        const rootNodes = nodes.filter(node =>
+            !node.parent_id || !nodeMap.has(node.parent_id)
+        );
 
-    const findNodeById = (hierarchy: TaxonomyHierarchyNode[], targetId: string): TaxonomyHierarchyNode | null => {
-        for (const node of hierarchy) {
-            const nodeId = `${node.name}-${node.tax_id}`;
-            if (nodeId === targetId) {
-                return node;
-            }
-            if (node.children && node.children.length > 0) {
-                const found = findNodeById(node.children, targetId);
-                if (found) return found;
-            }
-        }
-        return null;
+        rootNodes.forEach(root => processNode(root, 0, []));
+        return result;
     };
 
-    const getActiveHierarchy = () => {
-        if (!hierarchyData || hierarchyData.length === 0) return [];
-        if (!currentRootId) return hierarchyData;
-        const found = findNodeById(hierarchyData, currentRootId);
-        return found ? [found] : [];
-    };
+    // Process the data for plotly
+    const processDataForPlotly = (nodes: ProcessedKrakenUniqReport[]) => {
+        const hierarchyInfo = getNodeHierarchyInfo(nodes);
 
-    const processHierarchyData = (hierarchy: TaxonomyHierarchyNode[]) => {
         const labels: string[] = [];
         const parents: string[] = [];
         const values: number[] = [];
         const ids: string[] = [];
-
-        // For each node, we'll store a custom data array,
-        // e.g. [tax_id, rank, reads, percentage, depth]
-        const customdata: Array<[number, string, number, number, number]> = [];
-
-        const depths: number[] = [];
+        const customdata: Array<[number, string, number, number, string, number]> = [];
         const colors: string[] = [];
 
         let secondLevelColorIndex = 0;
 
-        const traverse = (
-            node: TaxonomyHierarchyNode,
-            parentId = '',
-            depth = 0,
-            baseColor?: string
-        ) => {
-            const nodeId = `${node.name}-${node.tax_id}`;
+        hierarchyInfo.forEach(({ node, depth }) => {
+            labels.push(node.tax_name);
+            parents.push(node.parent_id || '');
+            values.push(parseInt(node.reads));
+            ids.push(node.id);
 
-            labels.push(node.name);
-            parents.push(parentId);
-            values.push(node.reads);
-            ids.push(nodeId);
+            customdata.push([
+                node.tax_id,
+                node.rank,
+                node.percentage,
+                parseInt(node.reads),
+                node.coverage,
+                node.e_score
+            ]);
 
-            // Build the customdata entry:
-            // We store the extra fields in customdata:
-            customdata.push([node.tax_id, node.rank, node.percentage, node.reads, node.depth]);
-
-            depths.push(depth);
-
-            // Coloring logic
+            // Color logic
             let nodeColor: string;
-            let currentBaseColor = baseColor;
-
             if (depth === 0) {
                 nodeColor = topLevelBeige;
-                currentBaseColor = undefined;
             } else if (depth === 1) {
-                const colorIndex = secondLevelColorIndex % baseColors.length;
-                nodeColor = baseColors[colorIndex];
+                nodeColor = baseColors[secondLevelColorIndex % baseColors.length];
                 secondLevelColorIndex++;
-                currentBaseColor = nodeColor;
             } else {
-                if (!currentBaseColor) {
-                    currentBaseColor = topLevelBeige;
-                }
-                nodeColor = getColorForDepth(currentBaseColor, depth);
+                const parentIndex = hierarchyInfo.findIndex(info =>
+                    info.node.id === node.parent_id
+                );
+                const parentColor = colors[parentIndex];
+                nodeColor = getColorForDepth(parentColor || topLevelBeige, depth);
             }
-
             colors.push(nodeColor);
+        });
 
-            // Recurse into children
-            if (node.children && node.children.length > 0) {
-                node.children.forEach(child => traverse(child, nodeId, depth + 1, currentBaseColor));
-            }
-        };
-
-        hierarchy.forEach(root => traverse(root));
-
-        return { labels, parents, values, ids, customdata, depths, colors };
+        return { labels, parents, values, ids, customdata, colors };
     };
 
-
     const processedData = useMemo(() => {
-        const activeHierarchy = getActiveHierarchy();
-        if (activeHierarchy.length === 0) return null;
-        return processHierarchyData(activeHierarchy);
-    }, [hierarchyData, currentRootId]);
+        if (!data || data.length === 0) return null;
+
+        // If we have a current root, filter to show only that subtree
+        let dataToProcess = data;
+        if (currentRootId) {
+            const getSubtreeNodes = (rootId: string): Set<string> => {
+                const subtreeNodes = new Set([rootId]);
+                let found = true;
+                while (found) {
+                    found = false;
+                    data.forEach(node => {
+                        if (node.parent_id && subtreeNodes.has(node.parent_id) && !subtreeNodes.has(node.id)) {
+                            subtreeNodes.add(node.id);
+                            found = true;
+                        }
+                    });
+                }
+                return subtreeNodes;
+            };
+
+            const subtreeNodes = getSubtreeNodes(currentRootId);
+            dataToProcess = data.filter(node => subtreeNodes.has(node.id));
+        }
+
+        return processDataForPlotly(dataToProcess);
+    }, [data, currentRootId]);
 
     const isRootClickable = (rootId: string | undefined) => {
-        // The root is clickable if it has a parent (i.e., not the original top-level root)
         return !!rootId && !!parentMap[rootId];
     };
 
+    // Draw the plot
     const drawPlot = async () => {
         if (!plotRef.current || !processedData) return;
 
@@ -239,7 +243,6 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 80
                 parents: processedData.parents,
                 ids: processedData.ids,
                 values: processedData.values,
-
                 customdata: processedData.customdata,
                 hovertemplate: `
                 <b>%{label}</b><br>
@@ -247,9 +250,9 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 80
                 Rank: %{customdata[1]}<br>
                 Percentage: %{customdata[2]}%<br>
                 Reads: %{customdata[3]}<br>
-                Depth: %{customdata[4]}<br>
+                Coverage: %{customdata[4]}<br>
+                E-score: %{customdata[5]}<br>
                 <extra></extra>`,
-
                 marker: {
                     colors: processedData.colors,
                     line: { color: '#ffffff', width: 0 },
@@ -286,32 +289,24 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 80
 
             const clickedId = point.id;
             if (clickedId === currentRootId) {
-                // Clicked the current root. If it has a parent, go up.
                 if (currentRootId && parentMap[currentRootId]) {
                     setCurrentRootId(parentMap[currentRootId]);
                 }
             } else {
-                // Just re-root at the clicked node
                 setCurrentRootId(clickedId);
             }
         });
 
-        // Change cursor on hover if node is clickable
         gd.on('plotly_hover', (event: any) => {
             const point = event.points?.[0];
             if (!point || !plotRef.current) return;
             const hoveredId = point.id;
             let cursorStyle = 'default';
 
-            // If hovered node is not the current root, it's always clickable (moves down)
             if (hoveredId !== currentRootId) {
                 cursorStyle = 'pointer';
-            } else {
-                // Hovered the current root
-                // If it has a parent, we can go up, so it's clickable
-                if (isRootClickable(currentRootId)) {
-                    cursorStyle = 'pointer';
-                }
+            } else if (isRootClickable(currentRootId)) {
+                cursorStyle = 'pointer';
             }
 
             plotRef.current.style.cursor = cursorStyle;
@@ -333,23 +328,7 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ nodes, width = 80
         setCurrentRootId(undefined);
     };
 
-    if (loading) {
-        return (
-            <Box display="flex" alignItems="center" justifyContent="center" height="100vh">
-                <CircularProgress />
-            </Box>
-        );
-    }
-
-    if (error) {
-        return (
-            <Box display="flex" alignItems="center" justifyContent="center" height="100vh">
-                <Typography color="error">Error: {error}</Typography>
-            </Box>
-        );
-    }
-
-    if (!hierarchyData || hierarchyData.length === 0) {
+    if (!data || data.length === 0) {
         return (
             <Box display="flex" alignItems="center" justifyContent="center" height="100vh">
                 <Typography color="text.secondary">No hierarchy data available</Typography>
