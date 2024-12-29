@@ -26,15 +26,13 @@ const MergedDropBoxes: React.FC<DropboxesProps> = ({ onError }) => {
     );
 
     // Memoized sampleGroup and location
-    const { sampleGroup, sampleLocation } = useMemo(() => {
+    const { sampleGroup} = useMemo(() => {
         if (!sampleGroupId) {
-            return { sampleGroup: null, sampleLocation: null };
+            return { sampleGroup: null };
         }
         const currentSampleGroup = sampleGroups[sampleGroupId];
-        const location = getLocationById(currentSampleGroup?.loc_id || null);
         return {
             sampleGroup: currentSampleGroup || null,
-            sampleLocation: location,
         };
     }, [sampleGroupId, sampleGroups, getLocationById]);
 
@@ -78,7 +76,6 @@ const MergedDropBoxes: React.FC<DropboxesProps> = ({ onError }) => {
                             <SingleDropBox
                                 configItem={configItem}
                                 sampleGroup={sampleGroup}
-                                sampleLocation={sampleLocation}
                                 organization={organization}
                                 isLocked={locked}
                                 onError={onError}

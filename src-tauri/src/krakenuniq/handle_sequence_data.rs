@@ -197,7 +197,7 @@ pub async fn handle_sequence_data<R: Runtime>(
         .await
         .map_err(|e| PoleshiftError::Other(e.to_string()))?;
 
-    emit_progress(&window, 80, "Processing Charybdis output...", "processing")?;
+    emit_progress(&window, 40, "Processing Charybdis output...", "processing")?;
 
     // 6) Parse the summary Kraken report (written to `report_file_path`)
     if !report_file_path.exists() {
@@ -259,7 +259,7 @@ pub async fn handle_sequence_data<R: Runtime>(
         }
     };
 
-    emit_progress(&window, 100, "Complete...", "complete")?;
+    emit_progress(&window, 50, "Processing complete...", "processing")?;
 
     // 9) Construct and return the final result
     let final_kraken_result = KrakenUniqResult {

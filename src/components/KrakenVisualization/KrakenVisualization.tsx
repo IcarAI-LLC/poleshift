@@ -40,6 +40,7 @@ interface PlotData {
   kmers: number;
   dup: number;
   cov: number;
+  e_score: number;
 }
 
 interface Props {
@@ -87,6 +88,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       kmers: parseInt(entry.kmers),
       dup: parseFloat(entry.duplication),
       cov: parseFloat(entry.coverage),
+      e_score: entry.e_score,
     }));
   }, [data]);
 
@@ -111,6 +113,8 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
         kmers: parseInt(entry.kmers),
         dup: parseFloat(entry.duplication),
         cov: parseFloat(entry.coverage),
+        e_score: entry.e_score,
+
       }))
     }));
   }, [data]);
@@ -165,6 +169,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
             kmers: parseInt(entry.kmers),
             dup: parseFloat(entry.duplication),
             cov: parseFloat(entry.coverage),
+            e_score: entry.e_score,
           }));
     }
 
@@ -279,6 +284,12 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       sortable: true,
       render: (value: number) => formatPercentage(value || 0),
     },
+    {
+      key: 'e_score' as SortableKeys,
+      header: 'E-Score',
+      sortable: true,
+      render: (value: number) => value || 0,
+    },
   ];
 
   if (!data || data.length === 0) {
@@ -361,7 +372,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
                             <DistributionChart
                                 key={rankData.rankBase}
                                 data={rankData.plotData}
-                                title={`${rankData.rankName} Distribution`}
+                                title={`${rankData.rankName.charAt(0).toUpperCase()+rankData.rankName.slice(1)} Distribution`}
                             />
                         ))
                 ) : (

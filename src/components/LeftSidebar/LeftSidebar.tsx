@@ -15,6 +15,8 @@ import { PoleshiftPermissions } from '../../lib/types';
 import LeftSidebarTree from './LeftSidebarTree';
 import CreateSampleGroupModal from './CreateSampleGroupModal';
 import CreateFolderModal from './CreateFolderModal';
+import ContainerIcon from '../../assets/container.svg'
+import CreateContainerModal from "./CreateContainerModal.tsx";
 
 const LeftSidebar: React.FC = () => {
   const theme = useTheme();
@@ -29,6 +31,7 @@ const LeftSidebar: React.FC = () => {
   // Disentangled modals
   const [isSampleGroupModalOpen, setIsSampleGroupModalOpen] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [isContainerModalOpen, setIsContainerModalOpen] = useState(false);
 
   // Click handlers to open each modal
   const openSampleGroupModal = useCallback(() => {
@@ -47,6 +50,14 @@ const LeftSidebar: React.FC = () => {
     setIsFolderModalOpen(true);
   }, [hasCreatePermission, setErrorMessage]);
 
+  const openContainerModal = useCallback(() => {
+    if (!hasCreatePermission) {
+      setErrorMessage('You do not have permission to create a new container.');
+      return;
+    }
+    setIsContainerModalOpen(true);
+  }, [hasCreatePermission, setErrorMessage]);
+
   // Reset selection
   const handleResetSelection = useCallback(() => {
     setSelectedLeftItem(undefined);
@@ -63,7 +74,7 @@ const LeftSidebar: React.FC = () => {
       transition: theme.transitions.create('width', {
         duration: theme.transitions.duration.standard,
       }),
-      overflow: 'hidden',
+      overflow: 'auto',
       position: 'absolute',
       zIndex: 1000,
     } as const,
@@ -134,6 +145,25 @@ const LeftSidebar: React.FC = () => {
               )}
             </Button>
 
+            {/* Create New Container Button */}
+            <Button
+                variant="contained"
+                onClick={openContainerModal}
+                aria-label="Create New Container"
+                sx={styles.sidebarButton}
+                disableElevation
+                disabled={!hasCreatePermission}
+            >
+              <img
+                  src={ContainerIcon}
+                  alt="Container Icon"
+                  style={{width: 24, height: 24}}
+              />
+              {!isLeftSidebarCollapsed && (
+                  <span style={{marginLeft: theme.spacing(1)}}>New Container</span>
+              )}
+            </Button>
+
             {/* Reset Selection Button */}
             <Button
                 variant="contained"
@@ -172,6 +202,17 @@ const LeftSidebar: React.FC = () => {
             <CreateFolderModal
                 open={isFolderModalOpen}
                 onClose={() => setIsFolderModalOpen(false)}
+                organization={organization}
+                addFileNode={addFileNode}
+                setErrorMessage={setErrorMessage}
+            />
+        )}
+
+        {/* 3) Create Container Modal */}
+        {isContainerModalOpen && (
+            <CreateContainerModal
+                open={isContainerModalOpen}
+                onClose={() => setIsContainerModalOpen(false)}
                 organization={organization}
                 addFileNode={addFileNode}
                 setErrorMessage={setErrorMessage}

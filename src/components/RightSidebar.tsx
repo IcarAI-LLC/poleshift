@@ -128,8 +128,10 @@ const RightSidebar: React.FC = () => {
   const samplesAtLocation = useMemo(() => {
     if (!selectedRightItem) return [];
     return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
+      // Filter by location
       if (group.loc_id !== selectedRightItem.id) return false;
 
+      // Filter by selected locations (if any)
       if (
           filters.selectedLocations.length > 0 &&
           !filters.selectedLocations.includes(group.loc_id)
@@ -137,6 +139,12 @@ const RightSidebar: React.FC = () => {
         return false;
       }
 
+      // Filter by excluded status
+      if (!filters.showExcluded && group.excluded === 1) {
+        return false;
+      }
+
+      // Filter by date range
       if (group.collection_date) {
         const sampleDate = DateTime.fromISO(group.collection_date);
         if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
@@ -161,7 +169,6 @@ const RightSidebar: React.FC = () => {
   // Always call the same 3 hooks, never skip them.
   // ─────────────────────────────────────────────────────────────────
   const ctdDataQuery = useMemo(() => {
-    // If sampleIds is empty, we use `1=0` to get no rows but keep the hook call
     return drizzleDB
         .select()
         .from(processed_data_improved)
@@ -208,8 +215,7 @@ const RightSidebar: React.FC = () => {
   const sequenceData = useQuery(toCompilableQuery(sequenceDataQuery)).data || [];
 
   // ─────────────────────────────────────────────────────────────────
-  // 2) Query detail tables (CTD, Nutrient, Kraken) using a single query
-  //    per table, again always calling the same hooks.
+  // 2) Query detail tables (CTD, Nutrient, Kraken)
   // ─────────────────────────────────────────────────────────────────
   const ctdIds = useMemo(() => ctdData.map(d => d.id), [ctdData]);
   const ctdDetailQuery = useMemo(() => {
@@ -251,8 +257,7 @@ const RightSidebar: React.FC = () => {
   const sequenceDetailRows = useQuery(toCompilableQuery(sequenceDetailQuery)).data || [];
 
   // ─────────────────────────────────────────────────────────────────
-  // 3) Compute stats in the frontend (average temp, average salinity,
-  //    ammonium stats, sequence data by threshold).
+  // 3) Compute stats in the frontend
   // ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedRightItem || sampleIds.length === 0) {
@@ -260,9 +265,7 @@ const RightSidebar: React.FC = () => {
       return;
     }
 
-    // --------------------------
-    // A) AVERAGE TEMP & SALINITY (depth <= 2 m)
-    // --------------------------
+    // A) Average temp & salinity (depth <= 2 m)
     let totalTemp = 0;
     let tempCount = 0;
     let totalSalinity = 0;
@@ -284,9 +287,7 @@ const RightSidebar: React.FC = () => {
     const average_temperature = tempCount > 0 ? totalTemp / tempCount : null;
     const average_salinity = salCount > 0 ? totalSalinity / salCount : null;
 
-    // -----------------------------
-    // B) AMMONIUM STATS (avg, min, max)
-    // -----------------------------
+    // B) Ammonium stats (avg, min, max)
     const ammoniumVals: number[] = [];
     for (const row of nutrientDetailRows) {
       if (typeof row.ammonium === 'number') {
@@ -309,9 +310,7 @@ const RightSidebar: React.FC = () => {
       ammonium_stats.count = ammoniumVals.length;
     }
 
-    // --------------------------------
-    // C) SEQUENCE DATA (species, genus), filtered by confidenceThreshold
-    // --------------------------------
+    // C) Sequence data (species, genus), filtered by confidenceThreshold
     const species_data: Record<string, number> = {};
     const genus_data: Record<string, number> = {};
 
@@ -320,16 +319,14 @@ const RightSidebar: React.FC = () => {
       if (typeof percentage !== 'number') continue;
 
       if (percentage > confidenceThreshold) {
-        // If you want to track species (rank === 'S') vs. genus (rank === 'G'), etc.
-        if (row.rank === 'S') {
+        if (row.rank === 'Species') {
           species_data[row.tax_name] = (species_data[row.tax_name] || 0) + 1;
-        } else if (row.rank === 'G') {
+        } else if (row.rank === 'Genus') {
           genus_data[row.tax_name] = (genus_data[row.tax_name] || 0) + 1;
         }
       }
     }
 
-    // D) Update stats
     setStats({
       average_temperature,
       average_salinity,
@@ -349,7 +346,6 @@ const RightSidebar: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────
   // 4) Render
   // ─────────────────────────────────────────────────────────────────
-  // If no selected item, render an empty/fallback UI (but do NOT skip hooks above)
   if (!selectedRightItem) {
     return (
         <div className="right-sidebar collapsed">
@@ -480,7 +476,7 @@ const RightSidebar: React.FC = () => {
                   <Grid container spacing={1}>
                     {Object.entries(stats.species_data)
                         .sort(([, a], [, b]) => b - a)
-                        .slice(0, 100) // Show top 100 if desired
+                        .slice(0, 100)
                         .map(([species, count]) => (
                             <Grid item xs={12} key={species}>
                               <Typography variant="body1">
@@ -493,28 +489,6 @@ const RightSidebar: React.FC = () => {
               </Card>
           )}
 
-          {/* Optionally render Genera if desired */}
-          {/* {Object.keys(stats.genus_data).length > 0 && (
-          <Card sx={styles.card}>
-            <CardContent sx={styles.cardContent}>
-              <Typography variant="h6" gutterBottom>
-                Genera Identified
-              </Typography>
-              <Grid container spacing={1}>
-                {Object.entries(stats.genus_data)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([genus, count]) => (
-                    <Grid item xs={12} key={genus}>
-                      <Typography variant="body1">
-                        <strong>{genus}</strong>: {count} sample(s)
-                      </Typography>
-                    </Grid>
-                  ))}
-              </Grid>
-            </CardContent>
-          </Card>
-        )} */}
-
           {/* Samples List Card */}
           {samplesAtLocation.length > 0 && (
               <Card sx={styles.card}>
@@ -525,9 +499,24 @@ const RightSidebar: React.FC = () => {
                   <Grid container spacing={2}>
                     {samplesAtLocation.map((sampleGroup) => (
                         <Grid item xs={12} key={sampleGroup.id}>
-                          <Typography variant="body1">
-                            <strong>{sampleGroup.human_readable_sample_id}</strong>
-                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1" sx={{ flex: 1 }}>
+                              <strong>{sampleGroup.human_readable_sample_id}</strong>
+                              {sampleGroup.excluded === 1 && (
+                                  <Typography
+                                      component="span"
+                                      sx={{
+                                        ml: 1,
+                                        color: 'error.main',
+                                        fontSize: '0.875rem',
+                                        fontStyle: 'italic'
+                                      }}
+                                  >
+                                    (Excluded)
+                                  </Typography>
+                              )}
+                            </Typography>
+                          </Box>
                           {sampleGroup.collection_date && (
                               <Typography variant="body2" color="text.secondary">
                                 {DateTime.fromISO(sampleGroup.collection_date).toLocaleString(

@@ -16,6 +16,7 @@ interface DataChartProps {
   data: ProcessedCtdRbrDataValues[];
 }
 
+// Helper arrays and functions (as before)
 const colorArray = [
   '#8884d8',
   '#82ca9d',
@@ -27,49 +28,88 @@ const colorArray = [
   '#FF8042',
 ];
 
-// Define which fields we want to plot (excluding metadata fields)
-const plottableFields: (keyof ProcessedCtdRbrDataValues)[] = [
-  'depth',
-  'pressure',
-  'sea_pressure',
-  'temperature',
-  'chlorophyll_a',
-  'salinity',
-  'speed_of_sound',
-  'specific_conductivity'
-];
+function formatLabel(variableName: string): string {
+  let label = variableName.replace(/_/g, " ");
+  let parts = label.split(" ").map(word => {
+    switch (word.toLowerCase()){
+      case "of":
+        return "of";
+      case "a":
+        return "a";
+      default:
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }
+  });
+  return parts.join(" ");
+}
 
-const getUnitFieldName = (field: keyof ProcessedCtdRbrDataValues): keyof ProcessedCtdRbrDataValues => {
-  return `${field}_unit` as keyof ProcessedCtdRbrDataValues;
-};
+function renameKeysInData(dataArray: ProcessedCtdRbrDataValues[]): any[] {
+  return dataArray.map((record) => {
+    const newRecord: Record<string, any> = {};
 
+    Object.entries(record).forEach(([key, value]) => {
+      // handle special case for "_unit" suffix
+      if (key.endsWith('_unit')) {
+        const mainKey = key.replace('_unit', '');
+        // e.g., "speed_of_sound" -> "Speed of Sound"
+        const newMainKey = formatLabel(mainKey);
+        newRecord[`${newMainKey}_unit`] = value;
+      } else {
+        const newKey = formatLabel(key);
+        newRecord[newKey] = value;
+      }
+    });
+    return newRecord;
+  });
+}
+
+// Our main component
 const DataChart: React.FC<DataChartProps> = ({ data }) => {
-  const [selectedVariables, setSelectedVariables] = useState<(keyof ProcessedCtdRbrDataValues)[]>([]);
+  // 1) Transform the data first (useMemo if large data for performance)
+  const transformedData = useMemo(() => renameKeysInData(data), [data]);
 
-  // Extract available variables and their units
+  // Now, "transformedData" has keys like "Speed of Sound", "Chlorophyll a", etc.
+  // Next, define which fields we want to plot. Notice they must match the new keys:
+  const plottableFields = [
+    'Depth',
+    'Pressure',
+    'Sea Pressure',
+    'Temperature',
+    'Chlorophyll a',
+    'Salinity',
+    'Speed of Sound',
+    'Specific Conductivity'
+  ];
+
+  const [selectedVariables, setSelectedVariables] = useState<string[]>([]);
+
+  // 2) Extract available variables and their units from the transformed data
   const { variableOptions, units } = useMemo(() => {
-    if (data.length === 0) return { variableOptions: [], units: {} };
+    if (transformedData.length === 0) {
+      return { variableOptions: [], units: {} };
+    }
+    const firstRow = transformedData[0];
 
-    const firstRow = data[0];
+    // Filter plottable fields that actually appear and have numeric values
     const options = plottableFields.filter(field =>
-        firstRow[field] !== null &&
         typeof firstRow[field] === 'number'
     );
 
-    const extractedUnits = Object.fromEntries(
-        options.map(field => {
-          const unitField = getUnitFieldName(field);
-          return [field, firstRow[unitField] || 'N/A'];
-        })
-    );
+    // For each field, the unit key is something like "<field>_unit"
+    // e.g. "Speed of Sound_unit"
+    const extractedUnits: Record<string, string> = {};
+    options.forEach((field) => {
+      const unitKey = `${field}_unit`;
+      extractedUnits[field] = firstRow[unitKey] || 'N/A';
+    });
 
     return {
       variableOptions: options,
       units: extractedUnits
     };
-  }, [data]);
+  }, [transformedData]);
 
-  // Custom legend component
+  // Custom legend
   const CustomLegend = () => (
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         {selectedVariables.map((variableName, index) => (
@@ -91,7 +131,7 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
       </Stack>
   );
 
-  const handleToggle = (variableName: keyof ProcessedCtdRbrDataValues) => {
+  const handleToggle = (variableName: string) => {
     setSelectedVariables((prev) =>
         prev.includes(variableName)
             ? prev.filter((v) => v !== variableName)
@@ -99,7 +139,8 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
     );
   };
 
-  if (data.length === 0) {
+  // 3) Rendering logic
+  if (transformedData.length === 0) {
     return (
         <Card sx={{ bgcolor: 'black', color: 'white' }}>
           <CardContent>
@@ -109,7 +150,6 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
     );
   }
 
-  // Show message when no variables are selected
   if (selectedVariables.length === 0) {
     return (
         <Card sx={{ bgcolor: 'black', color: 'white' }}>
@@ -139,20 +179,22 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
     );
   }
 
-  // Prepare data for Google Charts
+  // Prepare data for Google Charts:
+  // The key for Depth is "Depth", so we reference "Depth" from each record for the Y-axis
   const chartData = [
+    // column definitions
     ['Variable Value', 'Depth', { role: 'tooltip' }, { role: 'style' }],
+    // all selected variables
     ...selectedVariables.flatMap((variableName, seriesIndex) =>
-        data
+        transformedData
             .map(item => {
               const x = item[variableName];
-              const y = item.depth;
-              if (x === null || y === null) return null;
-
+              const y = item['Depth'];
+              if (x == null || y == null) return null;
               return [
                 x,
                 y,
-                `${variableName}: ${x} ${units[variableName]}\nDepth: ${y} ${units['depth']}`,
+                `${variableName}: ${x} ${units[variableName]}\nDepth: ${y} ${units['Depth']}`,
                 `point { size: 3; fill-color: ${colorArray[seriesIndex % colorArray.length]}; }`
               ];
             })
@@ -160,48 +202,28 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
     )
   ];
 
+  // Chart options
   const options = {
     backgroundColor: '#000000',
     colors: selectedVariables.map((_, index) => colorArray[index % colorArray.length]),
     hAxis: {
-      title: selectedVariables.length === 1
-          ? `${selectedVariables[0]} (${units[selectedVariables[0]]})`
-          : 'Variable Value',
-      gridlines: {
-        color: '#444444'
-      },
-      titleTextStyle: {
-        color: '#ffffff',
-        italic: false,
-        bold: true
-      },
-      textStyle: {
-        color: '#ffffff'
-      }
+      title:
+          selectedVariables.length === 1
+              ? `${selectedVariables[0]} (${units[selectedVariables[0]]})`
+              : 'Variable Value',
+      gridlines: { color: '#444444' },
+      titleTextStyle: { color: '#ffffff', italic: false, bold: true },
+      textStyle: { color: '#ffffff' }
     },
     vAxis: {
-      title: `Depth (${units['depth']})`,
-      direction: -1,
-      gridlines: {
-        color: '#444444'
-      },
-      titleTextStyle: {
-        color: '#ffffff',
-        italic: false,
-        bold: true
-      },
-      textStyle: {
-        color: '#ffffff'
-      }
+      title: `Depth (${units['Depth'] || 'm'})`,
+      direction: -1, // invert Y-axis
+      gridlines: { color: '#444444' },
+      titleTextStyle: { color: '#ffffff', italic: false, bold: true },
+      textStyle: { color: '#ffffff' }
     },
-    legend: {
-      position: 'none'  // Hide default legend
-    },
-    tooltip: {
-      textStyle: {
-        fontSize: 12
-      }
-    },
+    legend: { position: 'none' },
+    tooltip: { textStyle: { fontSize: 12 } },
     chartArea: {
       left: 80,
       top: 50,
@@ -235,7 +257,7 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
               ))}
             </Box>
 
-            {/* Custom Legend */}
+            {/* Custom legend */}
             <CustomLegend />
 
             {/* Chart */}

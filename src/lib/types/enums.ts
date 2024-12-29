@@ -19,6 +19,7 @@ export enum PoleshiftPermissions {
 export enum FileNodeType {
     Folder = 'folder',
     SampleGroup = 'sampleGroup',
+    Container = 'container',
 }
 
 export enum ProximityCategory {

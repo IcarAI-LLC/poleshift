@@ -9,6 +9,8 @@ import {
     Typography,
     IconButton,
     useTheme,
+    FormControlLabel,
+    Switch,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -29,6 +31,7 @@ interface FilterState {
     startDate: string | null;
     endDate: string | null;
     selectedLocations: string[];
+    showExcluded: boolean;
 }
 
 interface StyleProps {
@@ -55,6 +58,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
         startDate: filters.startDate,
         endDate: filters.endDate,
         selectedLocations: filters.selectedLocations,
+        showExcluded: filters.showExcluded || false, // Default to false if not set
     });
 
     const styles = useMemo<StyleProps>(() => ({
@@ -151,6 +155,14 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
         }));
     }, []);
 
+    // Show excluded toggle handler
+    const handleShowExcludedChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setLocalFilters(prev => ({
+            ...prev,
+            showExcluded: event.target.checked,
+        }));
+    }, []);
+
     // Handle apply filters
     const handleApply = useCallback(() => {
         setFilters(localFilters);
@@ -163,6 +175,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
             startDate: null,
             endDate: null,
             selectedLocations: [],
+            showExcluded: false,
         };
         setLocalFilters(resetFilters);
         setFilters(resetFilters);
@@ -181,7 +194,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
     }, []);
 
     return (
-        (<LocalizationProvider dateAdapter={AdapterLuxon}>
+        <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Box
                 onClick={(e) => e.stopPropagation()}
                 sx={styles.container}
@@ -254,7 +267,6 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                         renderTags={(tagValue, getTagProps) =>
                             tagValue.map((option, index) => (
                                 <Chip
-                                    //@ts-ignore
                                     key={option.id}
                                     label={option.label}
                                     {...getTagProps({ index })}
@@ -280,6 +292,18 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                     />
                 </FormControl>
 
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={localFilters.showExcluded}
+                            onChange={handleShowExcludedChange}
+                            color="primary"
+                        />
+                    }
+                    label="Show Excluded"
+                    sx={styles.fieldContainer}
+                />
+
                 <Box sx={styles.buttonContainer}>
                     <Button
                         variant="outlined"
@@ -304,7 +328,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                     </Button>
                 </Box>
             </Box>
-        </LocalizationProvider>)
+        </LocalizationProvider>
     );
 };
 

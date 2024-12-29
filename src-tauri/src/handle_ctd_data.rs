@@ -268,7 +268,7 @@ pub async fn handle_ctd_data(
         .collect::<Result<Vec<(Option<i64>, Vec<Option<f64>>)>, _>>()
         .map_err(|e| PoleshiftError::DataError(e.to_string()))?;
 
-    emit_progress(&window, 50, "Reading raw measurements...", "processing")?;
+    emit_progress(&window, 30, "Reading raw measurements...", "processing")?;
 
     // -----------------------------------------------------------------------
     // 3. Build RAW data rows
@@ -335,7 +335,7 @@ pub async fn handle_ctd_data(
 
     // Sort raw data by ascending timestamp
     raw_rows.sort_by_key(|r| r.tstamp);
-    emit_progress(&window, 70, "Removing upcasts...", "processing")?;
+    emit_progress(&window, 40, "Removing upcasts...", "processing")?;
 
     // -----------------------------------------------------------------------
     // 4. Now build PROCESSED data rows by applying a monotonic filter on depth
@@ -396,7 +396,7 @@ pub async fn handle_ctd_data(
         processedData: monotonic_filtered.clone(),
     };
 
-    emit_progress(&window, 100, "Complete...", "processing")?;
+    emit_progress(&window, 50, "Processing complete...", "processing")?;
 
     Ok(StandardResponseNoFiles {
         status: "Success".to_string(),

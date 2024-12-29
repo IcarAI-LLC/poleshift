@@ -2,19 +2,6 @@
 import { create } from 'zustand';
 import type { SampleLocation, FileNode } from '../types';
 
-/** Processing Status Type (extend as you need) */
-export type ProcessingStatus = 'Idle' | 'Processing' | 'Error' | 'Complete';
-
-/** Single processing item shape */
-interface ProcessingItem {
-    status: ProcessingStatus;
-    progress: number;  // 0..100 or any scale you prefer
-    error?: string;    // If you want to store an error message
-}
-
-/** Dictionary for all processing items keyed by e.g. "sampleId:configId" */
-type ProcessingMap = Record<string, ProcessingItem>;
-
 interface ContextMenuState {
     isVisible: boolean;
     x: number;
@@ -26,6 +13,7 @@ interface Filters {
     startDate: string | null;
     endDate: string | null;
     selectedLocations: string[];
+    showExcluded:boolean;
 }
 
 interface UIState {
@@ -52,9 +40,6 @@ interface UIState {
     // Move Modal
     moveModalItemId: string | null;
 
-    // Processing State
-    processingMap: ProcessingMap;
-
     // Actions
     toggleLeftSidebar: (collapsed?: boolean) => void;
     toggleRightSidebar: (collapsed?: boolean) => void;
@@ -69,15 +54,13 @@ interface UIState {
     showMoveModal: (itemId: string | null) => void;
     hideMoveModal: () => void;
 
-    // Processing State Actions
-    setProcessingState: (key: string, status: ProcessingStatus, progress?: number, error?: string) => void;
-    clearProcessingState: (key: string) => void;
 }
 
 const initialFilters: Filters = {
     startDate: null,
     endDate: null,
     selectedLocations: [],
+    showExcluded: false,
 };
 
 export const useUIStore = create<UIState>((set, _get) => ({
@@ -97,8 +80,6 @@ export const useUIStore = create<UIState>((set, _get) => ({
     filters: initialFilters,
     moveModalItemId: null,
 
-    // Initialize processingMap as empty
-    processingMap: {},
 
     // Actions
     toggleLeftSidebar: (collapsed) =>
@@ -171,23 +152,4 @@ export const useUIStore = create<UIState>((set, _get) => ({
     hideMoveModal: () =>
         set({ moveModalItemId: null }),
 
-    // Processing State Actions
-    setProcessingState: (key, status, progress = 0, error) =>
-        set((state) => ({
-            processingMap: {
-                ...state.processingMap,
-                [key]: {
-                    status,
-                    progress,
-                    error,
-                },
-            },
-        })),
-
-    clearProcessingState: (key) =>
-        set((state) => {
-            const newMap = { ...state.processingMap };
-            delete newMap[key];
-            return { processingMap: newMap };
-        }),
 }));

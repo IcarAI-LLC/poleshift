@@ -5,6 +5,7 @@ import {
     ProcessedKrakenUniqReport,
     ProcessedKrakenUniqStdout
 } from "./db_types.ts";
+import {ProcessingState} from "./enums.ts";
 
 export interface HandleCtdDataResult {
     status: string;
@@ -23,4 +24,10 @@ export interface HandleSequenceDataResult {
             processedKrakenUniqStdout: ProcessedKrakenUniqStdout[]
             rawSequences: RawFastqData[]
         }
+}
+
+export interface ProgressPayload {
+    progress_percentage: number;
+    status_message: string | null;
+    processing_state: ProcessingState;
 }

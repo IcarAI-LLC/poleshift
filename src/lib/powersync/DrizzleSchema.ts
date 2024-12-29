@@ -187,7 +187,7 @@ export const processed_data_improved = sqliteTable("processed_data_improved", {
     created_at: text("created_at").notNull().default(DateTime.now().toISO()),
     processing_state: text("processing_state").notNull().$type<ProcessingState>(),
     status_message: text("status_message"),
-    progress_percentage: real("status_message"),
+    progress_percentage: real("progress_percentage"),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────

@@ -1,16 +1,16 @@
 // src/components/LeftSidebar/LeftSidebarTree.tsx
 import React, {useCallback, useEffect, useRef} from 'react';
 import Box from '@mui/material/Box';
-import { styled } from '@mui/material/styles';
+import {styled} from '@mui/material/styles';
 import {
+    Block as ExcludedIcon,
     Folder as FolderIcon,
     FolderOpen as FolderOpenIcon,
     Science as ScienceIcon,
-    Block as ExcludedIcon,
 } from '@mui/icons-material';
 import PenguinIcon from '../../assets/penguin.svg';
-import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
-import { useTreeItem2, UseTreeItem2Parameters } from '@mui/x-tree-view/useTreeItem2';
+import {RichTreeView} from '@mui/x-tree-view/RichTreeView';
+import {useTreeItem2, UseTreeItem2Parameters} from '@mui/x-tree-view/useTreeItem2';
 import {
     TreeItem2Content,
     TreeItem2GroupTransition,
@@ -18,11 +18,11 @@ import {
     TreeItem2Label,
     TreeItem2Root,
 } from '@mui/x-tree-view/TreeItem2';
-import { TreeItem2Icon } from '@mui/x-tree-view/TreeItem2Icon';
-import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider';
-import { useData, useUI } from '../../lib/hooks';
-import { FileNode, FileNodeType } from '../../lib/types';
-import { ProximityCategory } from '../../lib/types'; // or wherever it’s defined
+import {TreeItem2Icon} from '@mui/x-tree-view/TreeItem2Icon';
+import {TreeItem2Provider} from '@mui/x-tree-view/TreeItem2Provider';
+import {useData, useUI} from '../../lib/hooks';
+import {FileNode, FileNodeType, ProximityCategory} from '../../lib/types'; // or wherever it’s defined
+import ContainerIcon from '../../assets/container.svg'
 
 const CustomTreeItemContent = styled(TreeItem2Content)(({ theme }) => ({
     padding: theme.spacing(0.5, 1),
@@ -61,8 +61,9 @@ const CustomTreeItem = React.forwardRef(function CustomTreeItem(
 
     // The actual item in the tree
     const item = publicAPI.getItem(itemId) as FileNode;
-    const isFolder = item.type === 'folder';
+    const isFolder = item.type === FileNodeType.Folder;
     const isSampleGroup = item.type === FileNodeType.SampleGroup;
+    const isContainer = item.type === FileNodeType.Container;
 
     // Find the associated SampleGroup (if any)
     const sampleGroup = React.useMemo(() => {
@@ -107,6 +108,11 @@ const CustomTreeItem = React.forwardRef(function CustomTreeItem(
                     <Box sx={{ flexGrow: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
                         {/* Folder Icons */}
                         {isFolder && (status.expanded ? <FolderOpenIcon /> : <FolderIcon />)}
+                        {isContainer ? <img
+                            src={ContainerIcon}
+                            alt="Container Icon"
+                            style={{width: 24, height: 24}}
+                        /> : null}
 
                         {/* Sample Group Icons */}
                         {isSampleGroup && sampleGroup && (
