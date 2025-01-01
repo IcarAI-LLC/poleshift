@@ -1,8 +1,8 @@
 // src/lib/components/MainApp.tsx
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FileNodeType, SampleGroupMetadata} from '../lib/types';
+import {SampleGroupMetadata} from '@/lib/types';
 
-import {useAuth, useData, useNetworkStatus, useUI,} from '../lib/hooks';
+import {useAuth, useData, useNetworkStatus, useUI,} from '@/lib/hooks';
 
 import TopControls from './TopControls/TopControls';
 import LeftSidebar from './LeftSidebar/LeftSidebar';
@@ -16,6 +16,7 @@ import SampleGroupMetadataComponent from './SampleGroupMetadataComponent.tsx';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
 import MoveModal from "./LeftSidebar/MoveModal";
+import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
 
 const MainApp: React.FC = () => {
   // All hooks at the top level

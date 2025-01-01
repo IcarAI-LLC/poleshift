@@ -1,39 +1,28 @@
+// src/lib/hooks/useTauriDataProcessor.rs
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use serde::Serialize;
+use serde_json; // Needed to serialize Vec<String> -> JSON array string
+
+use tauri::{AppHandle, Manager, Runtime};
+use uuid::Uuid;
+
 use crate::poleshift_common::types::{
     FileMeta, FilesResponse, KrakenConfig, PoleshiftError, StandardResponse, StandardResponseNoFiles,
 };
 use crate::poleshift_common::utils::emit_progress;
-use super::parse_kraken_uniq_report::parse_kraken_uniq_report;
-
-use serde::Serialize;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex}; // <-- Added
-use tauri::{AppHandle, Emitter, Manager, Runtime};
-use tauri_plugin_shell::process::CommandEvent;
-use tauri_plugin_shell::ShellExt;
-use uuid::Uuid;
 
 // Pull in these items from your own modules:
-use crate::krakenuniq::{
-    parse_fastq_files::parse_fastq_files,
-    parse_stdout::parse_kraken_uniq_output, // <-- Make sure you have this parse function
-    KrakenUniqResult,
-};
+use crate::krakenuniq::{parse_fastq_files::parse_fastq_files, KrakenUniqResult, ProcessedKrakenUniqReport, ProcessedKrakenUniqStdout};
+use krakenuniq_rs::{classify_reads, ClassificationResults};
 
-/// These constants reflect the CLI flags for KrakenUniq:
-const DATABASE_FLAG: &str = "-d";
-const INDEX_FLAG: &str = "-i";
-const TAXDB_FLAG: &str = "-a";
-const THREADS_FLAG: &str = "-t";
-const PRELOAD_FLAG: &str = "-M";
-const REPORT_FILE_FLAG: &str = "-r";
-// const OUTFILE_FLAG: &str = "-o"; // We omit this so output goes to stdout
-
-/// Example of how you might build the config
+/// Example of how you might build the config.
 impl KrakenConfig {
     pub fn hardcoded(
         resource_dir: PathBuf,
         report_path: PathBuf,
-        // We won't really use `output_path` in this approach, but you can keep it if needed
         output_path: PathBuf,
         input_files: Vec<String>,
     ) -> Self {
@@ -47,15 +36,19 @@ impl KrakenConfig {
                 .to_string_lossy()
                 .to_string(),
             taxdb_file: resource_dir.join("taxDB").to_string_lossy().to_string(),
+            counts_file: resource_dir.join("database.kdb.counts").to_string_lossy().to_string(),
             threads: 1,
             report_file: report_path.to_string_lossy().to_string(),
-            outfile: output_path.to_string_lossy().to_string(), // Not used if we're capturing stdout
-            input_files,
+            outfile: output_path.to_string_lossy().to_string(),
+            input_files: input_files
+                .into_iter()
+                .map(|file| PathBuf::from(file))
+                .collect(),
         }
     }
 }
 
-/// Our command to handle sequence data; parses the KrakenUniq classification output from stdout.
+/// Our command to handle sequence data; now calls `classify_multiple_in_one_call` from `krakenuniq-rs`.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn handle_sequence_data<R: Runtime>(
     app_handle: AppHandle<R>,
@@ -96,18 +89,14 @@ pub async fn handle_sequence_data<R: Runtime>(
         .temp_dir()
         .map_err(|e| PoleshiftError::PathResolution(e.to_string()))?;
 
-    // We'll still create a report file for KrakenUniq's summary report
     let report_filename = format!("kraken_report_{}.txt", Uuid::new_v4());
     let report_file_path = temp_dir.join(&report_filename);
-
-    // We can still build an output path for passing to `KrakenConfig`, even if we don’t use it
     let output_filename = format!("kraken_output_{}.txt", Uuid::new_v4());
     let output_file_path = temp_dir.join(&output_filename);
 
-    let window_clone = window.clone();
-    emit_progress(&window, 30, "Starting Charybdis...", "processing")?;
+    emit_progress(&window, 30, "Starting classification...", "processing")?;
 
-    // 3) Build KrakenConfig (remove or ignore outfile usage)
+    // 3) Build a local `KrakenConfig`
     let config = KrakenConfig::hardcoded(
         resource_dir,
         report_file_path.clone(),
@@ -115,121 +104,34 @@ pub async fn handle_sequence_data<R: Runtime>(
         file_paths.clone(),
     );
 
-    // 4) Spawn krakenuniq sidecar (without -o) so read-level data prints to stdout
-    let sidecar_command = app_handle
-        .shell()
-        .sidecar("classifyExact")
-        .map_err(|e| PoleshiftError::SidecarSpawnError(e.to_string()))?;
-
-    let mut sidecar_command = sidecar_command
-        .arg(DATABASE_FLAG)
-        .arg(&config.db_file)
-        .arg(INDEX_FLAG)
-        .arg(&config.idx_file)
-        .arg(TAXDB_FLAG)
-        .arg(&config.taxdb_file)
-        .arg(REPORT_FILE_FLAG)
-        .arg(&config.report_file)
-        // .arg(OUTFILE_FLAG)
-        // .arg(&config.outfile) // <-- omit so data goes to stdout
-        .arg(PRELOAD_FLAG)
-        .arg(THREADS_FLAG)
-        .arg(config.threads.to_string());
-
-    // Add input files
-    for path in &config.input_files {
-        sidecar_command = sidecar_command.arg(path);
-    }
-
-    // We'll capture the sidecar's stdout in a thread-safe string
-    let kraken_uniq_stdout = Arc::new(Mutex::new(String::new()));
-
-    let (mut rx, _child) = sidecar_command
-        .spawn()
-        .map_err(|e| PoleshiftError::SidecarSpawnError(e.to_string()))?;
-
-    let (tx, rx_termination) = tokio::sync::oneshot::channel();
-
-    // Clone for use in the spawned async block
-    let kraken_uniq_stdout_in_spawn = Arc::clone(&kraken_uniq_stdout);
-
-    // 5) Handle asynchronous events from the sidecar
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            match event {
-                // Each line of stdout is appended to our Arc<Mutex<String>>
-                CommandEvent::Stdout(line_bytes) => {
-                    let line = String::from_utf8_lossy(&line_bytes);
-
-                    let mut stdout_guard = kraken_uniq_stdout_in_spawn.lock().unwrap();
-                    stdout_guard.push_str(&line);
-
-                    let _ = window_clone.emit("message", Some(format!("stdout: {}", line)));
-                }
-                // Stderr can be logged similarly (but not appended to our read-level data):
-                CommandEvent::Stderr(line_bytes) => {
-                    let line = String::from_utf8_lossy(&line_bytes);
-                    let _ = window_clone.emit("message", Some(format!("stderr: {}", line)));
-                }
-                // When the process terminates, signal the main thread to continue
-                CommandEvent::Terminated(payload) => {
-                    println!("Sidecar terminated with code: {:?}", payload.code);
-                    let _ = window_clone.emit(
-                        "message",
-                        Some(format!("Sidecar terminated: {:?}", payload.code)),
-                    );
-                    let _ = tx.send(());
-                    break;
-                }
-                CommandEvent::Error(err_msg) => {
-                    println!("Sidecar error event: {}", err_msg);
-                    let _ = window_clone.emit("error", Some(format!("Sidecar error: {}", err_msg)));
-                }
-                other => {
-                    println!("Sidecar unknown event: {:?}", other);
-                }
-            }
-        }
-    });
-
-    // Wait for sidecar to finish
-    rx_termination
-        .await
-        .map_err(|e| PoleshiftError::Other(e.to_string()))?;
-
-    emit_progress(&window, 40, "Processing Charybdis output...", "processing")?;
-
-    // 6) Parse the summary Kraken report (written to `report_file_path`)
-    if !report_file_path.exists() {
-        return Err(PoleshiftError::ReportError(format!(
-            "Report file not found: {}",
-            report_file_path.display()
-        )));
-    }
-
-    let report_content = tokio::fs::read_to_string(&report_file_path)
-        .await
-        .map_err(|e| PoleshiftError::IoError(e.to_string()))?;
-
-    let parsed = parse_kraken_uniq_report(
-        &report_content,
-        &processed_data_id,
-        &user_id,
-        &org_id,
-        &sample_id,
-    );
-
-    let final_rows = match parsed {
-        Ok(rows) => rows,
-        Err(msg) => {
-            println!("Error parsing Kraken report: {}", msg);
-            return Err(PoleshiftError::Other(msg));
+    // 4) Perform classification using `classify_reads`
+    let classification_results: ClassificationResults = match classify_reads(
+        &config.db_file,
+        &config.idx_file,
+        &config.counts_file,
+        &config.taxdb_file,
+        config.input_files,
+        /* print_sequence_in_kraken = */ false,
+        /* only_classified_kraken_output = */ false,
+        /* generate_report = */ true,
+    ) {
+        Ok(results) => results,
+        Err(e) => {
+            println!("Error during classification: {}", e);
+            return Err(PoleshiftError::Other(e.to_string()));
         }
     };
 
-    // 7) Parse FASTQ data if needed
-    let raw_sequences_parsed =
-        parse_fastq_files(&file_paths, user_id.clone(), org_id.clone(), raw_data_id, sample_id.clone());
+    emit_progress(&window, 40, "Classification complete. Preparing final data...", "processing")?;
+
+    // 5) Optionally parse FASTQ data for "rawSequences"
+    let raw_sequences_parsed = parse_fastq_files(
+        &file_paths,
+        user_id.clone(),
+        org_id.clone(),
+        raw_data_id.clone(),
+        sample_id.clone(),
+    );
     let raw_sequence_entries = match raw_sequences_parsed {
         Ok(rows) => rows,
         Err(msg) => {
@@ -238,35 +140,108 @@ pub async fn handle_sequence_data<R: Runtime>(
         }
     };
 
-    // Lock the Arc<Mutex<String>> to read the final accumulated stdout
-    let std_out_copy = {
-        let guard = kraken_uniq_stdout.lock().unwrap();
-        guard.clone()
-    };
+    // 6) Replace numeric tax IDs with newly generated UUIDs in two passes.
+    //    (a) Collect all `kraken_report_rows` and assign each row a new UUID
+    //    (b) Use a map `tax_id -> new_uuid` so we can replace parent + children with the new UUIDs.
 
-    // 8) Parse the in-memory stdout for read-level classification
-    let processed_stdout = match parse_kraken_uniq_output(
-        &std_out_copy,
-        &processed_data_id,
-        &user_id,
-        &org_id,
-        &sample_id,
-    ) {
-        Ok(rows) => rows,
-        Err(msg) => {
-            println!("Error parsing Kraken output (stdout): {}", msg);
-            return Err(PoleshiftError::Other(msg));
-        }
+    // (a) Gather the rows from the classification results
+    let kraken_report_rows = classification_results
+        .kraken_report_rows
+        .unwrap_or_default();
+
+    // First pass: pair each row with a brand-new UUID
+    let mut row_with_assigned_ids = Vec::new();
+    for row in kraken_report_rows {
+        let assigned_id = Uuid::new_v4();
+        row_with_assigned_ids.push((row, assigned_id));
+    }
+
+    // Build a map: numeric tax_id -> newly assigned UUID
+    let tax_id_to_uuid: HashMap<u32, Uuid> = row_with_assigned_ids
+        .iter()
+        .map(|(row, assigned_uuid)| (row.tax_id, *assigned_uuid))
+        .collect();
+
+    // Second pass: create the final `ProcessedKrakenUniqReport` items
+    let processed_kraken_uniq_report: Vec<ProcessedKrakenUniqReport> = row_with_assigned_ids
+        .into_iter()
+        .map(|(row, assigned_id)| {
+            // Look up the parent's new UUID
+            let parent_uuid = row.parent_tax_id
+                .and_then(|tax_id| tax_id_to_uuid.get(&tax_id).cloned());
+
+            // Convert each child's numeric ID into the mapped UUID
+            let child_uuids: Vec<Uuid> = row
+                .children_tax_ids
+                .iter()
+                .filter_map(|child_tax_id| tax_id_to_uuid.get(child_tax_id).cloned())
+                .collect();
+
+            ProcessedKrakenUniqReport {
+                id: String::from(assigned_id),
+
+                percentage: row.pct,
+                reads: row.reads.to_string(),
+                tax_reads: row.tax_reads.to_string(),
+                kmers: row.kmers.to_string(),
+                duplication: row.dup.to_string(),
+                tax_name: row.tax_name,
+
+                parent_id: parent_uuid, // Option<Uuid>
+
+                children_ids: child_uuids, // Vec<Uuid>
+
+                processed_data_id: String::from(Uuid::parse_str(&processed_data_id)
+                    .expect("Invalid processed_data_id UUID")),
+
+                user_id: String::from(Uuid::parse_str(&user_id)
+                    .expect("Invalid user_id UUID")),
+                org_id: String::from(Uuid::parse_str(&org_id)
+                    .expect("Invalid org_id UUID")),
+                sample_id: String::from(Uuid::parse_str(&sample_id)
+                    .expect("Invalid sample_id UUID")),
+
+                tax_id: row.tax_id as u64,
+
+                rank: row.rank,
+                coverage: row.cov.to_string(),
+                e_score: 0.0,
+            }
+        })
+        .collect();
+
+    // 7) For the read-level "stdout" portion, transform your classification output lines.
+    //    This part is unchanged from your snippet except for references to your custom structs.
+    let processed_kraken_uniq_stdout = classification_results
+        .kraken_output_lines
+        .iter()
+        .map(|line| {
+            ProcessedKrakenUniqStdout {
+                id: String::from(Uuid::new_v4()),
+                classified: false,
+                tax_id: line.tax_id as i32,
+                read_length: line.length as i32,
+                hit_data: line.hitlist.to_string(),
+                user_id: String::from(Uuid::parse_str(&user_id).expect("Invalid user_id UUID")),
+                org_id: String::from(Uuid::parse_str(&org_id).expect("Invalid org_id UUID")),
+                sample_id: String::from(Uuid::parse_str(&sample_id).expect("Invalid sample_id UUID")),
+                feature_id: line.read_id.to_string(),
+                processed_data_id: String::from(Uuid::parse_str(&processed_data_id)
+                    .expect("Invalid processed_data_id UUID")),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // 8) Construct your final result
+    let final_kraken_result = KrakenUniqResult {
+        processedKrakenUniqReport: processed_kraken_uniq_report,
+        processedKrakenUniqStdout: processed_kraken_uniq_stdout,
+        rawSequences: raw_sequence_entries,
     };
 
     emit_progress(&window, 50, "Processing complete...", "processing")?;
 
-    // 9) Construct and return the final result
-    let final_kraken_result = KrakenUniqResult {
-        processedKrakenUniqReport: final_rows,
-        processedKrakenUniqStdout: processed_stdout,
-        rawSequences: raw_sequence_entries,
-    };
+    // 9) Return in the `StandardResponseNoFiles`
     Ok(StandardResponseNoFiles {
         status: "Success".to_string(),
         report: final_kraken_result,

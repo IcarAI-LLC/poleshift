@@ -27,7 +27,8 @@ import { useAuthStore } from '../lib/stores/authStore.ts';
 import LocationFields from './LocationFields';
 
 import type { SampleGroupMetadata as TSampleGroupMetadata } from '../lib/types';
-import { ProximityCategory, PoleshiftPermissions } from '../lib/types';
+import { PoleshiftPermissions } from '@/lib/types';
+import { ProximityCategory } from "@/lib/powersync/DrizzleSchema.ts";
 
 // Styles interface for better type safety
 interface StyleProps {

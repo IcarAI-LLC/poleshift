@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Box, Typography, Grid, Paper } from '@mui/material';
-import {ProcessedNutrientAmmoniaData} from "../lib/types";
+import {ProcessedNutrientAmmoniaData} from "@/lib/types";
 
 interface NutrientAmmoniaViewProps {
   data: ProcessedNutrientAmmoniaData[];

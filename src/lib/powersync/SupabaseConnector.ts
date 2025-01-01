@@ -46,7 +46,7 @@ export class SupabaseConnector {
 
         // Subscribe to authentication state changes
         this.client.auth.onAuthStateChange((event, session) => {
-            if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED'].includes(event)) {
+            if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED', 'TOKEN_REFRESHED', 'INITIAL_SESSION'].includes(event)) {
                 console.debug(session);
                 this.handleSessionChange(session);
             }

@@ -2,7 +2,7 @@ import {useAuthStore} from '../stores/authStore';
 import {supabaseConnector} from '../powersync/SupabaseConnector';
 import {useCallback, useMemo} from 'react';
 import {usePowerSync, useQuery} from "@powersync/react";
-import {Organization, UserProfile} from "../types";
+import {Organizations, UserProfiles} from "../types";
 import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
 import {DrizzleSchema, organizations, user_profiles} from "../powersync/DrizzleSchema.ts";
 import {eq} from "drizzle-orm";
@@ -19,8 +19,8 @@ export const useAuth = () => {
     const userProfileQuery = drizzleDB.select().from(user_profiles).where(eq(user_profiles.id, userId || "")).limit(1)
     const compiledOrgQuery = toCompilableQuery(orgQuery);
     const compiledUserProfileQuery = toCompilableQuery(userProfileQuery);
-    const userProfile: UserProfile = useQuery(compiledUserProfileQuery).data[0];
-    const organization: Organization = useQuery(compiledOrgQuery).data[0];
+    const userProfile: UserProfiles = useQuery(compiledUserProfileQuery).data[0];
+    const organization: Organizations = useQuery(compiledOrgQuery).data[0];
 
     const login = useCallback(async (email: string, password: string) => {
         try {

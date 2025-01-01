@@ -1,14 +1,15 @@
 import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 
-import { useAuth, useData, useUI } from '../../lib/hooks';
-import { useAuthStore } from '../../lib/stores/authStore';
+import { useAuth, useData, useUI } from '@/lib/hooks';
+import { useAuthStore } from '@/lib/stores/authStore.ts';
 
 import SingleDropBox from './SingleDropBox';
 
 import dropboxConfig from '../../config/dropboxConfig';
 import type { DropboxesProps } from './types';
-import { FileNodeType, PoleshiftPermissions } from '../../lib/types';
+import { PoleshiftPermissions } from '@/lib/types';
+import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
 
 const MergedDropBoxes: React.FC<DropboxesProps> = ({ onError }) => {
     // All hooks at the top level

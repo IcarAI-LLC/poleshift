@@ -18,6 +18,7 @@ import {
   processed_ctd_rbr_data_values,
   processed_nutrient_ammonia_data,
   processed_kraken_uniq_report,
+  sample_group_metadata, DataType
 } from '../lib/powersync/DrizzleSchema';
 import { and, eq, sql } from 'drizzle-orm';
 import { toCompilableQuery, wrapPowerSyncWithDrizzle } from '@powersync/drizzle-driver';
@@ -25,8 +26,6 @@ import { toCompilableQuery, wrapPowerSyncWithDrizzle } from '@powersync/drizzle-
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/system';
 import { useUI, useData } from '../lib/hooks';
-import type { SampleGroupMetadata } from '../lib/types';
-import { DataType } from '../lib/types';
 
 interface ProcessedStats {
   average_temperature: number | null;
@@ -127,7 +126,7 @@ const RightSidebar: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────
   const samplesAtLocation = useMemo(() => {
     if (!selectedRightItem) return [];
-    return Object.values(sampleGroups).filter((group: SampleGroupMetadata) => {
+    return Object.values(sampleGroups).filter((group: typeof sample_group_metadata.$inferSelect) => {
       // Filter by location
       if (group.loc_id !== selectedRightItem.id) return false;
 

@@ -1,8 +1,8 @@
-import { DropboxConfigItem } from '../../config/dropboxConfig';
+import { DropboxConfigItem } from '@/config/dropboxConfig.ts';
 import {
-    Organization,
+    Organizations,
     SampleGroupMetadata,
-} from '../../lib/types';
+} from '@/lib/types';
 
 export interface DropboxesProps {
     onError: (message: string) => void;
@@ -11,7 +11,7 @@ export interface DropboxesProps {
 export interface SingleDropBoxProps {
     configItem: DropboxConfigItem;
     sampleGroup: SampleGroupMetadata;
-    organization: Organization | null;
+    organization: Organizations | null;
     isLocked: boolean;
     onError: (message: string) => void;
 }

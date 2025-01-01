@@ -32,16 +32,16 @@ import {
     processed_data_improved,
     processed_ctd_rbr_data_values,
     processed_nutrient_ammonia_data,
-    processed_kraken_uniq_report,
-} from '../../lib/powersync/DrizzleSchema';
+    processed_kraken_uniq_report, ProcessingState, DataType,
+} from '@/lib/powersync/DrizzleSchema.ts';
 import { and, desc, eq } from 'drizzle-orm';
 
-import { useTauriDataProcessor } from '../../lib/hooks/useTauriDataProcessor';
+import { useTauriDataProcessor } from '@/lib/hooks/useTauriDataProcessor.ts';
 
 import type { SxProps } from '@mui/system';
 import type { Theme } from '@mui/material/styles';
 
-import { DataType, ProcessingState, ProcessedDataImproved } from '../../lib/types';
+import { ProcessedDataImproved } from '@/lib/types';
 import type { SingleDropBoxProps } from './types';
 import CloseIcon from '@mui/icons-material/Close';
 

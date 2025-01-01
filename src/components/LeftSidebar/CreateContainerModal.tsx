@@ -12,12 +12,12 @@ import {
 } from '@mui/material';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { Organization } from '../../lib/types';
+import type { Organizations } from '../../lib/types';
 
 interface CreateContainerModalProps {
     open: boolean;
     onClose: () => void;
-    organization: Organization | null;
+    organization: Organizations | null;
     addFileNode: (node: any) => Promise<void>;
     setErrorMessage: (msg: string) => void;
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import Plotly from 'plotly.js-dist';
 import { Box, Button, Typography } from '@mui/material';
-import { ProcessedKrakenUniqReport } from '../../lib/types';
+import { ProcessedKrakenUniqReport } from '@/lib/types';
 
 interface TaxonomyStarburstProps {
     data: ProcessedKrakenUniqReport[];

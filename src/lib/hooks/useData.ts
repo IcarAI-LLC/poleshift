@@ -3,13 +3,18 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@powersync/react';
 import { usePowerSync } from '@powersync/react';
-import {FileNode, FileNodeType, SampleGroupMetadata} from '../types';
+import {FileNodes, SampleGroupMetadata} from '../types';
+
 import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
 import {
-    DrizzleSchema, file_nodes, sample_group_metadata, sample_locations
+    DrizzleSchema, file_nodes, FileNodeType, sample_group_metadata, sample_locations
 } from "../powersync/DrizzleSchema.ts";
 import { eq } from 'drizzle-orm';
 
+export type FileNodeWithChildren = FileNodes & {
+    children: FileNodeWithChildren[];
+    type: FileNodeType;
+};
 
 // Helper to build a record by ID from an array of rows
 function arrayToRecord<T extends { id: string }>(arr: T[]): Record<string, T> {
@@ -72,7 +77,7 @@ export const useData = () => {
         }
     }, []);
 
-    const addFileNode = useCallback(async (node: FileNode) => {
+    const addFileNode = useCallback(async (node: FileNodes) => {
         let canDrop: number;
         if (node.droppable){
             canDrop = 1;
@@ -100,7 +105,7 @@ export const useData = () => {
         }
     }, [setError]);
 
-    const updateFileNode = useCallback(async (id: string, updates: Partial<FileNode>) => {
+    const updateFileNode = useCallback(async (id: string, updates: Partial<FileNodeWithChildren>) => {
         try {
             const { children, ...validUpdates } = updates;
             await drizzleDB
@@ -173,7 +178,7 @@ export const useData = () => {
     }, [setError]);
 
     const createSampleGroup = useCallback(
-        async (sampleGroupData: SampleGroupMetadata, fileNodeData: FileNode) => {
+        async (sampleGroupData: SampleGroupMetadata, fileNodeData: FileNodes) => {
             try {
                 await drizzleDB
                     .insert(sample_group_metadata)
@@ -222,11 +227,6 @@ export const useData = () => {
         },
         [fileNodes]
     );
-
-    type FileNodeWithChildren = FileNode & {
-        children: FileNodeWithChildren[];
-        type: FileNodeType;
-    };
 
     const fileTree = useMemo(() => {
         // 2. Clone fileNodes into a new record of FileNodeWithChildren

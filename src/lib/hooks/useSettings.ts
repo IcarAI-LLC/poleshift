@@ -6,7 +6,7 @@ import { usePowerSync } from '@powersync/react';
 import { toCompilableQuery, wrapPowerSyncWithDrizzle } from '@powersync/drizzle-driver';
 import { DrizzleSchema, user_settings } from '../powersync/DrizzleSchema';
 import { eq } from 'drizzle-orm';
-import {UserSetting} from "../types";
+import {UserSettings} from "../types";
 
 /**
  * Helper: Convert an array of objects (with `id` property) into a Record keyed by `id`.
@@ -38,7 +38,7 @@ export const useSettings = () => {
         data: userSettingsArray = [],
         isLoading: userSettingsLoading,
         error: userSettingsError,
-    } = useQuery<UserSetting>(compiledUserSettingsQuery);
+    } = useQuery<UserSettings>(compiledUserSettingsQuery);
 
     // 5. Convert the array into a record keyed by the id
     const userSettings = useMemo(() => arrayToRecord(userSettingsArray), [userSettingsArray]);
@@ -62,7 +62,7 @@ export const useSettings = () => {
      * @param setting Partial row data (excluding `id`, which is auto-incremented if you’re using SQLite real primaryKey)
      */
     const addUserSetting = useCallback(
-        async (setting: UserSetting) => {
+        async (setting: UserSettings) => {
             try {
                 await drizzleDB.insert(user_settings).values(setting).run();
             } catch (err: any) {
@@ -80,7 +80,7 @@ export const useSettings = () => {
      * @param updates The fields to update
      */
     const updateUserSetting = useCallback(
-        async (id: number, updates: Partial<UserSetting>) => {
+        async (id: number, updates: Partial<UserSettings>) => {
             try {
                 await drizzleDB
                     .update(user_settings)

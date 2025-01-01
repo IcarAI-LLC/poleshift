@@ -3,7 +3,7 @@ import { TextField, Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 
 import { useData } from '../lib/hooks';
-import type { SampleGroupMetadata } from '../lib/types';
+import type { SampleGroupMetadata } from '@/lib/types';
 
 interface Coordinate {
     value: string;

@@ -4,8 +4,14 @@ import {
     RawFastqData,
     ProcessedKrakenUniqReport,
     ProcessedKrakenUniqStdout
-} from "./db_types.ts";
-import {ProcessingState} from "./enums.ts";
+} from "./database.ts";
+import {ProcessingState} from "@/lib/powersync/DrizzleSchema.ts";
+
+export enum TauriProcessingFunctions {
+    CTD = 'handle_ctd_data',
+    Sequence = 'handle_sequence_data',
+    RangeFinder = 'handle_range_finder',
+}
 
 export interface HandleCtdDataResult {
     status: string;

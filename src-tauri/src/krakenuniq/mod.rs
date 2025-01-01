@@ -1,7 +1,7 @@
 use serde::Serialize;
+use uuid::Uuid;
 
 pub mod handle_sequence_data;
-pub mod parse_kraken_uniq_report;
 mod parse_fastq_files;
 mod parse_stdout;
 
@@ -11,26 +11,45 @@ pub struct KrakenUniqResult {
     processedKrakenUniqStdout: Vec<ProcessedKrakenUniqStdout>,
     rawSequences: Vec<RawSequence>
 }
-/// The struct we will finally return to the frontend (instead of StandardResponse).
+
 #[derive(Debug, Serialize)]
 pub struct ProcessedKrakenUniqReport {
     pub id: String,
-    pub percentage: f64,
+    pub percentage: f32,
     pub reads: String,
     pub tax_reads: String,
     pub kmers: String,
     pub duplication: String,
-    pub coverage: String,
-    pub tax_id: u64,
-    pub rank: String,   // or your custom enum
     pub tax_name: String,
-    pub parent_id: Option<String>,
-    pub children_ids: Option<String>,
+    pub parent_id: Option<Uuid>,
+    #[serde(serialize_with = "serialize_uuid_vec")]
+    pub children_ids: Vec<Uuid>,
     pub processed_data_id: String,
     pub user_id: String,
     pub org_id: String,
     pub sample_id: String,
+    pub tax_id: u64,
+    pub rank: String,
+    pub coverage: String,
     pub e_score: f64,
+}
+
+// Updated serialization function to output Postgres array format
+fn serialize_uuid_vec<S>(uuids: &Vec<Uuid>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    // Convert to Postgres array format: {uuid1,uuid2,uuid3}
+    let postgres_array = if uuids.is_empty() {
+        "{}".to_string()
+    } else {
+        let uuid_strings: Vec<String> = uuids.iter()
+            .map(|uuid| format!("\"{}\"", uuid.to_string()))
+            .collect();
+        format!("{{{}}}", uuid_strings.join(","))
+    };
+
+    serializer.serialize_str(&postgres_array)
 }
 
 #[derive(Debug, Serialize)]

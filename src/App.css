@@ -1,6 +1,9 @@
 /* ===================================== */
 /*              VARIABLES                */
 /* ===================================== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   /* Core Colors */
@@ -770,5 +773,11 @@ body {
 
   .tree-node {
     padding: var(--spacing-xs) var(--spacing-sm);
+  }
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
   }
 }

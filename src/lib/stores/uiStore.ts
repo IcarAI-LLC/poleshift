@@ -1,6 +1,6 @@
 // src/lib/stores/uiStore.ts
 import { create } from 'zustand';
-import type { SampleLocation, FileNode } from '../types';
+import type { SampleLocations, FileNodes } from '../types';
 
 interface ContextMenuState {
     isVisible: boolean;
@@ -19,11 +19,11 @@ interface Filters {
 interface UIState {
     // Left Sidebar State
     isLeftSidebarCollapsed: boolean;
-    selectedLeftItem: FileNode | undefined;
+    selectedLeftItem: FileNodes | undefined;
 
     // Right Sidebar State
     isRightSidebarCollapsed: boolean;
-    selectedRightItem: SampleLocation | null;
+    selectedRightItem: SampleLocations | null;
 
     // Context Menu State for Left Sidebar
     leftSidebarContextMenu: ContextMenuState;
@@ -43,8 +43,8 @@ interface UIState {
     // Actions
     toggleLeftSidebar: (collapsed?: boolean) => void;
     toggleRightSidebar: (collapsed?: boolean) => void;
-    setSelectedLeftItem: (item: FileNode | undefined) => void;
-    setSelectedRightItem: (item: SampleLocation | null) => void;
+    setSelectedLeftItem: (item: FileNodes | undefined) => void;
+    setSelectedRightItem: (item: SampleLocations | null) => void;
     setLeftSidebarContextMenuState: (state: Partial<ContextMenuState>) => void;
     closeLeftSidebarContextMenu: () => void;
     setShowAccountActions: (show: boolean) => void;

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
+import * as path from "node:path";
 
 const ReactCompilerConfig = {
     sources: (filename: string | string[]) => {
@@ -19,7 +20,7 @@ const main = async () => {
             react({
                 babel: {
                     plugins: [
-                        ["babel-plugin-react-compiler", ReactCompilerConfig],
+                        ["babel-plugin-react-compiler"],
                     ],
             }
             }),
@@ -56,7 +57,12 @@ const main = async () => {
         worker: {
             format: 'es',
             plugins: () => [wasm(), topLevelAwait()]
-        }
+        },
+        resolve: {
+            alias: {
+                "@": path.resolve(__dirname, "./src"),
+            },
+        },
     });
 };
 

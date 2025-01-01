@@ -6,7 +6,48 @@ import {
 } from "drizzle-orm/sqlite-core";
 import {v4 as uuidv4} from "uuid";
 import {DateTime} from "luxon";
-import {DataType, ProcessingState, ProximityCategory, TaxonomicRank, UserRole} from "../types";
+import {UserRole} from "../types";
+
+export enum DataType {
+    CTD = 'ctd',
+    Sequence = 'sequence',
+    NutrientAmmonia = 'nutrient_ammonia',
+}
+
+export enum ProcessingState {
+    Initiated = 'initiated',
+    Processing = 'processing',
+    Complete = 'complete',
+    Error = 'error',
+    Saving = 'saving',
+}
+
+export enum ProximityCategory {
+    Close = 'Close',
+    Far1 = 'Far1',
+    Far2 = 'Far2'
+}
+
+export enum TaxonomicRank {
+    Root = 'Root',
+    Domain = 'Domain',
+    Supergroup = 'Supergroup',
+    Division = 'Division',
+    Subdivision = 'Subdivision',
+    Class = 'Class',
+    Order = 'Order',
+    Family = 'Family',
+    Genus = 'Genus',
+    Species = 'Species',
+    Assembly = 'Assembly',
+    Sequence = 'Sequence',
+}
+
+export enum FileNodeType {
+    Folder = 'folder',
+    SampleGroup = 'sampleGroup',
+    Container = 'container',
+}
 
 /** ─────────────────────────────────────────────────────────────────────────────
  *  2) organizations
@@ -382,6 +423,7 @@ export const DrizzleSchema = {
     license_keys,
     file_nodes,
     external_database_scar_locations,
+    organization_settings,
     external_database_penguin_data,
     user_settings,
     processed_ctd_rbr_data_values,
@@ -393,4 +435,12 @@ export const DrizzleSchema = {
     raw_nutrient_ammonia_data,
     raw_fastq_data,
     raw_data_improved,
+}
+export default DrizzleSchema;
+
+export const DrizzleConstants = {
+    DataType,
+    ProcessingState,
+    ProximityCategory,
+    TaxonomicRank
 }

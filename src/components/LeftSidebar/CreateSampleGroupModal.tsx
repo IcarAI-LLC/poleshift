@@ -16,15 +16,15 @@ import { DateTime } from 'luxon';
 import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 
-import type { Organization, SampleGroupMetadata, SampleLocation } from '../../lib/types';
-import { useAuthStore } from "../../lib/stores/authStore.ts";
+import type {Organizations, SampleGroupMetadata, SampleLocations} from '@/lib/types';
+import { useAuthStore } from "@/lib/stores/authStore.ts";
 
 interface CreateSampleGroupModalProps {
     open: boolean;
     onClose: () => void;
-    organization: Organization | null; // or undefined
+    organization: Organizations | null; // or undefined
     sampleGroups: Record<string, SampleGroupMetadata>;
-    locations: SampleLocation[];
+    locations: SampleLocations[];
     createSampleGroup: (data: any, fileNode: any) => Promise<void>;
     setErrorMessage: (msg: string) => void;
 }

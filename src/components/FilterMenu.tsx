@@ -19,7 +19,7 @@ import { DateTime } from 'luxon';
 import type { SxProps, Theme } from '@mui/material/styles';
 
 import { useUI, useData } from '../lib/hooks';
-import type { SampleLocation } from '../lib/types';
+import { SampleLocations } from '@/lib/types';
 
 interface FilterMenuProps {
     onApply: () => void;
@@ -148,7 +148,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
     }, []);
 
     // Location selection handler
-    const handleLocationChange = useCallback((_: any, newValue: SampleLocation[]) => {
+    const handleLocationChange = useCallback((_: any, newValue: SampleLocations[]) => {
         setLocalFilters(prev => ({
             ...prev,
             selectedLocations: newValue.map(loc => loc.id)
@@ -267,7 +267,6 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                         renderTags={(tagValue, getTagProps) =>
                             tagValue.map((option, index) => (
                                 <Chip
-                                    key={option.id}
                                     label={option.label}
                                     {...getTagProps({ index })}
                                     sx={{

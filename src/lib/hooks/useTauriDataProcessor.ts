@@ -10,32 +10,26 @@ import { eq } from 'drizzle-orm';
 
 import { useAuthStore } from '../stores/authStore.ts';
 import {
-    DataType,
     TauriProcessingFunctions,
     RawDataImproved,
     RawNutrientAmmoniaData,
     ProcessedNutrientAmmoniaData,
-    ProcessingState
-} from '../types';
-import {
     HandleCtdDataResult,
     HandleSequenceDataResult,
     ProgressPayload
-} from '../types/tauri.ts';
+} from '@/lib/types';
 
 import {
+    DataType,
     processed_ctd_rbr_data_values,
     processed_data_improved,
-    processed_kraken_uniq_report,
-    processed_kraken_uniq_stdout,
-    processed_nutrient_ammonia_data,
+    processed_nutrient_ammonia_data, ProcessingState,
     raw_ctd_rbr_data_values,
     raw_data_improved,
-    raw_fastq_data,
     raw_nutrient_ammonia_data
 } from '../powersync/DrizzleSchema.ts';
 
-const BATCH_SIZE = 999;
+const BATCH_SIZE = 10000;
 
 /**
  * Helper to create a placeholder in the `processed_data_improved` table.
@@ -71,6 +65,7 @@ async function createProcessedDataPlaceholder(
     }).run();
 }
 
+
 /**
  * Helper to update the processing state in `processed_data_improved`.
  */
@@ -99,6 +94,60 @@ export function useTauriDataProcessor() {
     const { userId, organizationId } = useAuthStore.getState();
     const db = usePowerSync();
     const drizzleDB = wrapPowerSyncWithDrizzle(db);
+
+    async function bulkInsertJSON1(
+        tableName: string,
+        columns: string[],
+        data: Array<Record<string, any>>
+    ): Promise<void> {
+        if (data.length === 0) {
+            console.info(`bulkInsertJSON1: No data provided for table '${tableName}'. Skipping insertion.`);
+            return;
+        }
+
+        // Log the start of the bulk insert process
+        console.info(`bulkInsertJSON1: Starting bulk insert into table '${tableName}'. Number of records: ${data.length}`);
+
+        // Serialize data to JSON
+        let jsonData: string;
+        try {
+            jsonData = JSON.stringify(data);
+            const byteLength = new TextEncoder().encode(jsonData).length;
+            console.debug(`bulkInsertJSON1: Serialized data to JSON. Size: ${byteLength} bytes.`);
+        } catch (serializationError) {
+            console.error(`bulkInsertJSON1: Failed to serialize data to JSON for table '${tableName}'. Error:`, serializationError);
+            throw serializationError; // Re-throw after logging
+        }
+
+        // Construct column mappings for the SELECT statement, referencing 'e.value'
+        const columnMappings = columns.map(col => `e.value ->> '${col}' AS ${col}`).join(', ');
+        console.debug(`bulkInsertJSON1: Column mappings: ${columnMappings}`);
+
+        // Construct the SQL query with a CTE and alias 'e' for json_each
+        const sql = `
+            WITH data AS (
+                SELECT ${columnMappings}
+                FROM json_each(?) AS e
+            )
+            INSERT INTO ${tableName} (${columns.join(', ')})
+            SELECT ${columns.join(', ')}
+            FROM data;
+        `;
+
+        console.debug(`bulkInsertJSON1: Constructed SQL query: ${sql}`);
+
+        // Execute the query with timing
+        const startTime = Date.now();
+        try {
+            console.debug(`bulkInsertJSON1: Executing SQL query for table '${tableName}' with JSON data.`);
+            await db.execute(sql, [jsonData]);
+            const duration = Date.now() - startTime;
+            console.info(`bulkInsertJSON1: Successfully inserted ${data.length} records into '${tableName}' in ${duration}ms.`);
+        } catch (executionError) {
+            console.error(`bulkInsertJSON1: Failed to execute bulk insert for table '${tableName}'. Error:`, executionError);
+            throw executionError;
+        }
+    }
 
     /**
      * Process CTD data files via Tauri command and save to database.
@@ -394,22 +443,12 @@ export function useTauriDataProcessor() {
             // Insert raw FASTQ data in batches
             const { rawSequences, processedKrakenUniqReport, processedKrakenUniqStdout } = report;
 
-            for (let i = 0; i < rawSequences.length; i += BATCH_SIZE) {
-                const batch = rawSequences.slice(i, i + BATCH_SIZE);
-                await drizzleDB.insert(raw_fastq_data).values(batch).run();
-            }
+            // Bulk insert raw FASTQ data
+            await bulkInsertJSON1('raw_fastq_data', ['id', 'feature_id', 'sequence', 'quality', 'run_id', 'read', 'ch', 'start_time', 'sample_id_fastq', 'barcode', 'barcode_alias', 'parent_read_id', 'basecall_model_version_id', 'quality_median', 'flow_cell_id', 'protocol_group_id', 'raw_data_id', 'user_id', 'org_id', 'sample_id'], rawSequences);
 
-            // Insert processed Kraken (uniq) report data in batches
-            for (let i = 0; i < processedKrakenUniqReport.length; i += BATCH_SIZE) {
-                const batch = processedKrakenUniqReport.slice(i, i + BATCH_SIZE);
-                await drizzleDB.insert(processed_kraken_uniq_report).values(batch).run();
-            }
+            await bulkInsertJSON1('processed_kraken_uniq_report', ['id', 'percentage', 'reads', 'tax_reads', 'kmers', 'duplication', 'coverage', 'tax_id', 'rank', 'tax_name', 'parent_id', 'children_ids', 'processed_data_id', 'user_id', 'org_id', 'sample_id', 'e_score'], processedKrakenUniqReport);
 
-            // Insert processed Kraken (uniq) stdout data in batches
-            for (let i = 0; i < processedKrakenUniqStdout.length; i += BATCH_SIZE) {
-                const batch = processedKrakenUniqStdout.slice(i, i + BATCH_SIZE);
-                await drizzleDB.insert(processed_kraken_uniq_stdout).values(batch).run();
-            }
+            await bulkInsertJSON1('processed_kraken_uniq_stdout', ['id', 'user_id', 'org_id', 'sample_id', 'processed_data_id', 'classified', 'feature_id', 'tax_id', 'read_length', 'hit_data'], processedKrakenUniqStdout);
 
             // Finally set to "Complete"
             await updateProcessingState(

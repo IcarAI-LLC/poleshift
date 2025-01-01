@@ -21,8 +21,9 @@ import {
 import {TreeItem2Icon} from '@mui/x-tree-view/TreeItem2Icon';
 import {TreeItem2Provider} from '@mui/x-tree-view/TreeItem2Provider';
 import {useData, useUI} from '../../lib/hooks';
-import {FileNode, FileNodeType, ProximityCategory} from '../../lib/types'; // or wherever it’s defined
+import {FileNodeWithChildren} from '../../lib/hooks/useData.ts'; // or wherever it’s defined
 import ContainerIcon from '../../assets/container.svg'
+import {FileNodeType, ProximityCategory} from "@/lib/powersync/DrizzleSchema.ts";
 
 const CustomTreeItemContent = styled(TreeItem2Content)(({ theme }) => ({
     padding: theme.spacing(0.5, 1),
@@ -60,7 +61,7 @@ const CustomTreeItem = React.forwardRef(function CustomTreeItem(
     const { sampleGroups } = useData(); // or sampleGroupMap, depending on your structure
 
     // The actual item in the tree
-    const item = publicAPI.getItem(itemId) as FileNode;
+    const item = publicAPI.getItem(itemId) as FileNodeWithChildren;
     const isFolder = item.type === FileNodeType.Folder;
     const isSampleGroup = item.type === FileNodeType.SampleGroup;
     const isContainer = item.type === FileNodeType.Container;
@@ -209,7 +210,7 @@ const LeftSidebarTree: React.FC = () => {
                 return;
             }
 
-            const findNodeById = (nodes: FileNode[]): FileNode | undefined => {
+            const findNodeById = (nodes: FileNodeWithChildren[]): FileNodeWithChildren | undefined => {
                 for (const node of nodes) {
                     if (node.id === itemId) return node;
                     if (node.children) {
@@ -237,7 +238,7 @@ const LeftSidebarTree: React.FC = () => {
     return (
         <div className="sidebar__content">
             <Box sx={{ minHeight: 352, minWidth: 250 }}>
-                <RichTreeView<FileNode>
+                <RichTreeView<FileNodeWithChildren>
                     items={fileTree}
                     slots={{ item: CustomTreeItem }}
                     getItemId={(item) => item.id}

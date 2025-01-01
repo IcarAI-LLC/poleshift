@@ -19,16 +19,13 @@ import {
     FormControlLabel,
     Switch,
 } from '@mui/material';
-
 import CloseIcon from '@mui/icons-material/Close';
-// Example icons for sections — feel free to pick any icons you like:
-import GenomeIcon from '../../assets/genome.svg'; // For "Taxonomic Starburst"
-import PublicIcon from '@mui/icons-material/Public';               // For "Globe"
-
-// Import the custom hook
-import { useSettings } from '../../lib/hooks/useSettings';
-import { useAuth } from '../../lib/hooks';
-import { UserSetting, TaxonomicRank } from '../../lib/types';
+import GenomeIcon from '../../assets/genome.svg';
+import PublicIcon from '@mui/icons-material/Public';
+import { useSettings } from '@/lib/hooks/useSettings.ts';
+import { useAuth } from '@/lib/hooks';
+import { UserSettings } from '@/lib/types';
+import {TaxonomicRank} from "@/lib/powersync/DrizzleSchema.ts";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -47,7 +44,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const { user } = useAuth();
 
     // State for the user's (new or existing) settings
-    const [newSetting, setNewSetting] = useState<Partial<UserSetting>>({
+    const [newSetting, setNewSetting] = useState<Partial<UserSettings>>({
         user_id: user?.id, // Pre-fill with user ID
     });
 
@@ -79,7 +76,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 await updateUserSetting(newSetting.id, newSetting);
             } else {
                 // Otherwise, insert new setting
-                await addUserSetting(newSetting as UserSetting);
+                await addUserSetting(newSetting as UserSettings);
             }
             onClose();
         } catch (err) {

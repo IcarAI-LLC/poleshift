@@ -1,6 +1,6 @@
 // src/renderer/config/dropboxConfig.ts
 
-import {DataType} from "../lib/types";
+import {DataType} from "@/lib/powersync/DrizzleSchema.ts";
 
 export interface ModalField {
   name: string;

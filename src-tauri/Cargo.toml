@@ -36,6 +36,7 @@ tauri-plugin-os = "2.2"
 tauri-plugin-websocket = "2.2"
 regex = "1.11.1"
 flate2 = "1.0.35"
+krakenuniq-rs = "0.0.1"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-cli = "2"

@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 //poleshift/src-tauri/src/poleshift_common/types.rs
 use serde::Serialize;
 
@@ -80,10 +81,11 @@ pub struct KrakenConfig {
     pub db_file: String,
     pub idx_file: String,
     pub taxdb_file: String,
+    pub counts_file: String,
     pub threads: u32,
     pub report_file: String,
     pub outfile: String,
-    pub input_files: Vec<String>,
+    pub input_files: Vec<PathBuf>,
 }
 
 /*
