@@ -1,7 +1,11 @@
+// src/components/KrakenVisualization/TaxonomyStarburst.tsx
+
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import Plotly from 'plotly.js-dist';
 import { Box, Button, Typography } from '@mui/material';
 import { ProcessedKrakenUniqReport } from '@/lib/types';
+import { TaxonomicRank } from '@/lib/powersync/DrizzleSchema.ts'; // <-- Adjust path if needed
+import useSettings from "@/lib/hooks/useSettings"; // to get optional max rank
 
 interface TaxonomyStarburstProps {
     data: ProcessedKrakenUniqReport[];
@@ -108,10 +112,19 @@ interface NodeInfo {
     path: string[];
 }
 
-const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800, height = 800 }) => {
+const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({
+                                                                 data,
+                                                                 width = 800,
+                                                                 height = 800
+                                                             }) => {
     const plotRef = useRef<HTMLDivElement | null>(null);
     const [currentRootId, setCurrentRootId] = useState<string | undefined>(undefined);
     const [parentMap, setParentMap] = useState<Record<string, string>>({});
+
+    // Load user settings for max rank only
+    const { userSettingsArray } = useSettings();
+    const userSetting = userSettingsArray[0] || null;
+    const maxRankSetting = userSetting?.taxonomic_starburst_max_rank as TaxonomicRank | undefined;
 
     // Build the hierarchy and parent map
     useEffect(() => {
@@ -128,7 +141,11 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
         const nodeMap = new Map(nodes.map(node => [node.id, node]));
         const result: NodeInfo[] = [];
 
-        const processNode = (node: ProcessedKrakenUniqReport, currentDepth: number, currentPath: string[]) => {
+        const processNode = (
+            node: ProcessedKrakenUniqReport,
+            currentDepth: number,
+            currentPath: string[]
+        ) => {
             result.push({
                 node,
                 depth: currentDepth,
@@ -143,9 +160,9 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
             });
         };
 
-        // Find root nodes (nodes without parents or with parents not in our dataset)
-        const rootNodes = nodes.filter(node =>
-            !node.parent_id || !nodeMap.has(node.parent_id)
+        // Root nodes: no parent or parent not in dataset
+        const rootNodes = nodes.filter(
+            node => !node.parent_id || !nodeMap.has(node.parent_id)
         );
 
         rootNodes.forEach(root => processNode(root, 0, []));
@@ -154,12 +171,45 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
 
     // Process the data for plotly
     const processDataForPlotly = (nodes: ProcessedKrakenUniqReport[]) => {
-        const hierarchyInfo = getNodeHierarchyInfo(nodes);
+        // 1) Filter out nodes that have ranks not in the enum:
+        let filteredNodes = nodes.filter(node =>
+            Object.values(TaxonomicRank).includes(node.rank as TaxonomicRank)
+        );
+        console.log(filteredNodes);
+
+        // 2) Enforce ONLY max rank (remove any "min" logic)
+        // Create a small rank-order map for reference
+        const rankOrderMap: Record<TaxonomicRank, number> = {
+            [TaxonomicRank.Root]: 0,
+            [TaxonomicRank.Domain]: 1,
+            [TaxonomicRank.Supergroup]: 2,
+            [TaxonomicRank.Division]: 3,
+            [TaxonomicRank.Subdivision]: 4,
+            [TaxonomicRank.Class]: 5,
+            [TaxonomicRank.Order]: 6,
+            [TaxonomicRank.Family]: 7,
+            [TaxonomicRank.Genus]: 8,
+            [TaxonomicRank.Species]: 9,
+            [TaxonomicRank.Assembly]: 10,
+            [TaxonomicRank.Sequence]: 11,
+        };
+
+        if (maxRankSetting) {
+            filteredNodes = filteredNodes.filter(node => {
+                const nodeRankEnum = node.rank as TaxonomicRank;
+                const nodeVal = rankOrderMap[nodeRankEnum];
+                const maxVal = rankOrderMap[maxRankSetting];
+                return nodeVal <= maxVal;
+            });
+        }
+
+        const hierarchyInfo = getNodeHierarchyInfo(filteredNodes);
 
         const labels: string[] = [];
         const parents: string[] = [];
         const values: number[] = [];
         const ids: string[] = [];
+        // [tax_id, rank, percentage, reads, coverage, e_score]
         const customdata: Array<[number, string, number, number, string, number]> = [];
         const colors: string[] = [];
 
@@ -212,7 +262,11 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
                 while (found) {
                     found = false;
                     data.forEach(node => {
-                        if (node.parent_id && subtreeNodes.has(node.parent_id) && !subtreeNodes.has(node.id)) {
+                        if (
+                            node.parent_id &&
+                            subtreeNodes.has(node.parent_id) &&
+                            !subtreeNodes.has(node.id)
+                        ) {
                             subtreeNodes.add(node.id);
                             found = true;
                         }
@@ -220,13 +274,12 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
                 }
                 return subtreeNodes;
             };
-
-            const subtreeNodes = getSubtreeNodes(currentRootId);
-            dataToProcess = data.filter(node => subtreeNodes.has(node.id));
+            const subtree = getSubtreeNodes(currentRootId);
+            dataToProcess = data.filter(node => subtree.has(node.id));
         }
 
         return processDataForPlotly(dataToProcess);
-    }, [data, currentRootId]);
+    }, [data, currentRootId, maxRankSetting]);
 
     const isRootClickable = (rootId: string | undefined) => {
         return !!rootId && !!parentMap[rootId];
@@ -245,19 +298,19 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
                 values: processedData.values,
                 customdata: processedData.customdata,
                 hovertemplate: `
-                <b>%{label}</b><br>
-                Tax ID: %{customdata[0]}<br>
-                Rank: %{customdata[1]}<br>
-                Percentage: %{customdata[2]}%<br>
-                Reads: %{customdata[3]}<br>
-                Coverage: %{customdata[4]}<br>
-                E-score: %{customdata[5]}<br>
-                <extra></extra>`,
+          <b>%{label}</b><br>
+          Tax ID: %{customdata[0]}<br>
+          Rank: %{customdata[1]}<br>
+          Percentage: %{customdata[2]}%<br>
+          Reads: %{customdata[3]}<br>
+          Coverage: %{customdata[4]}<br>
+          E-score: %{customdata[5]}<br>
+          <extra></extra>`,
                 marker: {
                     colors: processedData.colors,
                     line: { color: '#ffffff', width: 0 },
                 },
-                branchvalues: "total",
+                branchvalues: 'total',
                 textinfo: 'label',
             },
         ];
@@ -289,6 +342,7 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
 
             const clickedId = point.id;
             if (clickedId === currentRootId) {
+                // If we have a parent, bubble up
                 if (currentRootId && parentMap[currentRootId]) {
                     setCurrentRootId(parentMap[currentRootId]);
                 }
@@ -300,6 +354,7 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
         gd.on('plotly_hover', (event: any) => {
             const point = event.points?.[0];
             if (!point || !plotRef.current) return;
+
             const hoveredId = point.id;
             let cursorStyle = 'default';
 
@@ -320,8 +375,8 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({ data, width = 800
     };
 
     useEffect(() => {
+        console.debug(processedData);
         drawPlot();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [processedData, width, height]);
 
     const handleReset = () => {

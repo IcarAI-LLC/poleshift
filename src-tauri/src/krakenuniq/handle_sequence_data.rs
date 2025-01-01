@@ -18,7 +18,6 @@ use crate::poleshift_common::utils::emit_progress;
 use crate::krakenuniq::{parse_fastq_files::parse_fastq_files, KrakenUniqResult, ProcessedKrakenUniqReport, ProcessedKrakenUniqStdout};
 use krakenuniq_rs::{classify_reads, ClassificationResults};
 
-/// Example of how you might build the config.
 impl KrakenConfig {
     pub fn hardcoded(
         resource_dir: PathBuf,
@@ -124,7 +123,7 @@ pub async fn handle_sequence_data<R: Runtime>(
 
     emit_progress(&window, 40, "Classification complete. Preparing final data...", "processing")?;
 
-    // 5) Optionally parse FASTQ data for "rawSequences"
+    // 5) Parse FASTQ data for "rawSequences"
     let raw_sequences_parsed = parse_fastq_files(
         &file_paths,
         user_id.clone(),
@@ -232,7 +231,7 @@ pub async fn handle_sequence_data<R: Runtime>(
         })
         .collect::<Vec<_>>();
 
-    // 8) Construct your final result
+    // 8) Construct final result
     let final_kraken_result = KrakenUniqResult {
         processedKrakenUniqReport: processed_kraken_uniq_report,
         processedKrakenUniqStdout: processed_kraken_uniq_stdout,

@@ -318,9 +318,9 @@ const RightSidebar: React.FC = () => {
       if (typeof percentage !== 'number') continue;
 
       if (percentage > confidenceThreshold) {
-        if (row.rank === 'Species') {
+        if (row.rank === 'species') {
           species_data[row.tax_name] = (species_data[row.tax_name] || 0) + 1;
-        } else if (row.rank === 'Genus') {
+        } else if (row.rank === 'genus') {
           genus_data[row.tax_name] = (genus_data[row.tax_name] || 0) + 1;
         }
       }

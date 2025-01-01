@@ -1,3 +1,5 @@
+//src/components/GlobeComponent.tsx
+
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';

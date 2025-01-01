@@ -1,5 +1,6 @@
 import {useAuthStore} from '../stores/authStore';
 import {supabaseConnector} from '../powersync/SupabaseConnector';
+import {supabase} from '../supabase.ts'
 import {useCallback, useMemo} from 'react';
 import {usePowerSync, useQuery} from "@powersync/react";
 import {Organizations, UserProfiles} from "../types";
@@ -29,10 +30,9 @@ export const useAuth = () => {
             if (!db.connected) {
                 await db.connect(supabaseConnector);
             }
-            const { data } = await supabaseConnector.client.auth.getSession();
-
-            const loggedInUser = data.session?.user;
-            setUser(loggedInUser || null);
+            const credentials = await supabaseConnector.client.auth.getSession();
+            const user = credentials.data.session?.user;
+            setUser(user || null);
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
@@ -60,7 +60,7 @@ export const useAuth = () => {
         }
         try {
             setLoading(true);
-            const response = await supabaseConnector.client.functions.invoke("signUpWithLicense", {
+            const response = await supabase.functions.invoke("signUpWithLicense", {
                 body: {userId: user.id, licenseKey},
             });
 

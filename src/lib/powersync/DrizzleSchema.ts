@@ -29,18 +29,18 @@ export enum ProximityCategory {
 }
 
 export enum TaxonomicRank {
-    Root = 'Root',
-    Domain = 'Domain',
-    Supergroup = 'Supergroup',
-    Division = 'Division',
-    Subdivision = 'Subdivision',
-    Class = 'Class',
-    Order = 'Order',
-    Family = 'Family',
-    Genus = 'Genus',
-    Species = 'Species',
-    Assembly = 'Assembly',
-    Sequence = 'Sequence',
+    Root = 'root',
+    Domain = 'domain',
+    Supergroup = 'supergroup',
+    Division = 'division',
+    Subdivision = 'subdivision',
+    Class = 'class',
+    Order = 'order',
+    Family = 'family',
+    Genus = 'genus',
+    Species = 'species',
+    Assembly = 'assembly',
+    Sequence = 'sequence',
 }
 
 export enum FileNodeType {

@@ -1,9 +1,9 @@
 // src/lib/powersync/db.ts
 
 import {PowerSyncDatabase} from '@powersync/web';
+import {AbstractPowerSyncDatabase} from "@powersync/web";
 import {SupabaseConnector} from './SupabaseConnector';
 import {AppSchema} from './Schema';
-
 // Variables to track the instance creation
 let instanceCount = 0;
 let dbInstance: PowerSyncDatabase | null = null;
@@ -14,8 +14,9 @@ let dbInstance: PowerSyncDatabase | null = null;
  *  - 2nd call: Creates a web-worker instance, replaces the first one, and returns it.
  *  - Subsequent calls: Returns the web-worker instance (no new creation).
  */
-export const getDatabaseInstance = (): PowerSyncDatabase => {
+export const getDatabaseInstance = (): AbstractPowerSyncDatabase => {
     instanceCount++;
+    console.log("Instance count", instanceCount)
 
     if (instanceCount === 1) {
         // First time: no web worker
@@ -26,6 +27,7 @@ export const getDatabaseInstance = (): PowerSyncDatabase => {
             },
             flags: {
                 useWebWorker: false,
+                enableMultiTabs: true,
             }
 
         });
@@ -43,6 +45,7 @@ export const getDatabaseInstance = (): PowerSyncDatabase => {
             },
             flags: {
                 useWebWorker: true,
+                enableMultiTabs: true,
             }
         });
         console.log('PowerSyncDatabase instance created (with web worker). This instance is now primary.');
