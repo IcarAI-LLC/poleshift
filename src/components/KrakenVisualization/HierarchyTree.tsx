@@ -18,12 +18,12 @@ import { TreeItem2Icon } from '@mui/x-tree-view/TreeItem2Icon';
 import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider';
 import { styled } from '@mui/material/styles';
 import { ProcessedKrakenUniqReport } from "@/lib/types";
-import {TaxonomicRankAndUnclassified} from "@/lib/types/enums.ts";
+import {TaxonomicRank} from "@/lib/powersync/DrizzleSchema.ts";
 
 interface TaxonomyFileNode {
     id: string;
     name: string;
-    rank: TaxonomicRankAndUnclassified;
+    rank: TaxonomicRank;
     percentage: number;
     reads: number;
     tax_id: number;
@@ -102,7 +102,7 @@ const buildHierarchyTree = (data: ProcessedKrakenUniqReport[]): TaxonomyFileNode
         nodeMap.set(item.id, {
             id: item.id,
             name: item.tax_name,
-            rank: item.rank as TaxonomicRankAndUnclassified,
+            rank: item.rank as TaxonomicRank,
             percentage: item.percentage,
             reads: parseInt(item.reads),
             tax_id: item.tax_id,

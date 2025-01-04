@@ -1,9 +1,10 @@
-use std::collections::{HashMap};
-use std::path::PathBuf;
+use std::collections::HashMap;
 
-use crate::poleshift_common::types::{FileMeta, FilesResponse, PoleshiftError, StandardResponse, StandardResponseNoFiles};
+use crate::poleshift_common::types::{
+    PoleshiftError, StandardResponseNoFiles,
+};
 use crate::poleshift_common::utils::emit_progress;
-use rusqlite::{Connection};
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
@@ -125,8 +126,8 @@ pub async fn handle_ctd_data(
     // 2. Query DB for channels & channel data
     // -----------------------------------------------------------------------
     let channels = {
-        let db_connection = Connection::open(file_path)
-            .map_err(|e| PoleshiftError::IoError(e.to_string()))?;
+        let db_connection =
+            Connection::open(file_path).map_err(|e| PoleshiftError::IoError(e.to_string()))?;
 
         // 2a. Get channel metadata
         let mut stmt = db_connection
@@ -165,14 +166,16 @@ pub async fn handle_ctd_data(
     }
 
     // We’ll define which channels we want in our RawDataRow / ProcessedDataRow
-    let depth_ch_id       = channel_map.get("depth").map(|c| c.channel_id);
-    let pressure_ch_id    = channel_map.get("pressure").map(|c| c.channel_id);
-    let sea_press_ch_id   = channel_map.get("sea pressure").map(|c| c.channel_id);
-    let temp_ch_id        = channel_map.get("temperature").map(|c| c.channel_id);
-    let chloro_ch_id      = channel_map.get("chlorophyll a").map(|c| c.channel_id);
-    let salinity_ch_id    = channel_map.get("salinity").map(|c| c.channel_id);
-    let speed_ch_id       = channel_map.get("speed of sound").map(|c| c.channel_id);
-    let cond_ch_id        = channel_map.get("specific conductivity").map(|c| c.channel_id);
+    let depth_ch_id = channel_map.get("depth").map(|c| c.channel_id);
+    let pressure_ch_id = channel_map.get("pressure").map(|c| c.channel_id);
+    let sea_press_ch_id = channel_map.get("sea pressure").map(|c| c.channel_id);
+    let temp_ch_id = channel_map.get("temperature").map(|c| c.channel_id);
+    let chloro_ch_id = channel_map.get("chlorophyll a").map(|c| c.channel_id);
+    let salinity_ch_id = channel_map.get("salinity").map(|c| c.channel_id);
+    let speed_ch_id = channel_map.get("speed of sound").map(|c| c.channel_id);
+    let cond_ch_id = channel_map
+        .get("specific conductivity")
+        .map(|c| c.channel_id);
 
     // Gather their units (or empty if missing)
     let depth_unit = channel_map
@@ -225,8 +228,8 @@ pub async fn handle_ctd_data(
     //   because we want them all in a single pass. However, if your DB
     //   has many channels or naming patterns, you can do multiple queries.
 
-    let db_connection = Connection::open(file_path)
-        .map_err(|e| PoleshiftError::IoError(e.to_string()))?;
+    let db_connection =
+        Connection::open(file_path).map_err(|e| PoleshiftError::IoError(e.to_string()))?;
 
     // Build a dynamic list of columns to select. We'll always select "tstamp"
     // but also select "channelNN" for each channelID from 1..=some_max.
@@ -295,15 +298,15 @@ pub async fn handle_ctd_data(
                 }
             };
 
-            let depth_val         = get_val_for_ch_id(depth_ch_id);
-            let pressure_val      = get_val_for_ch_id(pressure_ch_id);
-            let sea_pressure_val  = get_val_for_ch_id(sea_press_ch_id);
-            let temp_val          = get_val_for_ch_id(temp_ch_id);
-            let chloro_val        = get_val_for_ch_id(chloro_ch_id);
-            let salinity_val      = get_val_for_ch_id(salinity_ch_id);
-            let speed_val         = get_val_for_ch_id(speed_ch_id);
-            let cond_val          = get_val_for_ch_id(cond_ch_id);
-            let new_id = Uuid::new_v4();    // generate a fresh UUID here
+            let depth_val = get_val_for_ch_id(depth_ch_id);
+            let pressure_val = get_val_for_ch_id(pressure_ch_id);
+            let sea_pressure_val = get_val_for_ch_id(sea_press_ch_id);
+            let temp_val = get_val_for_ch_id(temp_ch_id);
+            let chloro_val = get_val_for_ch_id(chloro_ch_id);
+            let salinity_val = get_val_for_ch_id(salinity_ch_id);
+            let speed_val = get_val_for_ch_id(speed_ch_id);
+            let cond_val = get_val_for_ch_id(cond_ch_id);
+            let new_id = Uuid::new_v4(); // generate a fresh UUID here
             raw_rows.push(RawDataRow {
                 tstamp: Some(*ts),
                 depth: depth_val,
@@ -341,10 +344,11 @@ pub async fn handle_ctd_data(
     // 4. Now build PROCESSED data rows by applying a monotonic filter on depth
     // -----------------------------------------------------------------------
     // We'll clone from raw_rows into processed_rows, then do monotonic filtering:
-    let mut processed_rows: Vec<ProcessedDataRow> = raw_rows.clone()
+    let mut processed_rows: Vec<ProcessedDataRow> = raw_rows
+        .clone()
         .iter()
         .map(|rr| {
-            let new_id = Uuid::new_v4();    // generate a fresh UUID here
+            let new_id = Uuid::new_v4(); // generate a fresh UUID here
             println!("Processed data id end: {}", processed_data_id.clone());
             ProcessedDataRow {
                 tstamp: rr.tstamp,

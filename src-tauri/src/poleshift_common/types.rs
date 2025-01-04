@@ -12,10 +12,6 @@ pub enum PoleshiftError {
     PathResolution(String),
     #[error("IO Error: {0}")]
     IoError(String),
-    #[error("Spawn sidecar error: {0}")]
-    SidecarSpawnError(String),
-    #[error("Report generation error: {0}")]
-    ReportError(String),
     #[error("Data processing error: {0}")]
     DataError(String),
     #[error("Progress emission error: {0}")]
@@ -25,8 +21,6 @@ pub enum PoleshiftError {
     #[error("Unsupported OS: {0}")]
     UnsupportedOS(String),
     #[error("Unsupported OS: {0}")]
-    InvalidInput(String),
-    #[error("Unknown error: {0}")]
     Other(String),
 }
 
@@ -82,9 +76,6 @@ pub struct KrakenConfig {
     pub idx_file: String,
     pub taxdb_file: String,
     pub counts_file: String,
-    pub threads: u32,
-    pub report_file: String,
-    pub outfile: String,
     pub input_files: Vec<PathBuf>,
 }
 

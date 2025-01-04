@@ -1,11 +1,10 @@
-use rayon::prelude::*;
-use std::fs::File;
-use serde::Serialize;
-use uuid::Uuid;
 use crate::io::fastq::FastqReader;
 use crate::io::fastqgz::FastqGzReader;
-use crate::io::{FastqRecord, ParseError, Validate};
+use crate::io::{ParseError, Validate};
 use crate::krakenuniq::RawSequence;
+use rayon::prelude::*;
+use std::fs::File;
+use uuid::Uuid;
 
 /// Calculate the median of a list of u8 quality scores.
 fn median_quality(scores: &[u8]) -> f64 {
@@ -29,7 +28,9 @@ fn median_quality(scores: &[u8]) -> f64 {
 /// @<parent_read_id> runid=<run_id> read=123 ch=456 start_time=2024-01-01T12:34:56Z sampleid=SAMPLE1 ...
 ///
 /// We'll parse each space-delimited token to see if it matches runid=..., read=..., etc.
-fn parse_nanopore_header(header: &str) -> (
+fn parse_nanopore_header(
+    header: &str,
+) -> (
     String, // run_id
     i32,    // read
     i32,    // ch
@@ -40,7 +41,7 @@ fn parse_nanopore_header(header: &str) -> (
     String, // parent_read_id
     String, // basecall_model_version_id
     String,
-    String
+    String,
 ) {
     let mut run_id = String::new();
     let mut read = 0;
@@ -97,7 +98,7 @@ fn parse_nanopore_header(header: &str) -> (
         parent_read_id,
         basecall_model_version_id,
         flow_cell_id,
-        protocol_group_id
+        protocol_group_id,
     )
 }
 
@@ -105,7 +106,13 @@ fn parse_nanopore_header(header: &str) -> (
 ///
 /// In a real-world app, you might want more robust file-extension checks.
 /// Here, we check only for ".gz".
-pub fn parse_fastq_files(file_paths: &[String], user_id: String, org_id: String, raw_data_id: String, sample_id: String) -> Result<Vec<RawSequence>, ParseError> {
+pub fn parse_fastq_files(
+    file_paths: &[String],
+    user_id: String,
+    org_id: String,
+    raw_data_id: String,
+    sample_id: String,
+) -> Result<Vec<RawSequence>, ParseError> {
     let mut all_sequences = Vec::new();
 
     for path in file_paths {
@@ -143,7 +150,7 @@ pub fn parse_fastq_files(file_paths: &[String], user_id: String, org_id: String,
                 parent_read_id,
                 basecall_model_version_id,
                 flow_cell_id,
-                protocol_group_id
+                protocol_group_id,
             ) = parse_nanopore_header(&rec.header);
 
             // You can also decide how you want to populate `id`, `feature_id`, `metadata`, etc.
@@ -172,6 +179,7 @@ pub fn parse_fastq_files(file_paths: &[String], user_id: String, org_id: String,
                 org_id: org_id.clone(),
                 sample_id: sample_id.clone(),
                 raw_data_id: raw_data_id.clone(),
+                sync_flag_id: false,
             };
 
             all_sequences.push(raw_seq);

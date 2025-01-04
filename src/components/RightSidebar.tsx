@@ -20,7 +20,7 @@ import {
   processed_kraken_uniq_report,
   sample_group_metadata, DataType
 } from '../lib/powersync/DrizzleSchema';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, and, inArray } from "drizzle-orm";
 import { toCompilableQuery, wrapPowerSyncWithDrizzle } from '@powersync/drizzle-driver';
 
 import type { Theme } from '@mui/material/styles';
@@ -167,6 +167,7 @@ const RightSidebar: React.FC = () => {
   // 1) Query processed_data_improved for CTD / Nutrient / Sequence
   // Always call the same 3 hooks, never skip them.
   // ─────────────────────────────────────────────────────────────────
+
   const ctdDataQuery = useMemo(() => {
     return drizzleDB
         .select()
@@ -175,8 +176,8 @@ const RightSidebar: React.FC = () => {
             and(
                 eq(processed_data_improved.data_type, DataType.CTD),
                 sampleIds.length
-                    ? sql`sample_id IN (${sampleIds.join(',')})`
-                    : eq(processed_data_improved.id, 'FALSE')
+                    ? inArray(processed_data_improved.sample_id, sampleIds)
+                    : eq(processed_data_improved.sample_id, "FALSE") // or some other "no results" condition
             )
         );
   }, [drizzleDB, sampleIds]);
@@ -189,8 +190,8 @@ const RightSidebar: React.FC = () => {
             and(
                 eq(processed_data_improved.data_type, DataType.NutrientAmmonia),
                 sampleIds.length
-                    ? sql`sample_id IN (${sampleIds.join(',')})`
-                    : eq(processed_data_improved.id, 'FALSE')
+                    ? inArray(processed_data_improved.sample_id, sampleIds)
+                    : eq(processed_data_improved.sample_id, "FALSE")
             )
         );
   }, [drizzleDB, sampleIds]);
@@ -203,8 +204,8 @@ const RightSidebar: React.FC = () => {
             and(
                 eq(processed_data_improved.data_type, DataType.Sequence),
                 sampleIds.length
-                    ? sql`sample_id IN (${sampleIds.join(',')})`
-                    : eq(processed_data_improved.id, 'FALSE')
+                    ? inArray(processed_data_improved.sample_id, sampleIds)
+                    : eq(processed_data_improved.sample_id, "FALSE")
             )
         );
   }, [drizzleDB, sampleIds]);
@@ -212,49 +213,53 @@ const RightSidebar: React.FC = () => {
   const ctdData = useQuery(toCompilableQuery(ctdDataQuery)).data || [];
   const nutrientData = useQuery(toCompilableQuery(nutrientDataQuery)).data || [];
   const sequenceData = useQuery(toCompilableQuery(sequenceDataQuery)).data || [];
-
-  // ─────────────────────────────────────────────────────────────────
-  // 2) Query detail tables (CTD, Nutrient, Kraken)
-  // ─────────────────────────────────────────────────────────────────
-  const ctdIds = useMemo(() => ctdData.map(d => d.id), [ctdData]);
+// ─────────────────────────────────────────────────────────────────
+// 2) Query detail tables (CTD, Nutrient, Kraken)
+// ─────────────────────────────────────────────────────────────────
+  const ctdIds = useMemo(() => ctdData.map((d) => d.id), [ctdData]);
   const ctdDetailQuery = useMemo(() => {
     return drizzleDB
         .select()
         .from(processed_ctd_rbr_data_values)
         .where(
             ctdIds.length
-                ? sql`processed_data_id IN (${ctdIds.join(',')})`
-                : eq(processed_ctd_rbr_data_values.processed_data_id, 'FALSE')
+                ? inArray(processed_ctd_rbr_data_values.processed_data_id, ctdIds)
+                : eq(processed_ctd_rbr_data_values.processed_data_id, "FALSE")
         );
   }, [drizzleDB, ctdIds]);
   const ctdDetailRows = useQuery(toCompilableQuery(ctdDetailQuery)).data || [];
 
-  const nutrientIds = useMemo(() => nutrientData.map(d => d.id), [nutrientData]);
+  const nutrientIds = useMemo(() => nutrientData.map((d) => d.id), [nutrientData]);
   const nutrientDetailQuery = useMemo(() => {
     return drizzleDB
         .select()
         .from(processed_nutrient_ammonia_data)
         .where(
             nutrientIds.length
-                ? sql`processed_data_id IN (${nutrientIds.join(',')})`
-                : eq(processed_nutrient_ammonia_data.processed_data_id, 'FALSE')
+                ? inArray(processed_nutrient_ammonia_data.processed_data_id, nutrientIds)
+                : eq(processed_nutrient_ammonia_data.processed_data_id, "FALSE")
         );
   }, [drizzleDB, nutrientIds]);
   const nutrientDetailRows = useQuery(toCompilableQuery(nutrientDetailQuery)).data || [];
 
-  const sequenceIds = useMemo(() => sequenceData.map(d => d.id), [sequenceData]);
+  const sequenceIds = useMemo(() => {
+    const ids = sequenceData.map((d) => d.id);
+    return ids;
+  }, [sequenceData]);
+
   const sequenceDetailQuery = useMemo(() => {
-    return drizzleDB
+    const query = drizzleDB
         .select()
         .from(processed_kraken_uniq_report)
         .where(
             sequenceIds.length
-                ? sql`processed_data_id IN (${sequenceIds.join(',')})`
-                : eq(processed_kraken_uniq_report.processed_data_id, 'FALSE')
+                ? inArray(processed_kraken_uniq_report.processed_data_id, sequenceIds)
+                : eq(processed_kraken_uniq_report.processed_data_id, "FALSE")
         );
+    return query;
   }, [drizzleDB, sequenceIds]);
-  const sequenceDetailRows = useQuery(toCompilableQuery(sequenceDetailQuery)).data || [];
 
+  const sequenceDetailRows = useQuery(toCompilableQuery(sequenceDetailQuery)).data || [];
   // ─────────────────────────────────────────────────────────────────
   // 3) Compute stats in the frontend
   // ─────────────────────────────────────────────────────────────────
@@ -312,7 +317,6 @@ const RightSidebar: React.FC = () => {
     // C) Sequence data (species, genus), filtered by confidenceThreshold
     const species_data: Record<string, number> = {};
     const genus_data: Record<string, number> = {};
-
     for (const row of sequenceDetailRows) {
       const percentage = row.percentage;
       if (typeof percentage !== 'number') continue;

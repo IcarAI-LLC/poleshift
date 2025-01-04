@@ -376,13 +376,14 @@ export const raw_fastq_data = sqliteTable("raw_fastq_data", {
     barcode_alias: text("barcode_alias").notNull(),
     parent_read_id: text("parent_read_id").notNull(),
     basecall_model_version_id: text("basecall_model_version_id").notNull(),
-    quality_median: text("quality_median").notNull(),
+    quality_median: real("quality_median").notNull(),
     flow_cell_id: text("flow_cell_id").notNull(),
     protocol_group_id: text("protocol_group_id").notNull(),
     raw_data_id: text("raw_data_id").notNull().references(() => raw_data_improved.id),
     user_id: text("user_id").notNull().references(() => user_profiles.id),
     org_id: text("org_id").notNull().references(() => organizations.id),
-    sample_id: text("sample_id").notNull().references(() => sample_group_metadata.id),
+    sample_id: text("sample_id").notNull().references(()=> sample_group_metadata.id),
+    sync_flag: integer("sync_flag").$type<Boolean>(),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────

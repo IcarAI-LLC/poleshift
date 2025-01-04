@@ -17,6 +17,7 @@ import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
 import MoveModal from "./LeftSidebar/MoveModal";
 import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
+import ContainerScreen from "@/components/Container/ContainerScreen.tsx";
 
 const MainApp: React.FC = () => {
   // All hooks at the top level
@@ -102,6 +103,9 @@ const MainApp: React.FC = () => {
   const renderContent = useMemo(() => {
     if (selectedLeftItem?.type === FileNodeType.SampleGroup) {
       return <MergedDropBoxes onError={setErrorMessage} />;
+    }
+    if (selectedLeftItem?.type === FileNodeType.Container) {
+      return <ContainerScreen />;
     }
     return <GlobeComponent />;
   }, [selectedLeftItem?.type, setErrorMessage]);

@@ -3,13 +3,12 @@ use uuid::Uuid;
 
 pub mod handle_sequence_data;
 mod parse_fastq_files;
-mod parse_stdout;
 
 #[derive(Debug, Serialize)]
 pub struct KrakenUniqResult {
     processedKrakenUniqReport: Vec<ProcessedKrakenUniqReport>,
     processedKrakenUniqStdout: Vec<ProcessedKrakenUniqStdout>,
-    rawSequences: Vec<RawSequence>
+    rawSequences: Vec<RawSequence>,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,7 +42,8 @@ where
     let postgres_array = if uuids.is_empty() {
         "{}".to_string()
     } else {
-        let uuid_strings: Vec<String> = uuids.iter()
+        let uuid_strings: Vec<String> = uuids
+            .iter()
             .map(|uuid| format!("\"{}\"", uuid.to_string()))
             .collect();
         format!("{{{}}}", uuid_strings.join(","))
@@ -63,7 +63,7 @@ pub struct ProcessedKrakenUniqStdout {
     pub user_id: String,
     pub org_id: String,
     pub sample_id: String,
-    pub processed_data_id: String
+    pub processed_data_id: String,
 }
 
 /// The struct we will finally return to the frontend (instead of StandardResponse).
@@ -89,5 +89,6 @@ pub struct RawSequence {
     pub user_id: String,
     pub org_id: String,
     pub sample_id: String,
-    pub raw_data_id: String
+    pub raw_data_id: String,
+    pub sync_flag_id: bool,
 }

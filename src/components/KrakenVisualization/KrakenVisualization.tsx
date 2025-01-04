@@ -25,7 +25,7 @@ import FilterSelect from './FilterSelect';
 import HierarchyTree from './HierarchyTree';
 import DistributionChart from './DistributionChart';
 import TaxonomyStarburst from './TaxonomyStarburst';
-import { ProcessedKrakenUniqReport } from "../../lib/types";
+import { ProcessedKrakenUniqReport } from "@/lib/types";
 
 enum SortDirection {
   ASC = 'asc',
@@ -61,7 +61,6 @@ const formatPercentage = (num: number): string => {
 type SortableKeys = keyof PlotData;
 
 const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
-  console.log('Kraken Visualization component inner');
   const [activeTab, setActiveTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRank, setSelectedRank] = useState('all');
@@ -114,26 +113,42 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
         dup: parseFloat(entry.duplication),
         cov: parseFloat(entry.coverage),
         e_score: entry.e_score,
-
       }))
     }));
   }, [data]);
 
-  // Compute summary statistics
+  // Compute summary statistics without referring to an "Unclassified" node:
   const summaryStats = useMemo(() => {
-    const rootNode = data.find(node =>
-        node.rank === 'Root' || node.tax_name === 'Root' || node.tax_name === 'Life'
+    // Identify the root node (which should have total read count and total percentage)
+    const rootNode = data.find(
+        (node) =>
+            node.rank === 'Root' ||
+            node.tax_name === 'Root' ||
+            node.tax_name === 'Life'
     );
 
+    // The root node's reads = total reads
     const totalReads = rootNode ? parseInt(rootNode.reads) : 0;
-    const unclassifiedNode = data.find(node => node.tax_name.toUpperCase() === 'UNCLASSIFIED');
-    const unclassifiedReads = unclassifiedNode ? parseInt(unclassifiedNode.reads) : 0;
+
+    // Classified percentage is just the root node's percentage
+    const classificationRate = rootNode ? rootNode.percentage : 0;
+
+    // Unclassified percentage is the difference from 100%
+    const unclassifiedPercentage = 100 - classificationRate;
+
+    // Number of unclassified reads (inferred from total reads)
+    const unclassifiedReads = Math.round(
+        (unclassifiedPercentage / 100) * totalReads
+    );
+
+    // Number of classified reads
     const classifiedReads = totalReads - unclassifiedReads;
-    const classificationRate = totalReads > 0 ? (classifiedReads / totalReads) * 100 : 0;
-    const uniqueTaxa = data.filter(node =>
-        node.tax_name !== 'Root' &&
-        node.tax_name !== 'Life' &&
-        node.tax_name.toUpperCase() !== 'UNCLASSIFIED'
+
+    // Count how many unique taxa (excluding the root/life)
+    const uniqueTaxa = data.filter(
+        (node) =>
+            node.tax_name !== 'Root' &&
+            node.tax_name !== 'Life'
     ).length;
 
     return {
@@ -228,7 +243,9 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       console.error('Export failed:', error);
       setExportStatus({
         open: true,
-        message: `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Export failed: ${
+            error instanceof Error ? error.message : 'Unknown error'
+        }`,
         severity: 'error',
       });
     }
@@ -372,7 +389,9 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
                             <DistributionChart
                                 key={rankData.rankBase}
                                 data={rankData.plotData}
-                                title={`${rankData.rankName.charAt(0).toUpperCase()+rankData.rankName.slice(1)} Distribution`}
+                                title={`${rankData.rankName.charAt(0).toUpperCase() + rankData.rankName.slice(
+                                    1
+                                )} Distribution`}
                             />
                         ))
                 ) : (
@@ -409,7 +428,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
                     onSort={(key, direction) =>
                         setSortConfig({
                           key: key as SortableKeys,
-                          direction: direction as SortDirection
+                          direction: direction as SortDirection,
                         })
                     }
                 />

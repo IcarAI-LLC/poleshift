@@ -84,8 +84,8 @@ const SingleDropBox: React.FC<SingleDropBoxProps> = ({
     const processedMetadataItem: ProcessedDataImproved | undefined =
         processedDataImproved.length > 0 ? processedDataImproved[0] : undefined;
 
-    const hasData = !!processedMetadataItem && processedMetadataItem.processing_state !== ProcessingState.Processing;
-    const isProcessing = processedMetadataItem?.processing_state === ProcessingState.Processing;
+    const hasData = !!processedMetadataItem && processedMetadataItem.processing_state !== ProcessingState.Processing && processedMetadataItem.processing_state !== ProcessingState.Saving;
+    const isProcessing = processedMetadataItem?.processing_state === ProcessingState.Processing || processedMetadataItem?.processing_state === ProcessingState.Saving;
     const progressMessage = processedMetadataItem?.status_message || '';
     const progressPercentage = processedMetadataItem?.progress_percentage || 0;
 

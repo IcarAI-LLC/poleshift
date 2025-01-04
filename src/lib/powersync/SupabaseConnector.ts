@@ -28,7 +28,6 @@ function groupByTableAndOp(ops: CrudEntry[]): Record<string, CrudEntry[]> {
 
 export class SupabaseConnector {
     readonly client: SupabaseClient;
-    private FATAL_RESPONSE_CODES: any;
     private lastUserId: string | null;
 
     constructor() {
@@ -46,7 +45,7 @@ export class SupabaseConnector {
 
         // Subscribe to authentication state changes
         this.client.auth.onAuthStateChange((event, session) => {
-            if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED', 'TOKEN_REFRESHED', 'INITIAL_SESSION'].includes(event)) {
+            if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED', 'INITIAL_SESSION', 'TOKEN_REFRESHED'].includes(event)) {
                 console.debug(session);
                 this.handleSessionChange(session);
             }
@@ -148,10 +147,14 @@ export class SupabaseConnector {
 
     /**
      * Batches the CRUD operations by table & operation type to reduce the number of network calls.
+     *
+     * This version does NOT discard failed transactions. Instead, it retries them.
+     * Only if it succeeds does it call transaction.complete().
      */
-    async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
+    async uploadData(database: AbstractPowerSyncDatabase, attempt = 1, maxAttempts = 3): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
 
+        // If there is no transaction, do nothing
         if (!transaction) {
             console.debug('No transactions to upload.');
             return;
@@ -160,7 +163,7 @@ export class SupabaseConnector {
         let lastOp: CrudEntry | null = null;
 
         try {
-            console.debug('Uploading data with batching...');
+            console.debug(`Uploading data (attempt ${attempt}/${maxAttempts}) with batching...`);
 
             // 1. Group the ops by table and operation type
             const groupedOps = groupByTableAndOp(transaction.crud);
@@ -170,11 +173,9 @@ export class SupabaseConnector {
                 const ops = groupedOps[key];
                 if (ops.length === 0) continue;
 
-                // The key is e.g. "my_table-PUT" or "my_table-PATCH"
                 const [tableName, opType] = key.split('-') as [string, UpdateType];
                 const table = this.client.from(tableName);
 
-                // Gather all rows for the batch
                 switch (opType) {
                     case UpdateType.PUT: {
                         // For PUT -> Use upsert
@@ -188,11 +189,6 @@ export class SupabaseConnector {
                     }
                     case UpdateType.PATCH: {
                         // For PATCH -> Use update
-                        // If each op could have different data, you either:
-                        // - do them one-by-one, OR
-                        // - group them by matching opData fields to reduce calls.
-                        //
-                        // For demonstration, we'll do them one-by-one in a single loop:
                         for (const op of ops) {
                             lastOp = op;
                             const { error } = await table.update(op.opData).eq('id', op.id);
@@ -202,7 +198,6 @@ export class SupabaseConnector {
                     }
                     case UpdateType.DELETE: {
                         // For DELETE -> Use delete
-                        // We can batch all IDs together by using .in('id', arrayOfIds)
                         const idsToDelete = ops.map(op => {
                             lastOp = op;
                             return op.id;
@@ -221,14 +216,20 @@ export class SupabaseConnector {
             console.debug('Data upload successful.');
         } catch (error: any) {
             console.error('Error uploading data in batch:', error, 'Last operation:', lastOp);
-            if (
-                typeof error.code === 'string' &&
-                this.FATAL_RESPONSE_CODES?.some((regex: { test: (arg0: any) => any }) => regex.test(error.code))
-            ) {
-                console.error('Fatal error during upload - discarding transaction:', error);
-                await transaction.complete();
+
+            // Retry logic: only retry up to `maxAttempts` times
+            if (attempt < maxAttempts) {
+                // Optional: Exponential backoff or just a delay
+                const delayMs = 1000 * attempt;
+                console.debug(`Retrying after ${delayMs}ms... (attempt ${attempt + 1} of ${maxAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+
+                // Recursively call uploadData with incremented attempt
+                return this.uploadData(database, attempt + 1, maxAttempts);
             } else {
-                throw error;
+                console.error(`Max retry attempts (${maxAttempts}) reached. Not discarding transaction, but will not retry again.`);
+                // IMPORTANT: We do NOT call transaction.complete() here
+                // so that the transaction remains in the queue for another future attempt
             }
         }
     }

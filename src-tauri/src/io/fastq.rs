@@ -1,7 +1,7 @@
 // io/fastq.rs
-use std::io::{BufRead, BufReader, Read};
-use rayon::prelude::*;
 use super::{FastqError, FastqRecord, ParseError, Validate};
+use rayon::prelude::*;
+use std::io::{BufRead, BufReader, Read};
 
 /// Reads FASTQ records from any source implementing the Read trait
 pub struct FastqReader<R: Read> {
@@ -81,8 +81,10 @@ impl<R: Read> FastqReader<R> {
         let records = self.collect_records()?;
 
         // Validate records in parallel
-        if let Err(e) = records.par_iter()
-            .try_for_each(|record| record.validate().map_err(ParseError::Fastq)) {
+        if let Err(e) = records
+            .par_iter()
+            .try_for_each(|record| record.validate().map_err(ParseError::Fastq))
+        {
             return Err(e);
         }
 
@@ -94,7 +96,8 @@ impl<R: Read> FastqReader<R> {
     pub fn validate_parallel(&mut self) -> Result<(), ParseError> {
         let records = self.collect_records()?;
 
-        records.par_iter()
+        records
+            .par_iter()
             .try_for_each(|record| record.validate().map_err(ParseError::Fastq))
     }
 
@@ -103,11 +106,13 @@ impl<R: Read> FastqReader<R> {
         let records = self.collect_records()?;
 
         // Validate first
-        records.par_iter()
+        records
+            .par_iter()
             .try_for_each(|record| record.validate().map_err(ParseError::Fastq))?;
 
         // Calculate stats in parallel
-        let stats: Vec<QualityStats> = records.par_iter()
+        let stats: Vec<QualityStats> = records
+            .par_iter()
             .map(|record| {
                 let scores = &record.quality;
                 let sum: u32 = scores.iter().map(|&x| x as u32).sum();
@@ -150,9 +155,8 @@ impl QualityStats {
         let min = stats.iter().map(|s| s.min).min().unwrap();
         let max = stats.iter().map(|s| s.max).max().unwrap();
         let total_count: usize = stats.iter().map(|s| s.count).sum();
-        let weighted_avg: f64 = stats.iter()
-            .map(|s| s.avg * s.count as f64)
-            .sum::<f64>() / total_count as f64;
+        let weighted_avg: f64 =
+            stats.iter().map(|s| s.avg * s.count as f64).sum::<f64>() / total_count as f64;
 
         QualityStats {
             min,

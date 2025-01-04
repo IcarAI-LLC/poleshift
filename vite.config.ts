@@ -26,8 +26,14 @@ const main = async () => {
             }),
             wasm(),
             topLevelAwait()],
+        // PowerSync
         optimizeDeps: {
+            // Don't optimize these packages as they contain web workers and WASM files.
+            // https://github.com/vitejs/vite/issues/11672#issuecomment-1415820673
             exclude: ['@journeyapps/wa-sqlite', '@powersync/web'],
+
+            // But include js-logger from @powersync/web, otherwise app breaks.
+            // https://github.com/powersync-ja/powersync-js/pull/267
             include: ['@powersync/web > js-logger']
         },
         clearScreen: false,

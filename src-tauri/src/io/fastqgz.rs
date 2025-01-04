@@ -234,11 +234,8 @@ impl QualityStats {
         let max_quality = stats.iter().map(|s| s.max).max().unwrap();
 
         // Weighted average: (sum of (avg_i * count_i)) / total_count
-        let weighted_avg: f64 = stats
-            .iter()
-            .map(|s| s.avg * (s.count as f64))
-            .sum::<f64>()
-            / (total_count as f64);
+        let weighted_avg: f64 =
+            stats.iter().map(|s| s.avg * (s.count as f64)).sum::<f64>() / (total_count as f64);
 
         Self {
             min: min_quality,

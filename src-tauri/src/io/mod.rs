@@ -1,10 +1,10 @@
 use thiserror::Error;
 
-pub mod fastqgz;
 pub mod fastq;
+pub mod fastqgz;
 
-pub use fastqgz::FastqGzReader;
 pub use fastq::FastqReader;
+pub use fastqgz::FastqGzReader;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FastqRecord {

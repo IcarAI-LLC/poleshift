@@ -1,6 +1,5 @@
 import {useAuthStore} from '../stores/authStore';
 import {supabaseConnector} from '../powersync/SupabaseConnector';
-import {supabase} from '../supabase.ts'
 import {useCallback, useMemo} from 'react';
 import {usePowerSync, useQuery} from "@powersync/react";
 import {Organizations, UserProfiles} from "../types";
@@ -58,16 +57,17 @@ export const useAuth = () => {
         if (!user) {
             throw new Error('No user is logged in');
         }
+
         try {
             setLoading(true);
-            const response = await supabase.functions.invoke("signUpWithLicense", {
+            const response = await supabaseConnector.client.functions.invoke("signUpWithLicense", {
                 body: {userId: user.id, licenseKey},
             });
 
             if (response.error) {
                 throw new Error(response.error.message || 'License activation failed');
             }
-
+            console.log("remove")
         } catch (err) {
             setError(err instanceof Error ? err.message : 'License activation failed');
             throw err;
