@@ -1,7 +1,9 @@
+// src/lib/powersync/SupabaseConnector.ts
+
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
 import { useAuthStore } from '../stores/authStore';
 import { AbstractPowerSyncDatabase, CrudEntry, UpdateType } from '@powersync/web';
-import { jwtDecode, JwtPayload } from 'jwt-decode';
+import {jwtDecode, JwtPayload} from 'jwt-decode';
 import {
     UserRole,
     leadPermissions,
@@ -9,7 +11,7 @@ import {
     researcherPermissions,
     viewerPermissions,
     PoleshiftPermissions
-} from "../types";
+} from '../types';
 
 interface SupabaseJwtPayload extends JwtPayload {
     user_role?: UserRole;
@@ -17,7 +19,6 @@ interface SupabaseJwtPayload extends JwtPayload {
 }
 
 function groupByTableAndOp(ops: CrudEntry[]): Record<string, CrudEntry[]> {
-    // Example of grouping by `${table}-${opType}`
     return ops.reduce((acc, op) => {
         const key = `${op.table}-${op.op}`;
         acc[key] = acc[key] || [];
@@ -26,7 +27,10 @@ function groupByTableAndOp(ops: CrudEntry[]): Record<string, CrudEntry[]> {
     }, {} as Record<string, CrudEntry[]>);
 }
 
-export class SupabaseConnector {
+/**
+ * The actual implementation of our Supabase connector.
+ */
+export class SupabaseConnectorImpl {
     readonly client: SupabaseClient;
     private lastUserId: string | null;
 
@@ -37,48 +41,54 @@ export class SupabaseConnector {
             {
                 auth: {
                     persistSession: true,
-                    autoRefreshToken: true
-                }
+                    autoRefreshToken: true,
+                },
             }
         );
+
         this.lastUserId = null;
 
-        // Subscribe to authentication state changes
+        // Subscribe to all authentication state changes, including the "INITIAL_SESSION" event
         this.client.auth.onAuthStateChange((event, session) => {
-            if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED', 'INITIAL_SESSION', 'TOKEN_REFRESHED'].includes(event)) {
-                console.debug(session);
+            // This event is fired for SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, INITIAL_SESSION, etc.
+            if (
+                [
+                    'SIGNED_IN',
+                    'SIGNED_OUT',
+                    'USER_UPDATED',
+                    'USER_DELETED',
+                    'INITIAL_SESSION',
+                    'TOKEN_REFRESHED',
+                ].includes(event)
+            ) {
+                console.debug('Auth state changed:', event, session);
                 this.handleSessionChange(session);
             }
         });
-        this.initSession();
     }
 
-    private async initSession() {
-        const { data, error } = await this.client.auth.getSession();
-        if (error) {
-            console.error("Error initializing session:", error);
-            return;
-        }
-        this.handleSessionChange(data.session);
-    }
-
+    /**
+     * Handle session changes by decoding the JWT and updating our Auth store.
+     */
     private handleSessionChange(session: Session | null) {
         if (session) {
+            // Decode the access token to retrieve custom claims (role/org, etc.)
             const jwtDecoded: SupabaseJwtPayload = jwtDecode(session.access_token);
             const userRole: UserRole | null = jwtDecoded.user_role || null;
             const userOrg: string | null = jwtDecoded.user_org || null;
 
             const newUserId = session.user.id || null;
-
             if (this.lastUserId !== newUserId) {
-                console.log("User state changed:", {
+                console.log('User state changed:', {
                     previousUserId: this.lastUserId,
                     newUserId: newUserId,
                     userRole: userRole,
                     userOrg: userOrg,
                 });
                 this.lastUserId = newUserId;
-                const { setUser, setRole, setOrganizationId, setPermissions, setUserId } = useAuthStore.getState();
+
+                const { setUser, setRole, setOrganizationId, setPermissions, setUserId } =
+                    useAuthStore.getState();
 
                 setUser(session.user);
                 setUserId(session.user.id);
@@ -86,6 +96,11 @@ export class SupabaseConnector {
                 setOrganizationId(userOrg);
                 setPermissions(this.getPermissionsForRole(userRole));
             }
+        } else {
+            // If session is null, user is signed out or no session was persisted
+            // You can optionally clear out your store here:
+            // const { resetAuthState } = useAuthStore.getState();
+            // resetAuthState();
         }
     }
 
@@ -119,18 +134,21 @@ export class SupabaseConnector {
         if (error) throw error;
     }
 
+    /**
+     * Instead of relying on `getSession`, we rely on the `INITIAL_SESSION` event.
+     * If you do need to do a direct fetch, you can still call `getSession()`,
+     * but be aware it may return outdated tokens if they were not yet refreshed.
+     */
     async fetchCredentials() {
         try {
             console.debug('Fetching Supabase credentials...');
             const { data } = await this.client.auth.getSession();
-
             if (!data.session) {
-                console.debug('No session found.');
+                console.debug('No active session found via getSession().');
                 return null;
             }
 
             console.debug('Credentials fetched successfully.');
-            console.log(import.meta.env.VITE_SUPABASE_URL);
             return {
                 endpoint: import.meta.env.VITE_POWERSYNC_URL,
                 token: data.session.access_token ?? '',
@@ -147,9 +165,6 @@ export class SupabaseConnector {
 
     /**
      * Batches the CRUD operations by table & operation type to reduce the number of network calls.
-     *
-     * This version does NOT discard failed transactions. Instead, it retries them.
-     * Only if it succeeds does it call transaction.complete().
      */
     async uploadData(database: AbstractPowerSyncDatabase, attempt = 1, maxAttempts = 3): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
@@ -179,7 +194,7 @@ export class SupabaseConnector {
                 switch (opType) {
                     case UpdateType.PUT: {
                         // For PUT -> Use upsert
-                        const rowsToUpsert = ops.map(op => {
+                        const rowsToUpsert = ops.map((op) => {
                             lastOp = op;
                             return { ...op.opData, id: op.id };
                         });
@@ -198,7 +213,7 @@ export class SupabaseConnector {
                     }
                     case UpdateType.DELETE: {
                         // For DELETE -> Use delete
-                        const idsToDelete = ops.map(op => {
+                        const idsToDelete = ops.map((op) => {
                             lastOp = op;
                             return op.id;
                         });
@@ -219,15 +234,14 @@ export class SupabaseConnector {
 
             // Retry logic: only retry up to `maxAttempts` times
             if (attempt < maxAttempts) {
-                // Optional: Exponential backoff or just a delay
                 const delayMs = 1000 * attempt;
                 console.debug(`Retrying after ${delayMs}ms... (attempt ${attempt + 1} of ${maxAttempts})`);
-                await new Promise(resolve => setTimeout(resolve, delayMs));
-
-                // Recursively call uploadData with incremented attempt
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
                 return this.uploadData(database, attempt + 1, maxAttempts);
             } else {
-                console.error(`Max retry attempts (${maxAttempts}) reached. Not discarding transaction, but will not retry again.`);
+                console.error(
+                    `Max retry attempts (${maxAttempts}) reached. Not discarding transaction, but will not retry again.`
+                );
                 // IMPORTANT: We do NOT call transaction.complete() here
                 // so that the transaction remains in the queue for another future attempt
             }
@@ -235,4 +249,25 @@ export class SupabaseConnector {
     }
 }
 
-export const supabaseConnector = new SupabaseConnector();
+/**
+ * Singleton wrapper for SupabaseConnectorImpl.
+ */
+export class SupabaseConnectorSingleton {
+    private static instance: SupabaseConnectorImpl | null = null;
+
+    // Private constructor to prevent direct instantiation
+    private constructor() {}
+
+    /**
+     * Lazily creates and returns the single instance of SupabaseConnectorImpl
+     */
+    public static getInstance(): SupabaseConnectorImpl {
+        if (!SupabaseConnectorSingleton.instance) {
+            SupabaseConnectorSingleton.instance = new SupabaseConnectorImpl();
+        }
+        return SupabaseConnectorSingleton.instance;
+    }
+}
+
+// Option B: Provide a named export for the singleton instance itself
+export const supabaseConnector = SupabaseConnectorSingleton.getInstance();

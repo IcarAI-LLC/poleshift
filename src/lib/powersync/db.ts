@@ -1,7 +1,7 @@
 // src/lib/powersync/db.ts
 
 import {PowerSyncDatabase} from '@powersync/web';
-import {SupabaseConnector} from './SupabaseConnector';
+import {supabaseConnector} from './SupabaseConnector';
 import {AppSchema} from './Schema';
 
 // By default, we export the current instance. The first import of this file
@@ -9,7 +9,7 @@ import {AppSchema} from './Schema';
 export const db  = new PowerSyncDatabase({
     schema: AppSchema,
     database: {
-        dbFilename: 'powersync.db'
+        dbFilename: 'powersync2.db'
     },
     flags: {
         useWebWorker: false
@@ -28,11 +28,10 @@ export const setupPowerSync = async () => {
     }
     console.log('PowerSync is not yet connected');
 
-    const connector = new SupabaseConnector();
     console.log('Connector created');
 
     try {
-        await db.connect(connector);
+        await db.connect(supabaseConnector);
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);
         return;

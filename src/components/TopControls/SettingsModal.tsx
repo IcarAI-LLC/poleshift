@@ -20,7 +20,7 @@ import {
     Switch,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import GenomeIcon from '../../assets/genome.svg';
+import GenomeIcon from '../../assets/icons/genome.svg';
 import PublicIcon from '@mui/icons-material/Public';
 import { useSettings } from '@/lib/hooks/useSettings.ts';
 import { useAuth } from '@/lib/hooks';

@@ -1,6 +1,6 @@
 [package]
 name = "poleshift"
-version = "0.1.3"
+version = "0.1.5"
 description = "Research Application"
 authors = ["Nikolas Yanek-Chrones"]
 edition = "2021"
@@ -18,9 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["default", "unstable", "devtools"] }
-tauri-plugin-shell = "2.2.0"
-tauri-plugin-store = "2.2.0"
+tauri = { version = "2.2.0", features = ["default", "unstable", "devtools"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
@@ -30,14 +28,11 @@ tauri-plugin-dialog = "2.2.0"
 tauri-plugin-fs = "2.2.0"
 thiserror = "2.0.9"
 tokio = { version = "1.42.0", features = ["full"] }
-tauri-plugin-process = "2.2.0"
+tauri-plugin-process = "2"
 rayon = "1.10.0"
-tauri-plugin-os = "2.2"
-tauri-plugin-websocket = "2.2"
 regex = "1.11.1"
 flate2 = "1.0.35"
 krakenuniq-rs = "0.0.1"
-tauri-plugin-localhost = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-cli = "2"

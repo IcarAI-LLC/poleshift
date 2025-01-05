@@ -3,16 +3,17 @@ import react from "@vitejs/plugin-react";
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import * as path from "node:path";
+import eslint from "vite-plugin-eslint";
+import {nodePolyfills} from "vite-plugin-node-polyfills";
+//because __dirname was showing undefined
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const ReactCompilerConfig = {
-    sources: (filename: string | string[]) => {
-        return filename.indexOf('./src') !== -1;
-    },
-};
 const host = process.env.TAURI_DEV_HOST;
 
 // Use top-level await if necessary to resolve any async configuration steps before defining the config
-const main = async () => {
+const main = async (ReactCompilerConfig: string | boolean | object) => {
     // If you have asynchronous steps, resolve them here
 
     return defineConfig({
@@ -20,12 +21,11 @@ const main = async () => {
             react({
                 babel: {
                     plugins: [
-                        ["babel-plugin-react-compiler"],
+                        ["babel-plugin-react-compiler",
+                        ReactCompilerConfig],
                     ],
             }
-            }),
-            wasm(),
-            topLevelAwait()],
+            }), eslint()],
         // PowerSync
         optimizeDeps: {
             // Don't optimize these packages as they contain web workers and WASM files.
@@ -56,13 +56,13 @@ const main = async () => {
         build: {
             target: process.env.TAURI_ENV_PLATFORM == 'windows'
                 ? 'chrome105'
-                : 'safari14',
+                : 'safari16',
             minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
-            sourcemap: !!process.env.TAURI_ENV_DEBUG,
+            sourcemap: !!process.env.TAURI_ENV_DEBUG
         },
         worker: {
             format: 'es',
-            plugins: () => [wasm(), topLevelAwait()]
+            plugins: () => [wasm(), topLevelAwait()],
         },
         resolve: {
             alias: {
@@ -72,4 +72,11 @@ const main = async () => {
     });
 };
 
-export default main();
+const ReactCompilerConfig = {
+    sources: (filename: string | string[]) => {
+        return filename.indexOf('./src') !== -1;
+    },
+};
+
+
+export default main(ReactCompilerConfig);

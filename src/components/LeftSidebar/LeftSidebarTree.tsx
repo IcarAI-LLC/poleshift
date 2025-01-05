@@ -8,7 +8,7 @@ import {
     FolderOpen as FolderOpenIcon,
     Science as ScienceIcon,
 } from '@mui/icons-material';
-import PenguinIcon from '../../assets/penguin.svg';
+import PenguinIcon from '../../assets/icons/penguin.svg';
 import {RichTreeView} from '@mui/x-tree-view/RichTreeView';
 import {useTreeItem2, UseTreeItem2Parameters} from '@mui/x-tree-view/useTreeItem2';
 import {
@@ -22,7 +22,7 @@ import {TreeItem2Icon} from '@mui/x-tree-view/TreeItem2Icon';
 import {TreeItem2Provider} from '@mui/x-tree-view/TreeItem2Provider';
 import {useData, useUI} from '../../lib/hooks';
 import {FileNodeWithChildren} from '../../lib/hooks/useData.ts'; // or wherever it’s defined
-import ContainerIcon from '../../assets/container.svg'
+import ContainerIcon from '../../assets/icons/container.svg'
 import {FileNodeType, ProximityCategory} from "@/lib/powersync/DrizzleSchema.ts";
 
 const CustomTreeItemContent = styled(TreeItem2Content)(({ theme }) => ({

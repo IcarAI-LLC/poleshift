@@ -7,8 +7,6 @@
   ],
   "permissions": [
     "core:default",
-    "shell:default",
-    "store:default",
     "dialog:default",
     "dialog:allow-open",
     "fs:default",
@@ -26,7 +24,6 @@
     "fs:allow-size",
     "fs:allow-mkdir",
     "fs:allow-resource-write-recursive",
-    "fs:allow-resource-read-recursive",
-    "websocket:default"
+    "fs:allow-resource-read-recursive"
   ]
 }

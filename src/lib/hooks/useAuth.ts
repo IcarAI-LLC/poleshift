@@ -6,6 +6,7 @@ import {Organizations, UserProfiles} from "../types";
 import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
 import {DrizzleSchema, organizations, user_profiles} from "../powersync/DrizzleSchema.ts";
 import {eq} from "drizzle-orm";
+import {setupPowerSync} from "@/lib/powersync/db.ts";
 
 export const useAuth = () => {
     const {
@@ -27,7 +28,7 @@ export const useAuth = () => {
             setLoading(true);
             await supabaseConnector.login(email, password);
             if (!db.connected) {
-                await db.connect(supabaseConnector);
+                await setupPowerSync();
             }
             const credentials = await supabaseConnector.client.auth.getSession();
             const user = credentials.data.session?.user;

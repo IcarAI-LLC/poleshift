@@ -15,7 +15,7 @@ import { PoleshiftPermissions } from '../../lib/types';
 import LeftSidebarTree from './LeftSidebarTree';
 import CreateSampleGroupModal from './CreateSampleGroupModal';
 import CreateFolderModal from './CreateFolderModal';
-import ContainerIcon from '../../assets/container.svg'
+import ContainerIcon from '../../assets/icons/container.svg'
 import CreateContainerModal from "./CreateContainerModal.tsx";
 
 const LeftSidebar: React.FC = () => {

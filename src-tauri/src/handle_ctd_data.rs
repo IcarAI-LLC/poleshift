@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crate::poleshift_common::types::{
-    PoleshiftError, StandardResponseNoFiles,
-};
+use crate::poleshift_common::types::{PoleshiftError, StandardResponseNoFiles};
 use crate::poleshift_common::utils::emit_progress;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
