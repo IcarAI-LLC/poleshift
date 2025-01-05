@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Typography, Box, CircularProgress } from '@mui/material';
+import { Typography, Box } from '@mui/material';
 import {
     Folder as FolderIcon,
     FolderOpen as FolderOpenIcon,
@@ -17,41 +17,23 @@ import {
 import { TreeItem2Icon } from '@mui/x-tree-view/TreeItem2Icon';
 import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider';
 import { styled } from '@mui/material/styles';
-import {TaxonomyHierarchyNode, TaxonomyNode, useHierarchyTree} from "../../lib/hooks/useHierarchyTree.ts";
+import { ProcessedKrakenUniqReport } from "@/lib/types";
+import {TaxonomicRank} from "@/lib/powersync/DrizzleSchema.ts";
 
 interface TaxonomyFileNode {
     id: string;
     name: string;
-    rank: string;
+    rank: TaxonomicRank;
     percentage: number;
     reads: number;
-    tax_id?: number;
+    tax_id: number;
     children?: TaxonomyFileNode[];
     type: 'folder' | 'leaf';
 }
 
-let nodeCounter = 0;
-
-const convertToFileNodes = (nodes: TaxonomyHierarchyNode[]): TaxonomyFileNode[] => {
-    return nodes.map((node) => {
-        nodeCounter += 1;
-        return {
-            id: `node-${nodeCounter}`,
-            name: node.name,
-            rank: node.rank,
-            percentage: node.percentage,
-            reads: node.reads,
-            tax_id: node.tax_id,
-            type: node.children && node.children.length > 0 ? 'folder' : 'leaf',
-            children: node.children && node.children.length > 0
-                ? convertToFileNodes(node.children)
-                : undefined,
-        };
-    });
-};
-
-const formatNumber = (num: number): string => {
-    return new Intl.NumberFormat('en-US').format(num);
+const formatNumber = (num: number | string): string => {
+    const value = typeof num === 'string' ? parseInt(num) : num;
+    return new Intl.NumberFormat('en-US').format(value);
 };
 
 const formatPercentage = (num: number): string => {
@@ -108,37 +90,58 @@ const CustomTaxonomyTreeItem = React.forwardRef(function CustomTaxonomyTreeItem(
 });
 
 interface HierarchyTreeProps {
-    nodes: TaxonomyNode[];
+    data: ProcessedKrakenUniqReport[];
 }
 
-const HierarchyTree: React.FC<HierarchyTreeProps> = ({ nodes }) => {
-    const { hierarchyData, stats, loading, error } = useHierarchyTree(nodes);
+const buildHierarchyTree = (data: ProcessedKrakenUniqReport[]): TaxonomyFileNode[] => {
+    // Create a map of all nodes
+    const nodeMap = new Map<string, TaxonomyFileNode>();
 
+    // First pass: Create all nodes
+    data.forEach((item) => {
+        nodeMap.set(item.id, {
+            id: item.id,
+            name: item.tax_name,
+            rank: item.rank as TaxonomicRank,
+            percentage: item.percentage,
+            reads: parseInt(item.reads),
+            tax_id: item.tax_id,
+            type: 'leaf', // We'll update this later
+            children: [],
+        });
+    });
+
+    // Second pass: Build relationships
+    const roots: TaxonomyFileNode[] = [];
+    data.forEach((item) => {
+        const node = nodeMap.get(item.id);
+        if (!node) return;
+
+        if (item.parent_id && nodeMap.has(item.parent_id)) {
+            const parent = nodeMap.get(item.parent_id);
+            if (parent) {
+                if (!parent.children) parent.children = [];
+                parent.children.push(node);
+                parent.type = 'folder';
+            }
+        } else {
+            // No parent or parent not in our dataset = root node
+            roots.push(node);
+        }
+    });
+
+    return roots;
+};
+
+const HierarchyTree: React.FC<HierarchyTreeProps> = ({ data }) => {
     const fileNodes = useMemo(() => {
-        nodeCounter = 0; // Reset counter before converting
-        return convertToFileNodes(hierarchyData);
-    }, [hierarchyData]);
+        return buildHierarchyTree(data);
+    }, [data]);
 
     const getItemId = (item: TaxonomyFileNode) => item.id;
     const getItemLabel = (item: TaxonomyFileNode) => item.name;
 
-    if (loading) {
-        return (
-            <Box display="flex" justifyContent="center" alignItems="center" p={3}>
-                <CircularProgress size={24} />
-            </Box>
-        );
-    }
-
-    if (error) {
-        return (
-            <Typography color="error" align="center">
-                Error: {error}
-            </Typography>
-        );
-    }
-
-    if (!hierarchyData?.length) {
+    if (!data?.length) {
         return (
             <Typography color="text.secondary" align="center">
                 No hierarchy data available
@@ -148,11 +151,9 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ nodes }) => {
 
     return (
         <Box>
-            {stats.total_nodes && (
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                    Total nodes: {stats.total_nodes}
-                </Typography>
-            )}
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                Total nodes: {data.length}
+            </Typography>
             <Box
                 sx={{
                     maxHeight: '800px',

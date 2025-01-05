@@ -5,15 +5,17 @@ use tauri::{Emitter, Runtime, Window};
 
 pub fn emit_progress<R: Runtime>(
     window: &Window<R>,
-    progress: u8,
-    status: &str,
+    progress_percentage: u8,
+    status_message: &str,
+    processing_state: &str,
 ) -> Result<(), PoleshiftError> {
     window
         .emit(
             "progress",
             serde_json::json!({
-                "progress": progress,
-                "status": status
+                "progress_percentage": progress_percentage,
+                "status_message": status_message,
+                "processing_state": processing_state
             }),
         )
         .map_err(|e| PoleshiftError::ProgressError(e.to_string()))

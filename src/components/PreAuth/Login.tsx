@@ -7,8 +7,8 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { useAuth } from '../../lib/hooks';
-import type { PreAuthView } from '../../lib/types';
+import { useAuth } from '@/lib/hooks';
+import type { PreAuthView } from '@/lib/types';
 
 interface LoginProps {
   onNavigate: (view: PreAuthView) => void;

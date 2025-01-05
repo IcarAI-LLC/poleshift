@@ -1,6 +1,9 @@
 /* ===================================== */
 /*              VARIABLES                */
 /* ===================================== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   /* Core Colors */
@@ -215,7 +218,7 @@ body {
 
 @keyframes spin {
   0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  100% { transform: rotate(-360deg); }
 }
 /* ===================================== */
 /*           LEFT SIDEBAR                */
@@ -770,5 +773,11 @@ body {
 
   .tree-node {
     padding: var(--spacing-xs) var(--spacing-sm);
+  }
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
   }
 }

@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useUIStore } from '../stores/uiStore';
-import type { FileNode, SampleLocation } from '../types';
+import type { FileNodes, SampleLocations } from '../types';
 
 export const useUI = () => {
     const {
@@ -40,14 +40,14 @@ export const useUI = () => {
 
     // Selection handlers with type safety
     const handleSelectLeftItem = useCallback(
-        (item: FileNode | undefined) => {
+        (item: FileNodes | undefined) => {
             setSelectedLeftItem(item);
         },
         [setSelectedLeftItem]
     );
 
     const handleSelectRightItem = useCallback(
-        (item: SampleLocation | null) => {
+        (item: SampleLocations | null) => {
             setSelectedRightItem(item);
             if (item) {
                 toggleRightSidebar(false); // Open sidebar when item is selected

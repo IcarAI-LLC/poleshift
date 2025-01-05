@@ -3,7 +3,18 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@powersync/react';
 import { usePowerSync } from '@powersync/react';
-import type { FileNode, SampleGroupMetadata } from '../types';
+import {FileNodes, SampleGroupMetadata} from '../types';
+
+import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
+import {
+    DrizzleSchema, file_nodes, FileNodeType, sample_group_metadata, sample_locations
+} from "../powersync/DrizzleSchema.ts";
+import { eq } from 'drizzle-orm';
+
+export type FileNodeWithChildren = FileNodes & {
+    children: FileNodeWithChildren[];
+    type: FileNodeType;
+};
 
 // Helper to build a record by ID from an array of rows
 function arrayToRecord<T extends { id: string }>(arr: T[]): Record<string, T> {
@@ -15,71 +26,78 @@ function arrayToRecord<T extends { id: string }>(arr: T[]): Record<string, T> {
 }
 
 export const useData = () => {
-    const db =usePowerSync();
+    // Fetch database and drizzle database wrapper
+    const db = usePowerSync();
+    const drizzleDB = wrapPowerSyncWithDrizzle(db,{schema: DrizzleSchema})
+
     // Fetch reactive data using useQuery
+    const locationsQuery = drizzleDB.select()
+        .from(sample_locations)
+        .where(eq(sample_locations.is_enabled, 1))
+    const compiledLocationsQuery = toCompilableQuery(locationsQuery);
+    const fileNodesQuery = drizzleDB.select()
+        .from(file_nodes)
+        .orderBy(file_nodes.created_at);
+    const compiledFileNodesQuery = toCompilableQuery(fileNodesQuery);
+    const sampleGroupsQuery = drizzleDB.select()
+        .from(sample_group_metadata)
+        .orderBy(sample_group_metadata.created_at);
+    const compiledSampleGroupsQuery = toCompilableQuery(sampleGroupsQuery);
+
+
     const {
         data: locations = [],
         isLoading: locationsLoading,
         error: locationsError
-    } = useQuery('SELECT * FROM sample_locations WHERE is_enabled = 1 ORDER BY label ASC');
-
+    } = useQuery(compiledLocationsQuery);
     const {
         data: fileNodesArray = [],
         isLoading: fileNodesLoading,
         error: fileNodesError
-    } = useQuery('SELECT * FROM file_nodes ORDER BY created_at DESC');
+    } = useQuery(compiledFileNodesQuery);
 
     const {
         data: sampleGroupsArray = [],
         isLoading: sampleGroupsLoading,
         error: sampleGroupsError
-    } = useQuery('SELECT * FROM sample_group_metadata ORDER BY created_at DESC');
-
-    const {
-        data: sampleMetadataArray = [],
-        isLoading: sampleMetadataLoading,
-        error: sampleMetadataError
-    } = useQuery('SELECT * FROM sample_metadata ORDER BY created_at DESC');
+    } = useQuery(compiledSampleGroupsQuery);
 
     // Convert arrays to records for easier lookups
     const fileNodes = useMemo(() => arrayToRecord(fileNodesArray), [fileNodesArray]);
     const sampleGroups = useMemo(() => arrayToRecord(sampleGroupsArray), [sampleGroupsArray]);
-    const sampleMetadata = useMemo(() => arrayToRecord(sampleMetadataArray), [sampleMetadataArray]);
 
     // Determine if any queries are loading or have errors
-    const loading = locationsLoading || fileNodesLoading || sampleGroupsLoading || sampleMetadataLoading;
-    const error = locationsError || fileNodesError || sampleGroupsError || sampleMetadataError || null;
+    const loading = locationsLoading || fileNodesLoading || sampleGroupsLoading;
+    const error = locationsError || fileNodesError || sampleGroupsError || null;
 
     // CRUD operations using db.execute()
     const setError = useCallback((err: string | null) => {
-        // With no external store, you may handle errors by logging or local state
-        // For now, we simply log.
         if (err) {
             console.error(err);
         }
     }, []);
 
-    const addFileNode = useCallback(async (node: FileNode) => {
+    const addFileNode = useCallback(async (node: FileNodes) => {
+        let canDrop: number;
+        if (node.droppable){
+            canDrop = 1;
+        }else{
+            canDrop = 0;
+        }
         try {
-            await db.execute(
-                `
-          INSERT INTO file_nodes
-          (id, org_id, parent_id, name, type, created_at, updated_at, version,
-           sample_group_id, droppable)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-                [
-                    node.id,
-                    node.org_id,
-                    node.parent_id === null ? null : node.parent_id,
-                    node.name,
-                    node.type,
-                    node.created_at,
-                    node.updated_at,
-                    node.version,
-                    node.sample_group_id,
-                    node.droppable ? 1 : 0,
-                ]
+            await drizzleDB.insert(file_nodes).values(
+                {
+                    id: node.id,
+                    org_id: node.org_id,
+                    parent_id: node.parent_id,
+                    name: node.name,
+                    type: node.type,
+                    created_at: node.created_at,
+                    updated_at: node.updated_at,
+                    version: node.version,
+                    sample_group_id: node.sample_group_id,
+                    droppable: canDrop,
+                }
             );
         } catch (err: any) {
             setError(err.message || 'Failed to add file node');
@@ -87,51 +105,58 @@ export const useData = () => {
         }
     }, [setError]);
 
-    const updateFileNode = useCallback(async (id: string, updates: Partial<FileNode>) => {
+    const updateFileNode = useCallback(async (id: string, updates: Partial<FileNodeWithChildren>) => {
         try {
-            const setClause = Object.keys(updates)
-                .map((key) => `${key} = ?`)
-                .join(', ');
-
-            const values = Object.values(updates).map((value) => {
-                if (value === null) return null;
-                if (typeof value === 'object' && value !== null) {
-                    return JSON.stringify(value);
-                }
-                return value;
-            });
-
-            await db.execute(
-                `
-          UPDATE file_nodes
-          SET ${setClause}
-          WHERE id = ?
-        `,
-                [...values, id]
-            );
+            const { children, ...validUpdates } = updates;
+            await drizzleDB
+                .update(file_nodes)
+                .set(validUpdates)
+                .where(eq(file_nodes.id, id))
+                .run();
         } catch (err: any) {
             setError(err.message || 'Failed to update file node');
             throw err;
         }
     }, [setError]);
 
+
     const deleteNode = useCallback(async (id: string) => {
         try {
-            // First, retrieve the node's sample_group_id, if any
-            const nodeResult = await db.get('SELECT sample_group_id FROM file_nodes WHERE id = ?', [id]);
-            console.debug('nodeResult', nodeResult);
-            // @ts-ignore
-            const sampleGroupId = nodeResult.sample_group_id;
-            // If there's a sample_group_id associated with the node, delete the corresponding sample group
-            if (sampleGroupId) {
-                console.debug('Deleting sample group', sampleGroupId);
-                db.execute('DELETE FROM sample_group_metadata WHERE id = ?', [sampleGroupId]);
+            // 1. Fetch the node to see if it’s a folder and/or has a sample group
+            const [nodeResult] = await drizzleDB
+                .select({
+                    type: file_nodes.type,
+                    sampleGroupId: file_nodes.sample_group_id,
+                })
+                .from(file_nodes)
+                .where(eq(file_nodes.id, id));
+
+            // If the node doesn't exist, just return
+            if (!nodeResult) return;
+
+            // 2. If it's a folder, recursively delete its children first
+            if (nodeResult.type === FileNodeType.Folder && nodeResult.sampleGroupId === null) {
+                const childNodes = await drizzleDB
+                    .select({ id: file_nodes.id })
+                    .from(file_nodes)
+                    .where(eq(file_nodes.parent_id, id));
+
+                for (const child of childNodes) {
+                    await deleteNode(child.id); // Recursively delete each child
+                }
             }
 
-            console.debug('sampleGroupId', sampleGroupId);
-            // Delete the file node
-            db.execute('DELETE FROM file_nodes WHERE id = ?', [id]);
+            // 3. If there's a sample group, delete it
+            if (nodeResult.sampleGroupId) {
+                console.debug('Deleting sample group', nodeResult.sampleGroupId);
+                await drizzleDB
+                    .delete(sample_group_metadata)
+                    .where(eq(sample_group_metadata.id, nodeResult.sampleGroupId))
+                    .run();
+            }
 
+            // 4. Finally, delete the node itself
+            await drizzleDB.delete(file_nodes).where(eq(file_nodes.id, id)).run();
 
         } catch (err: any) {
             setError(err.message || 'Failed to delete node');
@@ -141,20 +166,11 @@ export const useData = () => {
 
     const updateSampleGroup = useCallback(async (id: string, updates: Partial<SampleGroupMetadata>) => {
         try {
-            const setClause = Object.keys(updates)
-                .map((key) => `${key} = ?`)
-                .join(', ');
-
-            const values = Object.values(updates);
-
-            await db.execute(
-                `
-          UPDATE sample_group_metadata
-          SET ${setClause}
-          WHERE id = ?
-        `,
-                [...values, id]
-            );
+            await drizzleDB
+                .update(sample_group_metadata)
+                .set(updates)
+                .where(eq(sample_group_metadata.id, id))
+                .run();
         } catch (err: any) {
             setError(err.message || 'Failed to update sample group');
             throw err;
@@ -162,33 +178,11 @@ export const useData = () => {
     }, [setError]);
 
     const createSampleGroup = useCallback(
-        async (sampleGroupData: SampleGroupMetadata, fileNodeData: FileNode) => {
+        async (sampleGroupData: SampleGroupMetadata, fileNodeData: FileNodes) => {
             try {
-                await db.execute(
-                    `
-            INSERT INTO sample_group_metadata (
-              id, created_at, org_id, user_id, human_readable_sample_id,
-              collection_date, storage_folder, collection_datetime_utc,
-              loc_id, latitude_recorded, longitude_recorded, notes, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `,
-                    [
-                        sampleGroupData.id,
-                        sampleGroupData.created_at,
-                        sampleGroupData.org_id,
-                        sampleGroupData.user_id,
-                        sampleGroupData.human_readable_sample_id,
-                        sampleGroupData.collection_date,
-                        sampleGroupData.storage_folder,
-                        sampleGroupData.collection_datetime_utc,
-                        sampleGroupData.loc_id,
-                        sampleGroupData.latitude_recorded,
-                        sampleGroupData.longitude_recorded,
-                        sampleGroupData.notes,
-                        sampleGroupData.updated_at,
-                    ]
-                );
-
+                await drizzleDB
+                    .insert(sample_group_metadata)
+                    .values(sampleGroupData).run();
                 await addFileNode(fileNodeData);
             } catch (err: any) {
                 setError(err.message || 'Failed to create sample group');
@@ -210,62 +204,6 @@ export const useData = () => {
         [updateFileNode, setError]
     );
 
-    const updateFileTree = useCallback(
-        async (updatedTreeData: FileNode[]) => {
-            try {
-                await db.execute('DELETE FROM file_nodes');
-                const insertNode = async (node: FileNode, parentId: string | null) => {
-                    const {
-                        id,
-                        org_id,
-                        name,
-                        type,
-                        created_at,
-                        updated_at,
-                        version,
-                        sample_group_id,
-                        droppable,
-                    } = node;
-
-                    await db.execute(
-                        `
-              INSERT INTO file_nodes (
-                id, org_id, parent_id, name, type, created_at, updated_at,
-                version, sample_group_id, droppable
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `,
-                        [
-                            id,
-                            org_id,
-                            parentId,
-                            name,
-                            type,
-                            created_at,
-                            updated_at,
-                            version,
-                            sample_group_id,
-                            droppable ? 1 : 0,
-                        ]
-                    );
-
-                    if (node.children && node.children.length > 0) {
-                        for (const child of node.children) {
-                            await insertNode(child, id);
-                        }
-                    }
-                };
-
-                for (const node of updatedTreeData) {
-                    await insertNode(node, null);
-                }
-            } catch (err: any) {
-                setError(err.message || 'Failed to update file tree');
-                throw err;
-            }
-        },
-        [setError]
-    );
-
     // Utility functions
     const getEnabledLocations = useCallback(() => {
         return locations.filter((location) => location.is_enabled);
@@ -284,42 +222,31 @@ export const useData = () => {
     }, [locations]);
 
     const getNodeChildren = useCallback(
-        (nodeId: string): FileNode[] => {
+        (nodeId: string) => {
             return Object.values(fileNodes).filter((node) => node.parent_id === nodeId);
         },
         [fileNodes]
     );
 
-    const getNodePath = useCallback(
-        (nodeId: string): FileNode[] => {
-            const path: FileNode[] = [];
-            let currentNode = fileNodes[nodeId];
-
-            while (currentNode) {
-                path.unshift(currentNode);
-                currentNode = currentNode.parent_id ? fileNodes[currentNode.parent_id] : undefined;
-            }
-
-            return path;
-        },
-        [fileNodes]
-    );
-
-    // Build file tree
     const fileTree = useMemo(() => {
-        const nodesById = { ...fileNodes };
-        const tree: FileNode[] = [];
+        // 2. Clone fileNodes into a new record of FileNodeWithChildren
+        const nodesById: Record<string, FileNodeWithChildren> = {};
 
-        for (const nodeId in nodesById) {
-            nodesById[nodeId].children = [];
+        for (const nodeId in fileNodes) {
+            const node = fileNodes[nodeId];
+            // Spread node so we don’t modify the DB version
+            nodesById[nodeId] = { ...node, children: [], type: node.type as FileNodeType };
         }
+
+        // 3. Build the tree
+        const tree: FileNodeWithChildren[] = [];
 
         for (const nodeId in nodesById) {
             const node = nodesById[nodeId];
             if (node.parent_id) {
                 const parent = nodesById[node.parent_id];
                 if (parent) {
-                    parent.children?.push(node);
+                    parent.children.push(node);
                 }
             } else {
                 tree.push(node);
@@ -329,12 +256,12 @@ export const useData = () => {
         return tree;
     }, [fileNodes]);
 
+
     return {
         // State
         locations,
         fileNodes,
         sampleGroups,
-        sampleMetadata,
         error,
         loading,
         enabledLocations: getEnabledLocations(),
@@ -345,7 +272,6 @@ export const useData = () => {
         deleteNode,
         updateSampleGroup,
         createSampleGroup,
-        updateFileTree,
         moveNode,
         setError,
 
@@ -353,7 +279,6 @@ export const useData = () => {
         getLocationById,
         getSampleGroupsByLocation,
         getNodeChildren,
-        getNodePath,
 
         // Computed properties
         totalLocations: locations.length,

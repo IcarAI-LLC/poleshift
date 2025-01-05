@@ -1,8 +1,7 @@
 // src/components/MoveModal.tsx
 import React, { useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
-import { useData, useUI } from '../../lib/hooks';
-import type { FileNode } from '../../lib/types';
+import {FileNodeWithChildren, useData, useUI} from '@/lib/hooks';
 
 const MoveModal: React.FC = () => {
     const { fileTree, moveNode } = useData();
@@ -12,8 +11,8 @@ const MoveModal: React.FC = () => {
     if (!moveModalItemId) return null;
 
     // Filter folders only (type === 'folder')
-    const allFolders = (nodes: FileNode[]): FileNode[] => {
-        let result: FileNode[] = [];
+    const allFolders = (nodes: FileNodeWithChildren[]): FileNodeWithChildren[] => {
+        let result: FileNodeWithChildren[] = [];
         for (const node of nodes) {
             if (node.type === 'folder') result.push(node);
             if (node.children && node.children.length > 0) {

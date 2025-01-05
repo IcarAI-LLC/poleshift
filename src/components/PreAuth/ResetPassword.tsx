@@ -9,8 +9,8 @@ import {
   Alert,
 } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { useAuth } from '../../lib/hooks';
-import type { PreAuthView } from '../../lib/types';
+import { useAuth } from '@/lib/hooks';
+import type { PreAuthView } from '@/lib/types';
 
 interface ResetPasswordProps {
   onNavigate: (view: PreAuthView) => void;

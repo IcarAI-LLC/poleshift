@@ -129,7 +129,7 @@ const AccountActions: React.FC = () => {
             <Box sx={infoRowStyles}>
               <Typography sx={labelStyles}>User Type:</Typography>
               <Typography sx={valueStyles}>
-                {capitalizeFirstLetter(userProfile?.user_tier)}
+                {capitalizeFirstLetter(userProfile?.user_role)}
               </Typography>
             </Box>
 

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
+import * as path from "node:path";
 
 const ReactCompilerConfig = {
     sources: (filename: string | string[]) => {
@@ -19,14 +20,20 @@ const main = async () => {
             react({
                 babel: {
                     plugins: [
-                        ["babel-plugin-react-compiler", ReactCompilerConfig],
+                        ["babel-plugin-react-compiler"],
                     ],
             }
             }),
             wasm(),
             topLevelAwait()],
+        // PowerSync
         optimizeDeps: {
+            // Don't optimize these packages as they contain web workers and WASM files.
+            // https://github.com/vitejs/vite/issues/11672#issuecomment-1415820673
             exclude: ['@journeyapps/wa-sqlite', '@powersync/web'],
+
+            // But include js-logger from @powersync/web, otherwise app breaks.
+            // https://github.com/powersync-ja/powersync-js/pull/267
             include: ['@powersync/web > js-logger']
         },
         clearScreen: false,
@@ -56,7 +63,12 @@ const main = async () => {
         worker: {
             format: 'es',
             plugins: () => [wasm(), topLevelAwait()]
-        }
+        },
+        resolve: {
+            alias: {
+                "@": path.resolve(__dirname, "./src"),
+            },
+        },
     });
 };
 

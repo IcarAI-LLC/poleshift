@@ -28,3 +28,8 @@ dist-ssr
 /.supabase/
 /.apple.env
 /.env.tauri
+/.env.drizzle
+/src-tauri/resources/database.idx
+/src-tauri/resources/database.kdb
+/src-tauri/resources/database.kdb.counts
+/src-tauri/resources/taxDB

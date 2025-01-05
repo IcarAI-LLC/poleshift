@@ -1,11 +1,13 @@
-// src/components/GlobeComponent.tsx
+//src/components/GlobeComponent.tsx
+
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
 import globeImage from '../assets/globe.jpg';
 import { useData } from '../lib/hooks/useData';
 import { useUI } from '../lib/hooks/useUI';
-import { useQuery } from '@powersync/react'; // Import useQuery
+import { useQuery } from '@powersync/react';
+import useSettings from "../lib/hooks/useSettings";
 
 interface GlobePoint {
     lat: number;
@@ -15,56 +17,66 @@ interface GlobePoint {
 }
 
 const GLOBE_CONFIG = {
-    pointAltitude: 0.1,
-    pointRadius: 0.1, // Increased for better visibility
+    pointAltitude: 10,
+    pointRadius: 0.1,
+    pointColor: 'rgba(0, 255, 255, 0.8)',
     backgroundColor: '#000000',
-    //@ts-ignore
-    pointColor: (d: GlobePoint) => 'rgba(0, 255, 255, 0.8)', // More distinct color
     transitionDuration: 1000,
     defaultAltitude: 0.5,
 } as const;
 
 export const GlobeComponent: React.FC = () => {
-    const globeRef = useRef<GlobeMethods | undefined>(undefined);
+    const { userSettingsArray } = useSettings();
+    const firstUserSetting = userSettingsArray[0] || null;
 
+    const userGlobeColor = firstUserSetting?.globe_datapoint_color ?? GLOBE_CONFIG.pointColor;
+    const userGlobeDiameter = parseFloat(firstUserSetting?.globe_datapoint_diameter ?? String(GLOBE_CONFIG.pointRadius));
+    const userGlobeAltitude = firstUserSetting
+        ? firstUserSetting.globe_datapoint_poles
+            ? 0.1
+            : 0
+        : 0;
+
+    const finalGlobeConfig = {
+        ...GLOBE_CONFIG,
+        pointAltitude: userGlobeAltitude,
+        pointRadius: userGlobeDiameter,
+        pointColor: () => userGlobeColor,
+    };
+
+    const globeRef = useRef<GlobeMethods | undefined>(undefined);
     const { filters, setSelectedRightItem } = useUI();
 
-    // Construct the filtered query based on filters
     const { query: filteredLocationsQuery, params: filteredLocationsParams } = useMemo(() => {
         let query = `
-            SELECT DISTINCT sl.id, sl.lat, sl.long, sl.label
-            FROM sample_locations sl
-            WHERE sl.is_enabled = 1
-        `;
+      SELECT DISTINCT sl.id, sl.lat, sl.long, sl.label
+      FROM sample_locations sl
+      WHERE sl.is_enabled = 1
+    `;
         const params: any[] = [];
 
-        // Apply selected location IDs filter
         if (filters.selectedLocations.length > 0) {
             const placeholders = filters.selectedLocations.map(() => '?').join(', ');
             query += ` AND sl.id IN (${placeholders})`;
             params.push(...filters.selectedLocations);
         }
 
-        // Apply date range filter by ensuring at least one related sample_group_metadata exists within the date range
         if (filters.startDate || filters.endDate) {
             query += `
-                AND EXISTS (
-                    SELECT 1 FROM sample_group_metadata sg
-                    WHERE sg.loc_id = sl.id
-            `;
-
+        AND EXISTS (
+          SELECT 1 FROM sample_group_metadata sg
+          WHERE sg.loc_id = sl.id
+      `;
             if (filters.startDate) {
                 query += ` AND sg.collection_date >= ?`;
                 params.push(filters.startDate);
             }
-
             if (filters.endDate) {
                 query += ` AND sg.collection_date <= ?`;
                 params.push(filters.endDate);
             }
-
             query += `)
-            `;
+      `;
         }
 
         query += ' ORDER BY sl.label ASC';
@@ -72,21 +84,14 @@ export const GlobeComponent: React.FC = () => {
         return { query, params };
     }, [filters]);
 
-    // Fetch filtered locations using useQuery
     const {
         data: filteredLocations = [],
         isLoading: locationsLoading,
         error: locationsError
-    } = useQuery(filteredLocationsQuery, filteredLocationsParams, {
-        // Optional: Add any additional options like caching, refetching, etc.
-        // For example:
-        // cacheTime: 1000 * 60 * 5, // 5 minutes
-    });
+    } = useQuery(filteredLocationsQuery, filteredLocationsParams);
 
-    // Fetch sampleGroups from useData for further processing
     const { sampleGroups } = useData();
 
-    // Transform filtered locations into globe points
     const pointsData = useMemo<GlobePoint[]>(() => {
         return filteredLocations
             .map(location => {
@@ -94,21 +99,20 @@ export const GlobeComponent: React.FC = () => {
                     const locationSamples = Object.values(sampleGroups)
                         .filter(group => group.loc_id === location.id)
                         .filter(group => {
-                            // Apply date filters if present
+                            // Filter by excluded status
+                            if (!filters.showExcluded && group.excluded === 1) {
+                                return false;
+                            }
+
+                            // Filter by date
                             if (!group.collection_date) return true;
-
                             const sampleDate = DateTime.fromISO(group.collection_date);
-
-                            if (filters.startDate &&
-                                sampleDate < DateTime.fromISO(filters.startDate)) {
+                            if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
                                 return false;
                             }
-
-                            if (filters.endDate &&
-                                sampleDate > DateTime.fromISO(filters.endDate)) {
+                            if (filters.endDate && sampleDate > DateTime.fromISO(filters.endDate)) {
                                 return false;
                             }
-
                             return true;
                         });
 
@@ -125,52 +129,46 @@ export const GlobeComponent: React.FC = () => {
                 return null;
             })
             .filter((point): point is GlobePoint => point !== null);
-    }, [filteredLocations, sampleGroups, filters]);
+    }, [filteredLocations, sampleGroups, filters.startDate, filters.endDate, filters.showExcluded]);
 
-    // Debugging statement
-    console.log('Filtered Points Data:', pointsData);
-
-    // Handle point click with proper typing
     const handlePointClick = useCallback(
-        (pointData: GlobePoint, _event: MouseEvent) => {
+        (
+            point: object,
+            _event: MouseEvent,
+            _coords: { lat: number; lng: number; altitude: number }
+        ) => {
+            const pointData = point as GlobePoint;
             const selectedLocation = filteredLocations.find(loc => loc.id === pointData.id);
-
             if (!selectedLocation) return;
 
-            console.log('Point clicked:', selectedLocation);
-            setSelectedRightItem(selectedLocation); // This will also open the sidebar
+            setSelectedRightItem(selectedLocation);
 
             if (globeRef.current) {
                 globeRef.current.pointOfView(
                     {
                         lat: selectedLocation.lat,
                         lng: selectedLocation.long,
-                        altitude: GLOBE_CONFIG.defaultAltitude,
+                        altitude: finalGlobeConfig.defaultAltitude,
                     },
-                    GLOBE_CONFIG.transitionDuration
+                    finalGlobeConfig.transitionDuration
                 );
             }
         },
-        [filteredLocations, setSelectedRightItem]
+        [filteredLocations, setSelectedRightItem, finalGlobeConfig]
     );
 
-    // Handle window resizing
     const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
-
     useEffect(() => {
         const handleResize = () => {
             setDimensions({ width: window.innerWidth, height: window.innerHeight });
         };
-
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Handle loading and error states
     if (locationsLoading) {
         return <div>Loading Globe...</div>;
     }
-
     if (locationsError) {
         return <div>Error loading globe data: {locationsError.message}</div>;
     }
@@ -181,16 +179,12 @@ export const GlobeComponent: React.FC = () => {
                 ref={globeRef}
                 globeImageUrl={globeImage}
                 pointsData={pointsData}
-                //@ts-ignore
                 onPointClick={handlePointClick}
-                //@ts-ignore
-                pointAltitude={GLOBE_CONFIG.pointAltitude}
-                //@ts-ignore
-                pointRadius={GLOBE_CONFIG.pointRadius}
-                //@ts-ignore
-                pointColor={GLOBE_CONFIG.pointColor}
+                pointAltitude={finalGlobeConfig.pointAltitude}
+                pointRadius={finalGlobeConfig.pointRadius}
+                pointColor={finalGlobeConfig.pointColor}
                 pointLabel="name"
-                backgroundColor={GLOBE_CONFIG.backgroundColor}
+                backgroundColor={finalGlobeConfig.backgroundColor}
                 enablePointerInteraction={true}
                 width={dimensions.width}
                 height={dimensions.height}
@@ -199,7 +193,5 @@ export const GlobeComponent: React.FC = () => {
     );
 };
 
-// Use displayName for better debugging
 GlobeComponent.displayName = 'GlobeComponent';
-
 export default GlobeComponent;

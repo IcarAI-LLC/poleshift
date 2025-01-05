@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../lib/hooks';
-import type { PreAuthView } from '../../lib/types';
+import { useAuth } from '@/lib/hooks';
+import type { PreAuthView } from '@/lib/types';
 import LoadingScreen from './LoadingScreen.tsx';
 import Login from './Login.tsx';
 import SignUp from './SignUp.tsx';
@@ -8,16 +8,18 @@ import ResetPassword from './ResetPassword.tsx';
 import MainApp from '../MainApp.tsx';
 import ActivateLicense from './ActivateLicense.tsx';
 import ResetComponent from "../ResetComponent.tsx";
+import {useAuthStore} from "@/lib/stores/authStore.ts";
 
 const PreAuth: React.FC = () => {
   const {
     isAuthenticated,
     loading: authLoading,
-    profileLoading,
-    profileFetchTimedOut,
     logout,
     resetApp
   } = useAuth();
+  const {
+    organizationId
+  } = useAuthStore.getState();
 
   // Define the reset logic
   const handleReset = async () => {
@@ -87,13 +89,8 @@ const PreAuth: React.FC = () => {
     }
   }
 
-  // User is authenticated but we still might not have the profile
-  if (profileLoading) {
-    return <LoadingScreen message="Loading your profile, please wait..." />;
-  }
-
   // If timed out (no profile after waiting), show ActivateLicense
-  if (profileFetchTimedOut) {
+  if (!organizationId && isAuthenticated) {
     return <ActivateLicense />;
   }
 

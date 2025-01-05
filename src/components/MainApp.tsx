@@ -1,30 +1,23 @@
 // src/lib/components/MainApp.tsx
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { SampleGroupMetadata } from '../lib/types';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {SampleGroupMetadata} from '@/lib/types';
 
-import {
-  useAuth,
-  useData,
-  useUI,
-  useNetworkStatus,
-  useStorage,
-} from '../lib/hooks';
-import { useProcessedData } from '../lib/hooks/useProcessedData';
+import {useAuth, useData, useNetworkStatus, useUI,} from '@/lib/hooks';
 
 import TopControls from './TopControls/TopControls';
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
-import DropBoxes from './DropBoxes/DropBoxes';
+import MergedDropBoxes from './DropBoxes/MergedDropboxes.tsx';
 import ErrorMessage from './ErrorMessage';
 import GlobeComponent from './GlobeComponent';
 import ContextMenu from './ContextMenu';
 import AccountActions from './Account/AccountActions';
-import SampleGroupMetadataComponent from './SampleGroupMetadata';
+import SampleGroupMetadataComponent from './SampleGroupMetadataComponent.tsx';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
 import MoveModal from "./LeftSidebar/MoveModal";
-import UploadQueueStatus from "./UploadQueueStatus";
-import { getAllQueuedUploads, removeFromQueue, UploadTask } from "../lib/utils/uploadQueue";
+import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
+import ContainerScreen from "@/components/Container/ContainerScreen.tsx";
 
 const MainApp: React.FC = () => {
   // All hooks at the top level
@@ -32,10 +25,9 @@ const MainApp: React.FC = () => {
   const data = useData();
   const ui = useUI();
   const networkStatus = useNetworkStatus();
-  const storage = useStorage();
 
   // Destructure values from hooks
-  const { userProfile, error: authError, organization } = auth;
+  const { error: authError, setError } = auth;
   const { sampleGroups, deleteNode, error: dataError } = data;
   const {
     selectedLeftItem,
@@ -50,33 +42,21 @@ const MainApp: React.FC = () => {
   const { isOnline, isSyncing } = networkStatus;
 
   // Local state
-  const [isUploadQueueOpen, setIsUploadQueueOpen] = useState(false);
-  const [queuedUploads, setQueuedUploads] = useState<UploadTask[]>([]);
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [showOfflineWarning, setShowOfflineWarning] = useState(true);
 
   // Refs
-  const previousQueueRef = useRef<UploadTask[]>([]);
   const openButtonRef = useRef<HTMLButtonElement>(null);
 
   // Memoized values
   const sampleGroup = useMemo<SampleGroupMetadata | null>(() => {
-    if (!selectedLeftItem || selectedLeftItem.type !== 'sampleGroup') return null;
-    return sampleGroups[selectedLeftItem.id];
+    if (!selectedLeftItem || selectedLeftItem.type !== FileNodeType.SampleGroup) return null;
+    return sampleGroups[selectedLeftItem.id] as SampleGroupMetadata;
   }, [selectedLeftItem, sampleGroups]);
 
-  // Move hook to top level instead of inside useMemo
-  const processedDataHook = useProcessedData({
-    sampleGroup: sampleGroup as SampleGroupMetadata,
-    orgShortId: organization?.org_short_id || '',
-    orgId: organization?.id || '',
-    organization,
-    storage,
-  });
-
   const displayedError = useMemo(() =>
-          authError || dataError || errorMessage || processedDataHook.error,
-      [authError, dataError, errorMessage, processedDataHook.error]
+          authError || dataError || errorMessage,
+      [authError, dataError, errorMessage]
   );
 
   // Event handlers
@@ -120,56 +100,25 @@ const MainApp: React.FC = () => {
     openButtonRef.current?.focus();
   }, []);
 
-  const toggleUploadQueue = useCallback(() => {
-    setIsUploadQueueOpen(prev => !prev);
-  }, []);
-
-  const handleCloseUploadQueue = useCallback(() => {
-    setIsUploadQueueOpen(false);
-  }, []);
-
   const renderContent = useMemo(() => {
-    if (selectedLeftItem?.type === 'sampleGroup') {
-      return <DropBoxes onError={setErrorMessage} />;
+    if (selectedLeftItem?.type === FileNodeType.SampleGroup) {
+      return <MergedDropBoxes onError={setErrorMessage} />;
+    }
+    if (selectedLeftItem?.type === FileNodeType.Container) {
+      return <ContainerScreen />;
     }
     return <GlobeComponent />;
   }, [selectedLeftItem?.type, setErrorMessage]);
-
-  // Effects
-  useEffect(() => {
-    const fetchQueuedUploads = async () => {
-      const uploads = await getAllQueuedUploads();
-      const updatedUploads: UploadTask[] = [];
-
-      for (const upload of uploads) {
-        const exists = await storage.fileExists(upload.path);
-        if (exists) {
-          await removeFromQueue(upload.id);
-        } else {
-          updatedUploads.push(upload);
-        }
-      }
-
-      if (JSON.stringify(previousQueueRef.current) !== JSON.stringify(updatedUploads)) {
-        previousQueueRef.current = updatedUploads;
-        setQueuedUploads(updatedUploads);
-      }
-    };
-
-    fetchQueuedUploads();
-    const interval = setInterval(fetchQueuedUploads, 5000);
-    return () => clearInterval(interval);
-  }, [storage.fileExists]);
 
   useEffect(() => {
     if (displayedError) {
       const timer = setTimeout(() => {
         setErrorMessage(null);
-        processedDataHook.setError(null);
+        setError(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [displayedError, setErrorMessage, processedDataHook]);
+  }, [displayedError, setErrorMessage]);
 
   useEffect(() => {
     setShowOfflineWarning(!isOnline);
@@ -191,8 +140,6 @@ const MainApp: React.FC = () => {
               setShowAccountActions={setShowAccountActions}
               onOpenFilters={openFilterMenu}
               filterButtonRef={openButtonRef}
-              queuedUploadsCount={queuedUploads.length}
-              onToggleUploadQueue={toggleUploadQueue}
           />
 
           {isFilterMenuOpen && (
@@ -204,7 +151,7 @@ const MainApp: React.FC = () => {
           )}
 
           <div className="main-content">
-            <LeftSidebar userTier={userProfile?.user_tier || 'researcher'} />
+            <LeftSidebar />
 
             <OfflineWarning
                 isVisible={!isOnline && showOfflineWarning}
@@ -219,7 +166,6 @@ const MainApp: React.FC = () => {
                     message={displayedError.toString()}
                     onClose={() => {
                       setErrorMessage(null);
-                      processedDataHook.setError(null);
                     }}
                     className="error-message"
                 />
@@ -234,13 +180,6 @@ const MainApp: React.FC = () => {
         {showAccountActions && <AccountActions />}
 
         <ContextMenu deleteItem={handleDeleteSample} />
-
-        <UploadQueueStatus
-            isExpanded={isUploadQueueOpen}
-            onClose={handleCloseUploadQueue}
-            queuedUploads={queuedUploads}
-            setQueuedUploads={setQueuedUploads}
-        />
 
         <MoveModal />
       </div>

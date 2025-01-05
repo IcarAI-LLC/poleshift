@@ -17,6 +17,7 @@ const supabaseAdmin = createClient(
       }
     }
 )
+const DEFAULT_ROLE = 'viewer';
 
 // Utility function to return responses with CORS headers
 function corsResponse(body: string, status = 200) {
@@ -89,23 +90,75 @@ Deno.serve(async (req: Request) => {
       return corsResponse(JSON.stringify({ error: 'No organization found for the given license key' }), 400);
     }
 
-    console.log("License key is valid. Attaching user profile...");
+    console.log("License key is valid. Attaching user role...");
 
-    // Check if user profile already exists
-    const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
+    // Check if user role exists
+    const { error: roleCheckError } = await supabaseAdmin
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+    if (roleCheckError && roleCheckError.details?.includes("0 rows")) {
+      // No role exists, create one
+      const { error: roleInsertError } = await supabaseAdmin
+          .from('user_roles')
+          .insert({
+            user_id: userId,
+            user_role: DEFAULT_ROLE
+          });
+
+      if (roleInsertError) {
+        console.error("Error assigning user role:", roleInsertError);
+        return corsResponse(JSON.stringify({ error: 'Failed to create user role' }), 400);
+      }
+
+      console.log(`User role assigned successfully for user: ${userId}`);
+      return corsResponse(JSON.stringify({ message: 'License activated and role created successfully' }), 200);
+
+    }
+
+    // Check if user organization exists
+    const { error: orgCheckError } = await supabaseAdmin
+        .from('user_organizations')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+    if (orgCheckError && orgCheckError.details?.includes("0 rows")) {
+      // No org is attached to this user, attach one
+      const { error: orgInsertError } = await supabaseAdmin
+          .from('user_roles')
+          .insert({
+            user_id: userId,
+            organization_id: orgId
+          });
+
+      if (orgInsertError) {
+        console.error("Error assigning user org:", orgInsertError);
+        return corsResponse(JSON.stringify({ error: 'Failed to create user org' }), 400);
+      }
+
+      console.log(`User org assigned successfully for user: ${userId}`);
+      return corsResponse(JSON.stringify({ message: 'License activated and org attached successfully' }), 200);
+
+    }
+
+    // Check if user profile exists
+    const { error: profileCheckError } = await supabaseAdmin
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
     if (profileCheckError && profileCheckError.details?.includes("0 rows")) {
-      // No profile exists, create one
+      // No org is attached to this user, attach one
       const { error: profileInsertError } = await supabaseAdmin
           .from('user_profiles')
           .insert({
             id: userId,
-            organization_id: org.id,
-            user_tier: 'lead' // or another default tier if needed
+            organization_id: orgId,
+            user_role: DEFAULT_ROLE
           });
 
       if (profileInsertError) {
@@ -114,28 +167,8 @@ Deno.serve(async (req: Request) => {
       }
 
       console.log(`User profile created successfully for user: ${userId}`);
-      return corsResponse(JSON.stringify({ message: 'License activated and profile created successfully' }), 200);
-
-    } else if (existingProfile) {
-      // Profile exists - update it if necessary
-      const { error: profileUpdateError } = await supabaseAdmin
-          .from('user_profiles')
-          .update({ organization_id: org.id, user_tier: 'lead' })
-          .eq('id', userId);
-
-      if (profileUpdateError) {
-        console.error("Error updating user profile:", profileUpdateError);
-        return corsResponse(JSON.stringify({ error: 'Failed to update user profile' }), 400);
-      }
-
-      console.log(`User profile updated successfully for user: ${userId}`);
-      return corsResponse(JSON.stringify({ message: 'License activated and profile updated successfully' }), 200);
-    } else {
-      // Some other error fetching profile
-      console.error("Unexpected error fetching profile:", profileCheckError);
-      return corsResponse(JSON.stringify({ error: 'Failed to fetch user profile' }), 400);
+      return corsResponse(JSON.stringify({ message: 'License activated and profile attached successfully' }), 200);
     }
-
   } catch (error) {
     console.error('Error in activateLicense function:', error);
     return corsResponse(JSON.stringify({ error: 'Internal Server Error' }), 500);

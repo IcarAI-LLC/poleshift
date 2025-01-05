@@ -9,6 +9,8 @@ import {
     Typography,
     IconButton,
     useTheme,
+    FormControlLabel,
+    Switch,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -17,7 +19,7 @@ import { DateTime } from 'luxon';
 import type { SxProps, Theme } from '@mui/material/styles';
 
 import { useUI, useData } from '../lib/hooks';
-import type { SampleLocation } from '../lib/types';
+import { SampleLocations } from '@/lib/types';
 
 interface FilterMenuProps {
     onApply: () => void;
@@ -29,6 +31,7 @@ interface FilterState {
     startDate: string | null;
     endDate: string | null;
     selectedLocations: string[];
+    showExcluded: boolean;
 }
 
 interface StyleProps {
@@ -55,6 +58,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
         startDate: filters.startDate,
         endDate: filters.endDate,
         selectedLocations: filters.selectedLocations,
+        showExcluded: filters.showExcluded || false, // Default to false if not set
     });
 
     const styles = useMemo<StyleProps>(() => ({
@@ -144,10 +148,18 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
     }, []);
 
     // Location selection handler
-    const handleLocationChange = useCallback((_: any, newValue: SampleLocation[]) => {
+    const handleLocationChange = useCallback((_: any, newValue: SampleLocations[]) => {
         setLocalFilters(prev => ({
             ...prev,
             selectedLocations: newValue.map(loc => loc.id)
+        }));
+    }, []);
+
+    // Show excluded toggle handler
+    const handleShowExcludedChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setLocalFilters(prev => ({
+            ...prev,
+            showExcluded: event.target.checked,
         }));
     }, []);
 
@@ -163,6 +175,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
             startDate: null,
             endDate: null,
             selectedLocations: [],
+            showExcluded: false,
         };
         setLocalFilters(resetFilters);
         setFilters(resetFilters);
@@ -254,8 +267,6 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                         renderTags={(tagValue, getTagProps) =>
                             tagValue.map((option, index) => (
                                 <Chip
-                                    //@ts-ignore
-                                    key={option.id}
                                     label={option.label}
                                     {...getTagProps({ index })}
                                     sx={{
@@ -270,13 +281,27 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
                                 {option.label}
                             </li>
                         )}
-                        ListboxProps={{
-                            style: {
-                                maxHeight: '200px',
-                            },
+                        slotProps={{
+                            listbox: {
+                                style: {
+                                    maxHeight: '200px',
+                                },
+                            }
                         }}
                     />
                 </FormControl>
+
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={localFilters.showExcluded}
+                            onChange={handleShowExcludedChange}
+                            color="primary"
+                        />
+                    }
+                    label="Show Excluded"
+                    sx={styles.fieldContainer}
+                />
 
                 <Box sx={styles.buttonContainer}>
                     <Button
