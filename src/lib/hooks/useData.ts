@@ -7,9 +7,9 @@ import {FileNodes, SampleGroupMetadata} from '../types';
 
 import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
 import {
-    DrizzleSchema, file_nodes, FileNodeType, sample_group_metadata, sample_locations
+    DrizzleSchema, external_database_penguin_data, file_nodes, FileNodeType, sample_group_metadata, sample_locations
 } from "../powersync/DrizzleSchema.ts";
-import { eq } from 'drizzle-orm';
+import {eq} from 'drizzle-orm';
 
 export type FileNodeWithChildren = FileNodes & {
     children: FileNodeWithChildren[];
@@ -17,10 +17,10 @@ export type FileNodeWithChildren = FileNodes & {
 };
 
 // Helper to build a record by ID from an array of rows
-function arrayToRecord<T extends { id: string }>(arr: T[]): Record<string, T> {
+function arrayToRecord<T extends { id: string | number }>(arr: T[]): Record<string, T> {
     const record: Record<string, T> = {};
     for (const item of arr) {
-        record[item.id] = item;
+        record[item.id.toString()] = item;
     }
     return record;
 }
@@ -43,6 +43,9 @@ export const useData = () => {
         .from(sample_group_metadata)
         .orderBy(sample_group_metadata.created_at);
     const compiledSampleGroupsQuery = toCompilableQuery(sampleGroupsQuery);
+    const penguinDataQuery = drizzleDB.select()
+        .from(external_database_penguin_data);
+    const compiledPenguinDataQuery = toCompilableQuery(penguinDataQuery);
 
 
     const {
@@ -61,14 +64,17 @@ export const useData = () => {
         isLoading: sampleGroupsLoading,
         error: sampleGroupsError
     } = useQuery(compiledSampleGroupsQuery);
-
+    const {
+        data: penguinData = [],
+        isLoading: penguinDataLoading,
+        error: penguinDataError
+    } = useQuery(compiledPenguinDataQuery);
     // Convert arrays to records for easier lookups
     const fileNodes = useMemo(() => arrayToRecord(fileNodesArray), [fileNodesArray]);
     const sampleGroups = useMemo(() => arrayToRecord(sampleGroupsArray), [sampleGroupsArray]);
-
     // Determine if any queries are loading or have errors
-    const loading = locationsLoading || fileNodesLoading || sampleGroupsLoading;
-    const error = locationsError || fileNodesError || sampleGroupsError || null;
+    const loading = locationsLoading || fileNodesLoading || sampleGroupsLoading || penguinDataLoading;
+    const error = locationsError || fileNodesError || sampleGroupsError || penguinDataError || null;
 
     // CRUD operations using db.execute()
     const setError = useCallback((err: string | null) => {
@@ -262,6 +268,7 @@ export const useData = () => {
         locations,
         fileNodes,
         sampleGroups,
+        penguinData,
         error,
         loading,
         enabledLocations: getEnabledLocations(),

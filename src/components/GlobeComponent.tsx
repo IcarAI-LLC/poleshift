@@ -26,8 +26,8 @@ const GLOBE_CONFIG = {
 } as const;
 
 export const GlobeComponent: React.FC = () => {
-    const { userSettingsArray } = useSettings();
-    const firstUserSetting = userSettingsArray[0] || null;
+    const { userSettings } = useSettings();
+    const firstUserSetting = userSettings || null;
 
     const userGlobeColor = firstUserSetting?.globe_datapoint_color ?? GLOBE_CONFIG.pointColor;
     const userGlobeDiameter = parseFloat(firstUserSetting?.globe_datapoint_diameter ?? String(GLOBE_CONFIG.pointRadius));
@@ -100,7 +100,7 @@ export const GlobeComponent: React.FC = () => {
                         .filter(group => group.loc_id === location.id)
                         .filter(group => {
                             // Filter by excluded status
-                            if (!filters.showExcluded && group.excluded === 1) {
+                            if (!filters.showExcluded && group.excluded == true) {
                                 return false;
                             }
 

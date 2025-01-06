@@ -1,6 +1,6 @@
 // src/components/SettingsModal.tsx
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, {useState, useCallback, useEffect} from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -22,10 +22,10 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import GenomeIcon from '../../assets/icons/genome.svg';
 import PublicIcon from '@mui/icons-material/Public';
-import { useSettings } from '@/lib/hooks/useSettings.ts';
+import { useSettings } from '@/lib/hooks/useSettings';
 import { useAuth } from '@/lib/hooks';
 import { UserSettings } from '@/lib/types';
-import {TaxonomicRank} from "@/lib/powersync/DrizzleSchema.ts";
+import { TaxonomicRank } from '@/lib/powersync/DrizzleSchema';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -34,55 +34,56 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const theme = useTheme();
+
+    // Pull the single 'userSettings' from our new hook:
     const {
-        userSettingsArray, // array of UserSetting
+        userSettings,     // The existing row for the current user (or null if none)
         loading,
         error,
         addUserSetting,
         updateUserSetting,
     } = useSettings();
+
     const { user } = useAuth();
 
-    // State for the user's (new or existing) settings
-    const [newSetting, setNewSetting] = useState<Partial<UserSettings>>({
-        user_id: user?.id, // Pre-fill with user ID
-    });
+    // Local state for the form
+    const [newSetting, setNewSetting] = useState<Partial<UserSettings>>({});
 
     /**
-     * Whenever userSettingsArray changes or a user logs in,
-     * find this user’s existing settings (if any) and populate the form.
-     *
-     * For simplicity, we assume there is at most one settings row per user.
+     * Whenever `userSettings` (the stored data) or the user itself changes,
+     * update local form state.
      */
     useEffect(() => {
-        if (user && userSettingsArray.length > 0) {
-            const existingSetting = userSettingsArray.find(
-                (setting) => setting.user_id === user.id
-            );
-            if (existingSetting) {
-                setNewSetting(existingSetting);
-            } else {
-                // No existing setting found for this user
-                setNewSetting({ user_id: user.id });
-            }
+        if (userSettings) {
+            // Existing row in DB; populate the form with those values
+            setNewSetting(userSettings);
+        } else if (user) {
+            // No row yet for this user; default to a new object with the user's ID
+            setNewSetting({ id: user.id });
         }
-    }, [user, userSettingsArray]);
+    }, [userSettings, user]);
 
-    // Handler to create or update a user setting
     const handleSave = useCallback(async () => {
         try {
-            if (newSetting.id !== undefined) {
-                // If there's an ID, it's an existing record => update
-                await updateUserSetting(newSetting.id, newSetting);
+            const settingToSave = {
+                ...newSetting,
+                // Fallback to user.id just in case
+                id: newSetting.id || user?.id,
+            };
+
+            if (userSettings) {
+                // Row exists => update it
+                await updateUserSetting(settingToSave);
             } else {
-                // Otherwise, insert new setting
-                await addUserSetting(newSetting as UserSettings);
+                // Otherwise => create a new row
+                await addUserSetting(settingToSave as UserSettings);
             }
+
             onClose();
         } catch (err) {
             console.error('Failed to save setting:', err);
         }
-    }, [newSetting, addUserSetting, updateUserSetting, onClose]);
+    }, [userSettings, newSetting, user, updateUserSetting, addUserSetting, onClose]);
 
     return (
         <Dialog
@@ -109,7 +110,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     borderBottom: `1px solid ${theme.palette.divider}`,
                 }}
             >
-                <Typography variant="h6">Settings</Typography>
+                <Typography variant="h6">
+                    {userSettings ? 'Edit Settings' : 'Create Your Settings'}
+                </Typography>
                 <IconButton
                     onClick={onClose}
                     aria-label="Close"
@@ -131,9 +134,32 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 {error && <Alert severity="error">{String(error)}</Alert>}
 
                 <Box sx={{ mt: 2 }}>
-                    <Typography variant="subtitle1" gutterBottom sx={{ fontweight: 'bold'}}>
-                        {newSetting.id ? 'User Settings' : 'Create Your Setting'}
+                    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        {userSettings ? 'User Settings' : 'Create New Setting'}
                     </Typography>
+
+                    {/* ============ PowerSync Server Section ============ */}
+                    <Box sx={{ mt: 3 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                            PowerSync
+                        </Typography>
+
+                        <Tooltip title="Enter the full URL of your PowerSync server.">
+                            <TextField
+                                label="PowerSync Server URL"
+                                placeholder="https://icarai.net"
+                                value={newSetting.powersync_server || ''}
+                                onChange={(e) =>
+                                    setNewSetting((prev) => ({
+                                        ...prev,
+                                        powersync_server: e.target.value,
+                                    }))
+                                }
+                                fullWidth
+                                sx={{ mb: 2 }}
+                            />
+                        </Tooltip>
+                    </Box>
 
                     {/* ============ Taxonomic Starburst Section ============ */}
                     <Box sx={{ mt: 3 }}>
@@ -141,15 +167,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             <img
                                 src={GenomeIcon}
                                 alt="Genome Icon"
-                                style={{width: 24, height: 24}}
+                                style={{ width: 24, height: 24 }}
                             />
-                            <Typography variant="subtitle2" sx={{ml: 1, fontWeight: 'bold'}}>
+                            <Typography variant="subtitle2" sx={{ ml: 1, fontWeight: 'bold' }}>
                                 Taxonomic Starburst
                             </Typography>
                         </Box>
 
                         {/* Max Rank */}
-                        <Tooltip title="Tooltip text for Max Rank">
+                        <Tooltip title="Max depth to query for taxonomic data in the starburst">
                             <Autocomplete
                                 options={Object.values(TaxonomicRank)}
                                 value={newSetting.taxonomic_starburst_max_rank || null}
@@ -171,7 +197,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         </Tooltip>
 
                         {/* Min Rank */}
-                        <Tooltip title="Tooltip text for Min Rank">
+                        <Tooltip title="Experimental setting, use at your own risk">
                             <Autocomplete
                                 options={Object.values(TaxonomicRank)}
                                 value={newSetting.taxonomic_starburst_min_rank || null}
@@ -203,7 +229,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         </Box>
 
                         {/* Poles */}
-                        <Tooltip title="Tooltip text for Poles">
+                        <Tooltip title="Turn off for globe points, on for globe poles">
                             <FormControlLabel
                                 label="Poles"
                                 sx={{ display: 'block', mb: 2 }}
@@ -222,7 +248,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         </Tooltip>
 
                         {/* Color */}
-                        <Tooltip title="Tooltip text for Color (RGBA)">
+                        <Tooltip title="Point color in RGBA format">
                             <TextField
                                 label="Color (RGBA)"
                                 placeholder="rgba(255, 0, 0, 0.5)"
@@ -239,7 +265,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         </Tooltip>
 
                         {/* Diameter */}
-                        <Tooltip title="Tooltip text for Diameter">
+                        <Tooltip title="Globe point size">
                             <TextField
                                 label="Diameter"
                                 type="number"

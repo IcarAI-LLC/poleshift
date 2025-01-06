@@ -117,7 +117,7 @@ const CustomTreeItem = React.forwardRef(function CustomTreeItem(
 
                         {/* Sample Group Icons */}
                         {isSampleGroup && sampleGroup && (
-                            sampleGroup.excluded === 1 ? (
+                            sampleGroup.excluded == true ? (
                                 <ExcludedIcon sx={{ color: 'red' }} />
                             ) : sampleGroup.penguin_present === 1 ? (
                                 <img

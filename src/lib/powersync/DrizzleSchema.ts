@@ -49,6 +49,11 @@ export enum FileNodeType {
     Container = 'container',
 }
 
+export enum PenguinCountType {
+    Adults= 'adults',
+    Chicks = 'chicks',
+    Nests = 'nests'
+}
 /** ─────────────────────────────────────────────────────────────────────────────
  *  2) organizations
  *  ────────────────────────────────────────────────────────────────────────────**/
@@ -84,8 +89,8 @@ export const sample_locations = sqliteTable("sample_locations", {
     long: real("long").notNull(),
     is_enabled: real("is_enabled").notNull(),
     char_id: text("char_id").notNull(),
-    external_penguin_data_id: text("external_penguin_data_id").notNull().references(() => external_database_penguin_data.id),
-    external_scar_id: text("external_scar_id").notNull().references(() => external_database_scar_locations.id),
+    external_penguin_data_id: integer("external_penguin_data_id").references(() => external_database_penguin_data.id),
+    external_scar_id: text("external_scar_id").references(() => external_database_scar_locations.id),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -106,7 +111,7 @@ export const sample_group_metadata = sqliteTable("sample_group_metadata", {
     notes: text("notes"),
     updated_at: text("updated_at").notNull(),
     proximity_category: text("proximity_category").$type<ProximityCategory>(),
-    excluded: integer("excluded").notNull(),
+    excluded: integer("excluded").notNull().$type<boolean>(),
     penguin_count: integer("penguin_count"),
     penguin_present: integer("penguin_present").notNull(),
 });
@@ -180,7 +185,7 @@ export const user_roles = sqliteTable("user_roles", {
 /** ─────────────────────────────────────────────────────────────────────────────
  *  12) scar_locations
  *  ────────────────────────────────────────────────────────────────────────────**/
-export const external_database_scar_locations = sqliteTable("scar_locations", {
+export const external_database_scar_locations = sqliteTable("external_database_scar_locations", {
     id: real("id").notNull().primaryKey(),
     narrative: text("narrative").notNull(),
 });
@@ -188,12 +193,14 @@ export const external_database_scar_locations = sqliteTable("scar_locations", {
 /** ─────────────────────────────────────────────────────────────────────────────
  *  13) penguin_data
  *  ────────────────────────────────────────────────────────────────────────────**/
-export const external_database_penguin_data = sqliteTable("penguin_data", {
-    id: real("id").notNull().primaryKey(),
-    penguin_count: text("penguin_count").notNull(),
-    day: text("day"),
-    month: text("month"),
-    year: text("year").notNull(),
+export const external_database_penguin_data = sqliteTable("external_database_penguin_data", {
+    id: text("id").notNull().primaryKey(),
+    penguin_count: integer("penguin_count").notNull(),
+    day: integer("day"),
+    month: integer("month"),
+    year: integer("year").notNull(),
+    common_name: text("common_name").notNull(),
+    count_type: text("count_type").notNull().$type<PenguinCountType>(),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -207,13 +214,13 @@ export const organization_settings = sqliteTable("organization_settings", {
  *  15) user_settings
  *  ────────────────────────────────────────────────────────────────────────────**/
 export const user_settings = sqliteTable("user_settings", {
-    id: integer("id").primaryKey(),
-    user_id:text("user_id").notNull().references(() => user_profiles.id),
+    id:text("id").notNull().references(() => user_profiles.id),
     taxonomic_starburst_max_rank: text("taxonomic_starburst_max_rank").notNull().$type<TaxonomicRank>(),
     taxonomic_starburst_min_rank: text("taxonomic_starburst_min_rank").notNull().$type<TaxonomicRank>(),
     globe_datapoint_poles: integer("globe_datapoint_poles").notNull(),
     globe_datapoint_color: text("globe_datapoint_color").notNull(),
     globe_datapoint_diameter: text("globe_datapoint_diameter").notNull(),
+    powersync_server: text("powersync_server").notNull(),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -280,11 +287,11 @@ export const processed_nutrient_ammonia_data = sqliteTable("processed_nutrient_a
 export const processed_kraken_uniq_report = sqliteTable("processed_kraken_uniq_report", {
     id: text("id").notNull().primaryKey().default(uuidv4()),
     percentage: real("percentage").notNull(),
-    reads: text("reads").notNull(),
-    tax_reads: text("tax_reads").notNull(),
-    kmers: text("kmers").notNull(),
-    duplication: text("duplication").notNull(),
-    coverage: text("coverage").notNull(),
+    reads: integer("reads").notNull(),
+    tax_reads: integer("tax_reads").notNull(),
+    kmers: integer("kmers").notNull(),
+    duplication: real("duplication").notNull(),
+    coverage: real("coverage").notNull(),
     tax_id: integer("tax_id").notNull(),
     rank: text("rank").notNull(),
     tax_name: text("tax_name").notNull(),
@@ -364,7 +371,6 @@ export const raw_nutrient_ammonia_data = sqliteTable("raw_nutrient_ammonia_data"
 export const raw_fastq_data = sqliteTable("raw_fastq_data", {
     id: text("id").notNull().primaryKey().default(uuidv4()),
     feature_id: text("feature_id").notNull(),
-    // metadata: text("metadata").notNull(),
     sequence: text("sequence").notNull(),
     quality: text("quality").notNull(),
     run_id: text("run_id").notNull(),
@@ -402,16 +408,13 @@ export const processed_kraken_uniq_stdout = sqliteTable("processed_kraken_uniq_s
     hit_data: text("hit_data").notNull(),
 });
 
-/** ─────────────────────────────────────────────────────────────────────────────
- *  24) pr2_krakenuniq_taxdb
 
-export const pr2_krakenuniq_taxdb = sqliteTable("pr2_krakenuniq_taxdb", {
+export const taxdb_pr2 = sqliteTable("taxdb_pr2", {
     id: integer("id").notNull().primaryKey(),
-    parent_id: text("sample_id").notNull(),
+    parent_id: integer("sample_id").notNull(),
     tax_name: text("user_id").notNull(),
-    rank: text("org_id").notNull(),
+    rank: text("org_id").notNull().$type<TaxonomicRank>(),
 });
- *  ────────────────────────────────────────────────────────────────────────────**/
 
 export const DrizzleSchema = {
     role_permissions,
@@ -436,6 +439,7 @@ export const DrizzleSchema = {
     raw_nutrient_ammonia_data,
     raw_fastq_data,
     raw_data_improved,
+    taxdb_pr2,
 }
 export default DrizzleSchema;
 

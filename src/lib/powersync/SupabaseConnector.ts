@@ -1,9 +1,7 @@
-// src/lib/powersync/SupabaseConnector.ts
-
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
 import { useAuthStore } from '../stores/authStore';
 import { AbstractPowerSyncDatabase, CrudEntry, UpdateType } from '@powersync/web';
-import {jwtDecode, JwtPayload} from 'jwt-decode';
+import { jwtDecode, JwtPayload } from 'jwt-decode';
 import {
     UserRole,
     leadPermissions,
@@ -11,14 +9,26 @@ import {
     researcherPermissions,
     viewerPermissions,
     PoleshiftPermissions
-} from '../types';
+} from "../types";
 
 interface SupabaseJwtPayload extends JwtPayload {
     user_role?: UserRole;
     user_org?: string;
 }
 
+/**
+ * Helper to chunk an array into subarrays of a specific size
+ */
+function chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+        chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
+}
+
 function groupByTableAndOp(ops: CrudEntry[]): Record<string, CrudEntry[]> {
+    // Example of grouping by `${table}-${opType}`
     return ops.reduce((acc, op) => {
         const key = `${op.table}-${op.op}`;
         acc[key] = acc[key] || [];
@@ -27,10 +37,7 @@ function groupByTableAndOp(ops: CrudEntry[]): Record<string, CrudEntry[]> {
     }, {} as Record<string, CrudEntry[]>);
 }
 
-/**
- * The actual implementation of our Supabase connector.
- */
-export class SupabaseConnectorImpl {
+export class SupabaseConnector {
     readonly client: SupabaseClient;
     private lastUserId: string | null;
 
@@ -41,54 +48,48 @@ export class SupabaseConnectorImpl {
             {
                 auth: {
                     persistSession: true,
-                    autoRefreshToken: true,
-                },
+                    autoRefreshToken: true
+                }
             }
         );
-
         this.lastUserId = null;
 
-        // Subscribe to all authentication state changes, including the "INITIAL_SESSION" event
+        // Subscribe to authentication state changes
         this.client.auth.onAuthStateChange((event, session) => {
-            // This event is fired for SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, INITIAL_SESSION, etc.
-            if (
-                [
-                    'SIGNED_IN',
-                    'SIGNED_OUT',
-                    'USER_UPDATED',
-                    'USER_DELETED',
-                    'INITIAL_SESSION',
-                    'TOKEN_REFRESHED',
-                ].includes(event)
-            ) {
-                console.debug('Auth state changed:', event, session);
+            if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'USER_DELETED', 'INITIAL_SESSION', 'TOKEN_REFRESHED'].includes(event)) {
+                console.debug(session);
                 this.handleSessionChange(session);
             }
         });
+        this.initSession();
     }
 
-    /**
-     * Handle session changes by decoding the JWT and updating our Auth store.
-     */
+    private async initSession() {
+        const { data, error } = await this.client.auth.getSession();
+        if (error) {
+            console.error("Error initializing session:", error);
+            return;
+        }
+        this.handleSessionChange(data.session);
+    }
+
     private handleSessionChange(session: Session | null) {
         if (session) {
-            // Decode the access token to retrieve custom claims (role/org, etc.)
             const jwtDecoded: SupabaseJwtPayload = jwtDecode(session.access_token);
             const userRole: UserRole | null = jwtDecoded.user_role || null;
             const userOrg: string | null = jwtDecoded.user_org || null;
 
             const newUserId = session.user.id || null;
+
             if (this.lastUserId !== newUserId) {
-                console.log('User state changed:', {
+                console.log("User state changed:", {
                     previousUserId: this.lastUserId,
                     newUserId: newUserId,
                     userRole: userRole,
                     userOrg: userOrg,
                 });
                 this.lastUserId = newUserId;
-
-                const { setUser, setRole, setOrganizationId, setPermissions, setUserId } =
-                    useAuthStore.getState();
+                const { setUser, setRole, setOrganizationId, setPermissions, setUserId } = useAuthStore.getState();
 
                 setUser(session.user);
                 setUserId(session.user.id);
@@ -96,11 +97,6 @@ export class SupabaseConnectorImpl {
                 setOrganizationId(userOrg);
                 setPermissions(this.getPermissionsForRole(userRole));
             }
-        } else {
-            // If session is null, user is signed out or no session was persisted
-            // You can optionally clear out your store here:
-            // const { resetAuthState } = useAuthStore.getState();
-            // resetAuthState();
         }
     }
 
@@ -134,21 +130,18 @@ export class SupabaseConnectorImpl {
         if (error) throw error;
     }
 
-    /**
-     * Instead of relying on `getSession`, we rely on the `INITIAL_SESSION` event.
-     * If you do need to do a direct fetch, you can still call `getSession()`,
-     * but be aware it may return outdated tokens if they were not yet refreshed.
-     */
     async fetchCredentials() {
         try {
             console.debug('Fetching Supabase credentials...');
             const { data } = await this.client.auth.getSession();
+
             if (!data.session) {
-                console.debug('No active session found via getSession().');
+                console.debug('No session found.');
                 return null;
             }
 
             console.debug('Credentials fetched successfully.');
+            console.log(import.meta.env.VITE_SUPABASE_URL);
             return {
                 endpoint: import.meta.env.VITE_POWERSYNC_URL,
                 token: data.session.access_token ?? '',
@@ -164,9 +157,18 @@ export class SupabaseConnectorImpl {
     }
 
     /**
-     * Batches the CRUD operations by table & operation type to reduce the number of network calls.
+     * Batches the CRUD operations by table & operation type to reduce the number of network calls,
+     * and limits each batch to `maxBatchSize`.
+     *
+     * This version does NOT discard failed transactions. Instead, it retries them.
+     * Only if it succeeds does it call transaction.complete().
      */
-    async uploadData(database: AbstractPowerSyncDatabase, attempt = 1, maxAttempts = 3): Promise<void> {
+    async uploadData(
+        database: AbstractPowerSyncDatabase,
+        attempt = 1,
+        maxAttempts = 3,
+        maxBatchSize = 10000 // <-- Add your default max batch size here
+    ): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
 
         // If there is no transaction, do nothing
@@ -183,46 +185,53 @@ export class SupabaseConnectorImpl {
             // 1. Group the ops by table and operation type
             const groupedOps = groupByTableAndOp(transaction.crud);
 
-            // 2. Loop through each group and perform a single bulk operation
+            // 2. Loop through each group and perform chunked bulk operations
             for (const key of Object.keys(groupedOps)) {
                 const ops = groupedOps[key];
                 if (ops.length === 0) continue;
 
+                // Break down large ops array into sub-chunks of maxBatchSize
+                const opChunks = chunkArray(ops, maxBatchSize);
+
                 const [tableName, opType] = key.split('-') as [string, UpdateType];
                 const table = this.client.from(tableName);
 
-                switch (opType) {
-                    case UpdateType.PUT: {
-                        // For PUT -> Use upsert
-                        const rowsToUpsert = ops.map((op) => {
-                            lastOp = op;
-                            return { ...op.opData, id: op.id };
-                        });
-                        const result = await table.upsert(rowsToUpsert);
-                        if (result.error) throw result.error;
-                        break;
-                    }
-                    case UpdateType.PATCH: {
-                        // For PATCH -> Use update
-                        for (const op of ops) {
-                            lastOp = op;
-                            const { error } = await table.update(op.opData).eq('id', op.id);
-                            if (error) throw error;
+                // Process each sub-chunk
+                for (const chunk of opChunks) {
+                    switch (opType) {
+                        case UpdateType.PUT: {
+                            // For PUT -> Use upsert
+                            const rowsToUpsert = chunk.map(op => {
+                                lastOp = op;
+                                return { ...op.opData, id: op.id };
+                            });
+                            const result = await table.upsert(rowsToUpsert);
+                            if (result.error) throw result.error;
+                            break;
                         }
-                        break;
+                        case UpdateType.PATCH: {
+                            // For PATCH -> Use update
+                            // We'll keep doing them one by one, but in a chunk-limited loop
+                            for (const op of chunk) {
+                                lastOp = op;
+                                const { error } = await table.update(op.opData).eq('id', op.id);
+                                if (error) throw error;
+                            }
+                            break;
+                        }
+                        case UpdateType.DELETE: {
+                            // For DELETE -> Use delete in
+                            const idsToDelete = chunk.map(op => {
+                                lastOp = op;
+                                return op.id;
+                            });
+                            const result = await table.delete().in('id', idsToDelete);
+                            if (result.error) throw result.error;
+                            break;
+                        }
+                        default:
+                            throw new Error(`Unsupported operation type: ${opType}`);
                     }
-                    case UpdateType.DELETE: {
-                        // For DELETE -> Use delete
-                        const idsToDelete = ops.map((op) => {
-                            lastOp = op;
-                            return op.id;
-                        });
-                        const result = await table.delete().in('id', idsToDelete);
-                        if (result.error) throw result.error;
-                        break;
-                    }
-                    default:
-                        throw new Error(`Unsupported operation type: ${opType}`);
                 }
             }
 
@@ -234,14 +243,15 @@ export class SupabaseConnectorImpl {
 
             // Retry logic: only retry up to `maxAttempts` times
             if (attempt < maxAttempts) {
+                // Optional: Exponential backoff or just a delay
                 const delayMs = 1000 * attempt;
                 console.debug(`Retrying after ${delayMs}ms... (attempt ${attempt + 1} of ${maxAttempts})`);
-                await new Promise((resolve) => setTimeout(resolve, delayMs));
-                return this.uploadData(database, attempt + 1, maxAttempts);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+
+                // Recursively call uploadData with incremented attempt
+                return this.uploadData(database, attempt + 1, maxAttempts, maxBatchSize);
             } else {
-                console.error(
-                    `Max retry attempts (${maxAttempts}) reached. Not discarding transaction, but will not retry again.`
-                );
+                console.error(`Max retry attempts (${maxAttempts}) reached. Not discarding transaction, but will not retry again.`);
                 // IMPORTANT: We do NOT call transaction.complete() here
                 // so that the transaction remains in the queue for another future attempt
             }
@@ -249,25 +259,4 @@ export class SupabaseConnectorImpl {
     }
 }
 
-/**
- * Singleton wrapper for SupabaseConnectorImpl.
- */
-export class SupabaseConnectorSingleton {
-    private static instance: SupabaseConnectorImpl | null = null;
-
-    // Private constructor to prevent direct instantiation
-    private constructor() {}
-
-    /**
-     * Lazily creates and returns the single instance of SupabaseConnectorImpl
-     */
-    public static getInstance(): SupabaseConnectorImpl {
-        if (!SupabaseConnectorSingleton.instance) {
-            SupabaseConnectorSingleton.instance = new SupabaseConnectorImpl();
-        }
-        return SupabaseConnectorSingleton.instance;
-    }
-}
-
-// Option B: Provide a named export for the singleton instance itself
-export const supabaseConnector = SupabaseConnectorSingleton.getInstance();
+export const supabaseConnector = new SupabaseConnector();

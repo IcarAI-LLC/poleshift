@@ -139,7 +139,7 @@ const RightSidebar: React.FC = () => {
       }
 
       // Filter by excluded status
-      if (!filters.showExcluded && group.excluded === 1) {
+      if (!filters.showExcluded && group.excluded === true) {
         return false;
       }
 
@@ -505,7 +505,7 @@ const RightSidebar: React.FC = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body1" sx={{ flex: 1 }}>
                               <strong>{sampleGroup.human_readable_sample_id}</strong>
-                              {sampleGroup.excluded === 1 && (
+                              {sampleGroup.excluded == true && (
                                   <Typography
                                       component="span"
                                       sx={{

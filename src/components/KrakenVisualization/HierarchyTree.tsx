@@ -104,7 +104,7 @@ const buildHierarchyTree = (data: ProcessedKrakenUniqReport[]): TaxonomyFileNode
             name: item.tax_name,
             rank: item.rank as TaxonomicRank,
             percentage: item.percentage,
-            reads: parseInt(item.reads),
+            reads: item.reads,
             tax_id: item.tax_id,
             type: 'leaf', // We'll update this later
             children: [],

@@ -82,11 +82,11 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
     return data.map(entry => ({
       taxon: entry.tax_name,
       percentage: entry.percentage,
-      reads: parseInt(entry.reads),
-      taxReads: parseInt(entry.tax_reads),
-      kmers: parseInt(entry.kmers),
-      dup: parseFloat(entry.duplication),
-      cov: parseFloat(entry.coverage),
+      reads: entry.reads,
+      taxReads: entry.tax_reads,
+      kmers: entry.kmers,
+      dup: entry.duplication,
+      cov: entry.coverage,
       e_score: entry.e_score,
     }));
   }, [data]);
@@ -107,11 +107,11 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       plotData: entries.map(entry => ({
         taxon: entry.tax_name,
         percentage: entry.percentage,
-        reads: parseInt(entry.reads),
-        taxReads: parseInt(entry.tax_reads),
-        kmers: parseInt(entry.kmers),
-        dup: parseFloat(entry.duplication),
-        cov: parseFloat(entry.coverage),
+        reads: entry.reads,
+        taxReads: entry.tax_reads,
+        kmers: entry.kmers,
+        dup: entry.duplication,
+        cov: entry.coverage,
         e_score: entry.e_score,
       }))
     }));
@@ -128,7 +128,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
     );
 
     // The root node's reads = total reads
-    const totalReads = rootNode ? parseInt(rootNode.reads) : 0;
+    const totalReads = rootNode ? rootNode.reads : 0;
 
     // Classified percentage is just the root node's percentage
     const classificationRate = rootNode ? rootNode.percentage : 0;
@@ -179,11 +179,11 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
           .map(entry => ({
             taxon: entry.tax_name,
             percentage: entry.percentage,
-            reads: parseInt(entry.reads),
-            taxReads: parseInt(entry.tax_reads),
-            kmers: parseInt(entry.kmers),
-            dup: parseFloat(entry.duplication),
-            cov: parseFloat(entry.coverage),
+            reads: entry.reads,
+            taxReads: entry.tax_reads,
+            kmers: entry.kmers,
+            dup: entry.duplication,
+            cov: entry.coverage,
             e_score: entry.e_score,
           }));
     }

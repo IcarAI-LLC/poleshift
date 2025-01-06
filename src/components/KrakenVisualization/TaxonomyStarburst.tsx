@@ -122,8 +122,8 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({
     const [parentMap, setParentMap] = useState<Record<string, string>>({});
 
     // Load user settings for max rank only
-    const { userSettingsArray } = useSettings();
-    const userSetting = userSettingsArray[0] || null;
+    const { userSettings } = useSettings();
+    const userSetting = userSettings || null;
     const maxRankSetting = userSetting?.taxonomic_starburst_max_rank as TaxonomicRank | undefined;
 
     // Build the hierarchy and parent map
@@ -210,7 +210,7 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({
         const values: number[] = [];
         const ids: string[] = [];
         // [tax_id, rank, percentage, reads, coverage, e_score]
-        const customdata: Array<[number, string, number, number, string, number]> = [];
+        const customdata: Array<[number, string, number, number, number, number]> = [];
         const colors: string[] = [];
 
         let secondLevelColorIndex = 0;
@@ -218,14 +218,14 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({
         hierarchyInfo.forEach(({ node, depth }) => {
             labels.push(node.tax_name);
             parents.push(node.parent_id || '');
-            values.push(parseInt(node.reads));
+            values.push(node.reads);
             ids.push(node.id);
 
             customdata.push([
                 node.tax_id,
                 node.rank,
                 node.percentage,
-                parseInt(node.reads),
+                node.reads,
                 node.coverage,
                 node.e_score
             ]);

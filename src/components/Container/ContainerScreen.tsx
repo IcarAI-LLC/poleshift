@@ -13,7 +13,7 @@ const ContainerScreen = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    mb: 4
+                    mb: 6
                 }}
             >
                 <Typography variant="h5">Container Analysis</Typography>

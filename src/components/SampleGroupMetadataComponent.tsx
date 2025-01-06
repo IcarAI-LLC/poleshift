@@ -29,6 +29,7 @@ import LocationFields from './LocationFields';
 import type { SampleGroupMetadata as TSampleGroupMetadata } from '../lib/types';
 import { PoleshiftPermissions } from '@/lib/types';
 import { ProximityCategory } from "@/lib/powersync/DrizzleSchema.ts";
+import PenguinIcon from "@/assets/icons/penguin.svg";
 
 // Styles interface for better type safety
 interface StyleProps {
@@ -43,7 +44,7 @@ interface StyleProps {
 
 export const SampleGroupMetadataComponent: React.FC = () => {
   const theme = useTheme();
-  const { locations, updateSampleGroup, sampleGroups } = useData();
+  const { locations, updateSampleGroup, sampleGroups, penguinData } = useData();
   const { selectedLeftItem } = useUI();
   const { userPermissions } = useAuthStore.getState();
 
@@ -56,23 +57,27 @@ export const SampleGroupMetadataComponent: React.FC = () => {
     collectionTimeUTC: string;
     notes: string;
     proximityCategory: ProximityCategory | null;
-    excluded: number; // 0 or 1
+    excluded: boolean; // 0 or 1
     penguinCount: number | null; // ALLOW NULL
     penguinPresent: number; // 0 or 1
   }>({
     collectionTimeUTC: '',
     notes: '',
     proximityCategory: null,
-    excluded: 0,
+    excluded: false,
     penguinCount: null, // DEFAULT TO NULL
     penguinPresent: 0,
   });
 
   // Get current sample group
   const sampleGroup = selectedLeftItem ? sampleGroups[selectedLeftItem.id] : null;
+  console.debug(sampleGroup);
   const location = sampleGroup?.loc_id
       ? locations.find((loc) => loc.id === sampleGroup.loc_id)
       : null;
+  const penguinRecord = penguinData.find(
+      data => data.id === location?.external_penguin_data_id?.toString() || null
+  );
 
   // Styles with enhanced overflow handling
   const styles: StyleProps = {
@@ -235,7 +240,7 @@ export const SampleGroupMetadataComponent: React.FC = () => {
       async (isExcluded: boolean) => {
         if (!sampleGroup?.id) return;
 
-        const newValue = isExcluded ? 1 : 0;
+        const newValue = isExcluded;
         try {
           setLocalState((prev) => ({
             ...prev,
@@ -329,7 +334,7 @@ export const SampleGroupMetadataComponent: React.FC = () => {
   );
 
   if (!sampleGroup) return null;
-
+  console.log(penguinData);
   return (
       <Card sx={styles.containerStyles}>
         <Accordion
@@ -549,6 +554,53 @@ export const SampleGroupMetadataComponent: React.FC = () => {
                     disabled={!hasModifyPermission}
                 />
               </Box>
+
+              {/* External Database Penguin Hint */}
+              {location?.external_penguin_data_id &&
+                  penguinData[location.external_penguin_data_id] &&
+                  // Ensure penguin_count is not "0"
+                  penguinData[location.external_penguin_data_id].penguin_count > 0 && (
+                      <Box
+                          sx={{
+                            backgroundColor:
+                                theme.palette.mode === 'dark'
+                                    ? 'rgba(255,255,255,0.06)'
+                                    : 'rgba(0,0,0,0.06)',
+                            px: 2,
+                            py: 1,
+                            mb: 2,
+                            borderRadius: 1,
+                          }}
+                      >
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                            }}
+                        >
+                          <img
+                              src={PenguinIcon}
+                              alt="Penguin Icon"
+                              style={{
+                                width: 24,
+                                height: 24,
+                                marginRight: 8,
+                              }}
+                          />
+                          &nbsp;Oceanities recorded{' '}
+                          {penguinRecord?.penguin_count} {' '}
+                          {penguinRecord?.common_name} {' '}
+                          {penguinRecord?.count_type} on{' '}
+                          {penguinRecord?.day || 'DD'}/
+                          {penguinRecord?.month || 'MM'}/
+                          {penguinRecord?.year}.
+                        </Typography>
+                      </Box>
+                  )
+              }
+
 
               {/* Penguins Present Field */}
               <Box sx={styles.metadataItemStyles}>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePowerSync } from '@powersync/react';
 import { supabaseConnector } from "@/lib/powersync/SupabaseConnector.ts";
+import {useAuth} from "@/lib/hooks/useAuth.ts";
 
 interface SyncProgress {
     syncedCount: number | null;      // number of items already synced (ps_oplog grows)
@@ -10,7 +11,8 @@ interface SyncProgress {
 
 export function useSyncProgress(isSyncing: boolean): SyncProgress {
     const db = usePowerSync();
-
+    const { user } = useAuth();
+    const userId = user?.id;
     // Keep track of how many items have synced and how many total are needed
     const [syncedCount, setSyncedCount] = useState<number | null>(null);
     const [totalCount, setTotalCount] = useState<number | null>(null);
@@ -26,6 +28,7 @@ export function useSyncProgress(isSyncing: boolean): SyncProgress {
          */
         async function fetchTotalCount() {
             try {
+                if (!userId) return;
                 const { data, error } = await supabaseConnector.client.functions.invoke(
                     'get_sync_count'
                 );
@@ -69,10 +72,8 @@ export function useSyncProgress(isSyncing: boolean): SyncProgress {
         fetchTotalCount();
 
         if (isSyncing) {
-            // Fetch syncedCount immediately
-            fetchSyncedCount();
             // Poll every 10s (tweak as needed)
-            intervalId = setInterval(fetchSyncedCount, 10000);
+            intervalId = setInterval(fetchSyncedCount, 30000);
         } else {
             // If not syncing, reset
             setSyncedCount(null);

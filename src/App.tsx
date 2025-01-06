@@ -14,7 +14,6 @@ import { checkForAppUpdates } from './updater';
 // Import the TooltipProvider from shadcn/ui
 import { TooltipProvider } from '@/components/ui/tooltip';
 // Adjust the import path above to match where you've placed your shadcn ui components
-
 function App() {
     useEffect(() => {
         checkForAppUpdates();
