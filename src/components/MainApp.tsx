@@ -140,6 +140,7 @@ const MainApp: React.FC = () => {
               onToggleSidebar={handleToggleLeftSidebar}
               setShowAccountActions={setShowAccountActions}
               onOpenFilters={openFilterMenu}
+              //@ts-ignore
               filterButtonRef={openButtonRef}
           />
 
