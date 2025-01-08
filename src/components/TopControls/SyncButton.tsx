@@ -30,7 +30,7 @@ const SyncButton: React.FC<SyncButtonProps> = ({ isSyncing }) => {
                 <TooltipTrigger asChild>
                     <RefreshCw
                         color={isSyncing ? '#f44336' : '#4caf50'}
-                        className={isSyncing ? 'animate-spin direction-reverse' : ''}
+                        className={isSyncing ? 'animate-spin-smooth' : ''}
                         viewBox="0 0 24 24"
                     />
                 </TooltipTrigger>

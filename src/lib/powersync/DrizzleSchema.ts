@@ -103,7 +103,6 @@ export const sample_group_metadata = sqliteTable("sample_group_metadata", {
     user_id: text("user_id").references(() => user_profiles.id),
     human_readable_sample_id: text("human_readable_sample_id").notNull(),
     collection_date: text("collection_date").notNull(),
-    storage_folder: text("storage_folder").notNull(),
     collection_datetime_utc: text("collection_datetime_utc"),
     loc_id: text("loc_id").notNull().references(() => sample_locations.id),
     latitude_recorded: real("latitude_recorded"),
@@ -141,27 +140,6 @@ export const license_keys = sqliteTable("license_keys", {
     key: text("key").notNull().default(uuidv4()),
     is_active: integer("is_active").default(1),
     created_at: text("created_at").default(DateTime.now().toISO()),
-});
-
-/** ─────────────────────────────────────────────────────────────────────────────
- *  9) processed_data
- *  ────────────────────────────────────────────────────────────────────────────**/
-export const processed_data = sqliteTable("processed_data", {
-    key: text("key").notNull().unique(),
-    id: text("id").notNull().primaryKey(),
-    config_id: text("config_id").notNull(),
-    data: text("data").notNull(),
-    raw_file_paths: text("raw_file_paths").notNull(),
-    processed_path: text("processed_path"),
-    status: text("status").notNull(),
-    metadata: text("metadata"),
-    sample_id: text("sample_id").references(() => sample_group_metadata.id),
-    human_readable_sample_id: text("human_readable_sample_id"),
-    org_short_id: text("org_short_id"),
-    org_id: text("org_id").references(() => organizations.id),
-    process_function_name: text("process_function_name"),
-    processed_file_paths: text("processed_file_paths"),
-    timestamp: integer("timestamp").notNull().default(Date.now()),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -318,7 +296,7 @@ export const processed_kraken_uniq_report = sqliteTable("processed_kraken_uniq_r
 export const raw_data_improved = sqliteTable("raw_data_improved", {
     id: text("id").notNull().primaryKey().default(uuidv4()),
     data_type: text("data_type").notNull(),
-    user_id: text("user_id"),
+    user_id: text("user_id").notNull(),
     org_id: text("org_id").notNull(),
     sample_id: text("sample_id").notNull(),
     created_at: text("created_at").notNull().default(DateTime.now().toISO()),
@@ -423,7 +401,6 @@ export const DrizzleSchema = {
     user_profiles,
     sample_locations,
     sample_group_metadata,
-    processed_data,
     license_keys,
     file_nodes,
     external_database_scar_locations,

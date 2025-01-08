@@ -101,7 +101,6 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
                 throw new Error(`Location with char_id ${locCharId} not found.`);
             }
 
-            const rawDataFolderPath = `${organization.org_short_id}/${sampleGroupName}/`;
             const id: string = uuidv4();
 
             // The new file node
@@ -124,10 +123,7 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
                 id,
                 human_readable_sample_id: sampleGroupName,
                 loc_id: location.id,
-                storage_folder: rawDataFolderPath,
                 collection_date: formattedDate,
-                // Combine date and time into an ISO string if there's a time
-                // e.g. "2024-01-01T13:05:30Z"
                 collection_datetime_utc: collectionTime
                     ? `${collectionDate}T${collectionTime}Z`
                     : undefined,

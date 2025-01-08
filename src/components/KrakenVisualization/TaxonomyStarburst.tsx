@@ -175,7 +175,6 @@ const TaxonomyStarburst: React.FC<TaxonomyStarburstProps> = ({
         let filteredNodes = nodes.filter(node =>
             Object.values(TaxonomicRank).includes(node.rank as TaxonomicRank)
         );
-        console.log(filteredNodes);
 
         // 2) Enforce ONLY max rank (remove any "min" logic)
         // Create a small rank-order map for reference

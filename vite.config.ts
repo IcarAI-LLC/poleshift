@@ -25,7 +25,7 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
                         ReactCompilerConfig],
                     ],
             }
-            }), eslint()],
+            }), eslint(), nodePolyfills()],
         // PowerSync
         optimizeDeps: {
             // Don't optimize these packages as they contain web workers and WASM files.

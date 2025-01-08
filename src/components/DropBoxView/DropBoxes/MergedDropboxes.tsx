@@ -4,10 +4,10 @@ import { Box, Typography } from '@mui/material';
 import { useAuth, useData, useUI } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/authStore.ts';
 
-import SingleDropBox from './SingleDropBox';
+import SingleDropBox from './SingleDropBox.tsx';
 
-import dropboxConfig from '../../config/dropboxConfig';
-import type { DropboxesProps } from './types';
+import dropboxConfig from '../../../config/dropboxConfig.ts';
+import type { DropboxesProps } from './types.ts';
 import { PoleshiftPermissions } from '@/lib/types';
 import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
 

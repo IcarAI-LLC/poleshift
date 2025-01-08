@@ -3,7 +3,7 @@
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
-import globeImage from '../assets/globe.jpg';
+import globeImage from '../assets/combined.png';
 import { useData } from '../lib/hooks/useData';
 import { useUI } from '../lib/hooks/useUI';
 import { useQuery } from '@powersync/react';
@@ -21,7 +21,7 @@ const GLOBE_CONFIG = {
     pointRadius: 0.1,
     pointColor: 'rgba(0, 255, 255, 0.8)',
     backgroundColor: '#000000',
-    transitionDuration: 1000,
+    transitionDuration: 0,
     defaultAltitude: 0.5,
 } as const;
 

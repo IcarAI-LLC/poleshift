@@ -162,7 +162,6 @@ const LeftSidebarTree: React.FC = () => {
 
     const { fileTree, deleteNode } = useData();
     const contextMenuRef = useRef<HTMLDivElement>(null);
-    console.log(fileTree);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {

@@ -33,7 +33,7 @@ const NutrientAmmoniaInput: React.FC<NutrientAmmoniaInputProps> = ({
         // Convert to float
         const numericVal = parseFloat(ammoniaValue);
         // Simple validation
-        if (isNaN(numericVal) || numericVal <= 0) {
+        if (isNaN(numericVal) || numericVal < 0) {
             alert('Please enter a valid positive number for ammonia');
             return;
         }

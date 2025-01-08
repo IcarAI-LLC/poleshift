@@ -1,6 +1,6 @@
 // src/lib/powersync/db.ts
 
-import {PowerSyncDatabase, SyncStreamConnectionMethod} from '@powersync/web';
+import {PowerSyncDatabase} from '@powersync/web';
 import {supabaseConnector} from './SupabaseConnector';
 import {AppSchema} from './Schema';
 
@@ -8,6 +8,7 @@ import {AppSchema} from './Schema';
  * A singleton wrapper class for the PowerSyncDatabase.
  */
 export class PowerSyncDB {
+
     // The single instance will be stored in this static property.
     private static instance: PowerSyncDatabase | null = null;
 
@@ -20,7 +21,7 @@ export class PowerSyncDB {
             this.instance = new PowerSyncDatabase({
                 schema: AppSchema,
                 database: {
-                    dbFilename: 'powersync.db'
+                    dbFilename: 'powersync2.db',
                 },
                 flags: {
                     useWebWorker: false
@@ -39,7 +40,7 @@ export const setupPowerSync = async () => {
 
     // Always reference the singleton DB instance through the static getter
     const db = PowerSyncDB.getInstance();
-
+    await db.execute("PRAGMA cache_size=-2000000");
     if (db.connected) {
         console.debug('PowerSync is already connected.');
         return;
@@ -49,7 +50,7 @@ export const setupPowerSync = async () => {
     console.log('Connector created');
 
     try {
-        await db.connect(supabaseConnector, {connectionMethod: SyncStreamConnectionMethod.HTTP});
+        await db.connect(supabaseConnector);
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);
         return;

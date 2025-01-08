@@ -7,7 +7,6 @@ const MoveModal: React.FC = () => {
     const { fileTree, moveNode } = useData();
     const { moveModalItemId, setHideMoveModal } = useUI();
     const [selectedFolderId, setSelectedFolderId] = useState<string>('');
-    console.debug('MoveModal', moveModalItemId, selectedFolderId);
     if (!moveModalItemId) return null;
 
     // Filter folders only (type === 'folder')

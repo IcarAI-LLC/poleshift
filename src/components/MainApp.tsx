@@ -7,17 +7,18 @@ import {useAuth, useData, useNetworkStatus, useUI,} from '@/lib/hooks';
 import TopControls from './TopControls/TopControls';
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
-import MergedDropBoxes from './DropBoxes/MergedDropboxes.tsx';
+import MergedDropBoxes from '@/components/DropBoxView/DropBoxes/MergedDropboxes.tsx';
 import ErrorMessage from './ErrorMessage';
 import GlobeComponent from './GlobeComponent';
 import ContextMenu from './ContextMenu';
 import AccountActions from './Account/AccountActions';
-import SampleGroupMetadataComponent from './SampleGroupMetadataComponent.tsx';
+import SampleGroupMetadataComponent from './DropBoxView/SampleGroupMetadataComponent/SampleGroupMetadataComponent.tsx';
 import FilterMenu from './FilterMenu';
 import OfflineWarning from './OfflineWarning';
 import MoveModal from "./LeftSidebar/MoveModal";
 import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
 import ContainerScreen from "@/components/Container/ContainerScreen.tsx";
+import ChatWidget from "@/components/Chatbot/ChatWidget.tsx";
 
 const MainApp: React.FC = () => {
   // All hooks at the top level
@@ -173,10 +174,9 @@ const MainApp: React.FC = () => {
 
             <div className="content-body">{renderContent}</div>
           </div>
-
           <RightSidebar />
         </div>
-
+        <ChatWidget />
         {showAccountActions && <AccountActions />}
 
         <ContextMenu deleteItem={handleDeleteSample} />

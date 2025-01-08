@@ -69,6 +69,7 @@ export const useData = () => {
         isLoading: penguinDataLoading,
         error: penguinDataError
     } = useQuery(compiledPenguinDataQuery);
+
     // Convert arrays to records for easier lookups
     const fileNodes = useMemo(() => arrayToRecord(fileNodesArray), [fileNodesArray]);
     const sampleGroups = useMemo(() => arrayToRecord(sampleGroupsArray), [sampleGroupsArray]);
@@ -145,7 +146,7 @@ export const useData = () => {
                 const childNodes = await drizzleDB
                     .select({ id: file_nodes.id })
                     .from(file_nodes)
-                    .where(eq(file_nodes.parent_id, id));
+                    .where(eq(file_nodes.parent_id, (id)));
 
                 for (const child of childNodes) {
                     await deleteNode(child.id); // Recursively delete each child

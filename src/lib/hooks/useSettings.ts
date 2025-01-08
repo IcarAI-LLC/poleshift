@@ -40,7 +40,6 @@ export const useSettings = () => {
         isLoading: userSettingsLoading,
         error: userSettingsError,
     } = useQuery<UserSettings>(compiledUserSettingsQuery);
-    console.log('userSettingsArray', userSettingsArray);
     // 5. Typically there is only one settings row per user, so pick the first
     const userSettings = userSettingsArray[0];
 

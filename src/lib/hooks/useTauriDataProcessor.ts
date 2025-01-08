@@ -272,15 +272,10 @@ export function useTauriDataProcessor() {
      */
     async function processNutrientAmmoniaData(
         sampleGroupId: string,
-        modalInputs: Record<string, any>
+        ammoniaValue:number,
     ): Promise<void> {
         if (!userId || !organizationId) {
             throw new Error('User credentials could not be found.');
-        }
-
-        const ammoniaValue = parseFloat(modalInputs['ammoniaValue']);
-        if (!ammoniaValue) {
-            throw new Error('Invalid or missing ammonia input.');
         }
 
         // Generate IDs

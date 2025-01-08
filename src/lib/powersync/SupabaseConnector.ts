@@ -135,6 +135,11 @@ export class SupabaseConnector {
             console.debug('Fetching Supabase credentials...');
             const { data } = await this.client.auth.getSession();
 
+            const powersyncUrlRequest = await this.client.functions.invoke('get_powersync_url');
+            console.log(powersyncUrlRequest);
+            if (powersyncUrlRequest.error) {
+                console.error('Failed to get PowerSync URL:', powersyncUrlRequest.error);
+            }
             if (!data.session) {
                 console.debug('No session found.');
                 return null;
@@ -143,7 +148,7 @@ export class SupabaseConnector {
             console.debug('Credentials fetched successfully.');
             console.log(import.meta.env.VITE_SUPABASE_URL);
             return {
-                endpoint: import.meta.env.VITE_POWERSYNC_URL,
+                endpoint: powersyncUrlRequest?.data?.powersync_server || import.meta.env.VITE_POWERSYNC_URL,
                 token: data.session.access_token ?? '',
                 expiresAt: data.session.expires_at
                     ? new Date(data.session.expires_at * 1000)

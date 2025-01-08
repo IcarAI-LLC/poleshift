@@ -1,7 +1,6 @@
 // src/renderer/components/OfflineWarning/OfflineWarning.tsx
-//TODO add back online notification
 import React from 'react';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { AlertTriangle } from 'lucide-react'; // <-- shadcn/lucide-react icon
 
 /**
  * Represents the properties for an offline warning component.
@@ -33,26 +32,27 @@ interface OfflineWarningProps {
  * @param {function} [props.onClose] - Optional callback function that is called when the close button is clicked.
  */
 const OfflineWarning: React.FC<OfflineWarningProps> = ({
-  message = 'You are offline. Some features may not be available.',
-  isVisible,
-  onClose,
-}) => {
+                                                         message = 'You are offline. Some features may not be available.',
+                                                         isVisible,
+                                                         onClose,
+                                                       }: OfflineWarningProps) => {
   if (!isVisible) return null;
 
   return (
-    <div className="offline-banner">
-      <WarningAmberIcon className="offline-banner__icon" />
-      <span className="offline-banner__message">{message}</span>
-      {onClose && (
-        <button
-          className="offline-banner__close"
-          onClick={onClose}
-          aria-label="Close Offline Banner"
-        >
-          &times;
-        </button>
-      )}
-    </div>
+      <div className="offline-banner">
+        {/* Replaced WarningAmberIcon with AlertTriangle from lucide-react */}
+        <AlertTriangle className="offline-banner__icon" />
+        <span className="offline-banner__message">{message}</span>
+        {onClose && (
+            <button
+                className="offline-banner__close"
+                onClick={onClose}
+                aria-label="Close Offline Banner"
+            >
+              &times;
+            </button>
+        )}
+      </div>
   );
 };
 

@@ -1,334 +1,232 @@
-import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
-import {
-    Box,
-    Button,
-    FormControl,
-    Autocomplete,
-    TextField,
-    Chip,
-    Typography,
-    IconButton,
-    useTheme,
-    FormControlLabel,
-    Switch,
-} from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { DateTime } from 'luxon';
-import type { SxProps, Theme } from '@mui/material/styles';
+"use client"
 
-import { useUI, useData } from '../lib/hooks';
-import { SampleLocations } from '@/lib/types';
+import React, {
+    useCallback,
+    useMemo,
+    useState,
+} from "react"
+import { X } from "lucide-react"
+import ReactDatePicker from "react-datepicker"
+import "react-datepicker/dist/react-datepicker.css"
+import { DateTime } from "luxon"
+
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import {
+    Popover,
+    PopoverTrigger,
+    PopoverContent,
+} from "@/components/ui/popover"
+import {
+    Command,
+    CommandInput,
+    CommandList,
+    CommandEmpty,
+    CommandGroup,
+    CommandItem,
+} from "@/components/ui/command"
+import { Checkbox } from "@/components/ui/checkbox"
+
+import { useUI, useData } from "../lib/hooks"
 
 interface FilterMenuProps {
-    onApply: () => void;
-    onReset: () => void;
-    onClose: () => void;
+    onApply: () => void
+    onReset: () => void
+    onClose: () => void
 }
 
 interface FilterState {
-    startDate: string | null;
-    endDate: string | null;
-    selectedLocations: string[];
-    showExcluded: boolean;
+    startDate: string | null
+    endDate: string | null
+    selectedLocations: string[]
+    showExcluded: boolean
 }
 
-interface StyleProps {
-    container: SxProps<Theme>;
-    header: SxProps<Theme>;
-    closeButton: SxProps<Theme>;
-    inputField: SxProps<Theme>;
-    buttonContainer: SxProps<Theme>;
-    fieldContainer: SxProps<Theme>;
-}
+export function FilterMenu({ onApply, onReset, onClose }: FilterMenuProps) {
+    const { filters, setFilters } = useUI()
+    const { enabledLocations } = useData()
 
-export const FilterMenu: React.FC<FilterMenuProps> = ({
-                                                          onApply,
-                                                          onReset,
-                                                          onClose,
-                                                      }) => {
-    const theme = useTheme();
-    const firstInputRef = useRef<HTMLInputElement>(null);
-    const { filters, setFilters } = useUI();
-    const { enabledLocations } = useData();
-
-    // Local state for filter values
     const [localFilters, setLocalFilters] = useState<FilterState>({
         startDate: filters.startDate,
         endDate: filters.endDate,
         selectedLocations: filters.selectedLocations,
-        showExcluded: filters.showExcluded || false, // Default to false if not set
-    });
+        showExcluded: filters.showExcluded || false,
+    })
 
-    const styles = useMemo<StyleProps>(() => ({
-        container: {
-            backgroundColor: 'background.paper',
-            p: 3,
-            borderRadius: 2,
-            width: '350px',
-            color: 'text.primary',
-            position: 'fixed',
-            top: '20%',
-            right: '20px',
-            zIndex: theme.zIndex.modal,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-        },
-        header: {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 3,
-        },
-        closeButton: {
-            color: 'text.primary',
-            '&:hover': {
-                backgroundColor: 'action.hover',
-            },
-        },
-        inputField: {
-            '& .MuiOutlinedInput-root': {
-                backgroundColor: 'rgba(18, 18, 18, 0.7)',
-                '& fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.23)',
-                },
-                '&:hover fieldset': {
-                    borderColor: 'primary.main',
-                },
-                '&.Mui-focused fieldset': {
-                    borderColor: 'primary.main',
-                },
-            },
-            '& .MuiInputLabel-root': {
-                color: 'text.primary',
-            },
-            '& .MuiInputBase-input': {
-                color: 'text.primary',
-            },
-            '& .MuiSvgIcon-root': {
-                color: 'text.primary',
-            },
-            '& .MuiAutocomplete-paper': {
-                backgroundColor: 'background.paper',
-                color: 'text.primary',
-            },
-            '& .MuiAutocomplete-listbox': {
-                backgroundColor: 'background.paper',
-                '& .MuiAutocomplete-option': {
-                    color: 'text.primary',
-                },
-                '& .MuiAutocomplete-option[aria-selected="true"]': {
-                    backgroundColor: 'primary.dark',
-                },
-                '& .MuiAutocomplete-option:hover': {
-                    backgroundColor: 'action.hover',
-                },
-            },
-        },
-        fieldContainer: {
-            mb: 2,
-        },
-        buttonContainer: {
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 1,
-            mt: 3,
-        },
-    }), [theme.zIndex.modal]);
+    const handleDateChange = useCallback(
+        (type: "startDate" | "endDate", date: Date | null) => {
+            const isoDate = date
+                ? DateTime.fromJSDate(date).toISODate()
+                : null
 
-    // Handler for date changes
-    const handleDateChange = useCallback((
-        type: 'startDate' | 'endDate',
-        date: DateTime | null
-    ) => {
-        setLocalFilters(prev => ({
-            ...prev,
-            [type]: date?.toISODate() || null,
-        }));
-    }, []);
+            setLocalFilters((prev) => ({
+                ...prev,
+                [type]: isoDate,
+            }))
+        },
+        []
+    )
 
-    // Location selection handler
-    const handleLocationChange = useCallback((_: any, newValue: SampleLocations[]) => {
-        setLocalFilters(prev => ({
-            ...prev,
-            selectedLocations: newValue.map(loc => loc.id)
-        }));
-    }, []);
+    const toggleLocation = useCallback((id: string) => {
+        setLocalFilters((prev) => {
+            const { selectedLocations } = prev
+            const isSelected = selectedLocations.includes(id)
+            return {
+                ...prev,
+                selectedLocations: isSelected
+                    ? selectedLocations.filter((locId) => locId !== id)
+                    : [...selectedLocations, id],
+            }
+        })
+    }, [])
 
-    // Show excluded toggle handler
-    const handleShowExcludedChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-        setLocalFilters(prev => ({
-            ...prev,
-            showExcluded: event.target.checked,
-        }));
-    }, []);
+    const handleShowExcludedChange = useCallback(
+        (checked: boolean) => {
+            setLocalFilters((prev) => ({
+                ...prev,
+                showExcluded: checked,
+            }))
+        },
+        []
+    )
 
-    // Handle apply filters
     const handleApply = useCallback(() => {
-        setFilters(localFilters);
-        onApply();
-    }, [localFilters, setFilters, onApply]);
+        setFilters(localFilters)
+        onApply()
+    }, [localFilters, onApply, setFilters])
 
-    // Handle reset filters
     const handleReset = useCallback(() => {
         const resetFilters = {
             startDate: null,
             endDate: null,
             selectedLocations: [],
             showExcluded: false,
-        };
-        setLocalFilters(resetFilters);
-        setFilters(resetFilters);
-        onReset();
-    }, [setFilters, onReset]);
+        }
+        setLocalFilters(resetFilters)
+        setFilters(resetFilters)
+        onReset()
+    }, [onReset, setFilters])
 
-    // Prepare selected locations for Autocomplete
-    const selectedLocations = useMemo(() =>
-            enabledLocations.filter(loc => localFilters.selectedLocations.includes(loc.id)),
-        [enabledLocations, localFilters.selectedLocations]
-    );
-
-    // Initial focus
-    useEffect(() => {
-        firstInputRef.current?.focus();
-    }, []);
+    const startDateValue = useMemo(
+        () =>
+            localFilters.startDate ? DateTime.fromISO(localFilters.startDate).toJSDate() : null,
+        [localFilters.startDate]
+    )
+    const endDateValue = useMemo(
+        () =>
+            localFilters.endDate ? DateTime.fromISO(localFilters.endDate).toJSDate() : null,
+        [localFilters.endDate]
+    )
 
     return (
-        <LocalizationProvider dateAdapter={AdapterLuxon}>
-            <Box
-                onClick={(e) => e.stopPropagation()}
-                sx={styles.container}
-            >
-                <Box sx={styles.header}>
-                    <Typography variant="h6">
-                        Filters
-                    </Typography>
-                    <IconButton
-                        onClick={onClose}
-                        aria-label="close"
-                        size="small"
-                        sx={styles.closeButton}
-                    >
-                        <CloseIcon />
-                    </IconButton>
-                </Box>
+        <div
+            onClick={(e) => e.stopPropagation()}
+            className="fixed top-20 right-5 z-50 w-[350px] rounded-md bg-background p-6 shadow-lg"
+        >
+            <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Filters</h2>
+                <Button variant="ghost" size="icon" onClick={onClose} aria-label="close">
+                    <X className="h-4 w-4"/>
+                </Button>
+            </div>
 
-                <Box sx={styles.fieldContainer}>
-                    <DatePicker
-                        label="Start Date"
-                        value={localFilters.startDate ? DateTime.fromISO(localFilters.startDate) : null}
-                        onChange={(date) => handleDateChange('startDate', date)}
-                        slotProps={{
-                            textField: {
-                                inputRef: firstInputRef,
-                                size: 'small',
-                                fullWidth: true,
-                                sx: styles.inputField,
-                            },
-                        }}
-                    />
-                </Box>
-
-                <Box sx={styles.fieldContainer}>
-                    <DatePicker
-                        label="End Date"
-                        value={localFilters.endDate ? DateTime.fromISO(localFilters.endDate) : null}
-                        onChange={(date) => handleDateChange('endDate', date)}
-                        slotProps={{
-                            textField: {
-                                size: 'small',
-                                fullWidth: true,
-                                sx: styles.inputField,
-                            },
-                        }}
-                    />
-                </Box>
-
-                <FormControl
-                    fullWidth
-                    variant="outlined"
-                    sx={styles.fieldContainer}
-                >
-                    <Autocomplete
-                        multiple
-                        options={enabledLocations.sort((a, b) => a.label.localeCompare(b.label))}
-                        getOptionLabel={(option) => option.label}
-                        value={selectedLocations}
-                        onChange={handleLocationChange}
-                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                        renderInput={(params) => (
-                            <TextField
-                                {...params}
-                                label="Locations"
-                                placeholder="Search locations..."
-                                sx={styles.inputField}
-                            />
-                        )}
-                        renderTags={(tagValue, getTagProps) =>
-                            tagValue.map((option, index) => (
-                                <Chip
-                                    label={option.label}
-                                    {...getTagProps({ index })}
-                                    sx={{
-                                        backgroundColor: 'primary.main',
-                                        color: 'white',
-                                    }}
-                                />
-                            ))
-                        }
-                        renderOption={(props, option) => (
-                            <li {...props} key={option.id}>
-                                {option.label}
-                            </li>
-                        )}
-                        slotProps={{
-                            listbox: {
-                                style: {
-                                    maxHeight: '200px',
-                                },
-                            }
-                        }}
-                    />
-                </FormControl>
-
-                <FormControlLabel
-                    control={
-                        <Switch
-                            checked={localFilters.showExcluded}
-                            onChange={handleShowExcludedChange}
-                            color="primary"
-                        />
-                    }
-                    label="Show Excluded"
-                    sx={styles.fieldContainer}
+            <div className="mb-4 space-y-1">
+                <Label htmlFor="start-date">Start Date</Label>
+                <ReactDatePicker
+                    id="start-date"
+                    selected={startDateValue}
+                    onChange={(date) => handleDateChange("startDate", date)}
+                    placeholderText="Select start date..."
+                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                 />
+            </div>
 
-                <Box sx={styles.buttonContainer}>
-                    <Button
-                        variant="outlined"
-                        onClick={handleReset}
-                        sx={{
-                            color: 'text.primary',
-                            borderColor: 'divider',
-                            '&:hover': {
-                                backgroundColor: 'action.hover',
-                                borderColor: 'text.primary',
-                            },
-                        }}
-                    >
-                        Reset
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleApply}
-                    >
-                        Apply
-                    </Button>
-                </Box>
-            </Box>
-        </LocalizationProvider>
-    );
-};
+            <div className="mb-4 space-y-1">
+                <Label htmlFor="end-date">End Date</Label>
+                <ReactDatePicker
+                    id="end-date"
+                    selected={endDateValue}
+                    onChange={(date) => handleDateChange("endDate", date)}
+                    placeholderText="Select end date..."
+                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+            </div>
 
-export default React.memo(FilterMenu);
+            <div className="mb-4 space-y-1">
+                <Label>Locations</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between">
+                            {localFilters.selectedLocations.length > 0
+                                ? `Selected (${localFilters.selectedLocations.length})`
+                                : "Search locations..."}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-0">
+                        <Command>
+                            <CommandInput placeholder="Search location..."/>
+                            <CommandList>
+                                <CommandEmpty>No results found.</CommandEmpty>
+                                <CommandGroup>
+                                    {enabledLocations
+                                        .sort((a, b) => a.label.localeCompare(b.label))
+                                        .map((loc) => {
+                                            const isChecked = localFilters.selectedLocations.includes(loc.id)
+                                            return (
+                                                <CommandItem
+                                                    key={loc.id}
+                                                    onSelect={() => toggleLocation(loc.id)}
+                                                    className="flex cursor-pointer items-center space-x-2"
+                                                >
+                                                    <Checkbox checked={isChecked}/>
+                                                    <span>{loc.label}</span>
+                                                </CommandItem>
+                                            )
+                                        })}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+
+                {localFilters.selectedLocations.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {enabledLocations
+                            .filter((loc) => localFilters.selectedLocations.includes(loc.id))
+                            .map((loc) => (
+                                <span
+                                    key={loc.id}
+                                    className="inline-flex items-center rounded-full bg-primary px-2 py-1 text-xs text-white"
+                                >
+                  {loc.label}
+                </span>
+                            ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="mb-4 flex items-center space-x-2">
+                <Switch
+                    checked={localFilters.showExcluded}
+                    onCheckedChange={handleShowExcludedChange}
+                    id="show-excluded"
+                />
+                <Label htmlFor="show-excluded" className="text-sm">
+                    Show Excluded
+                </Label>
+            </div>
+
+            <div className="mt-4 flex items-center justify-end space-x-2">
+                <Button variant="outline" onClick={handleReset}>
+                    Reset
+                </Button>
+                <Button variant="default" onClick={handleApply}>
+                    Apply
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+export default React.memo(FilterMenu)

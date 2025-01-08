@@ -17,14 +17,13 @@ import {
 } from '@mui/icons-material';
 import { open } from '@tauri-apps/plugin-dialog';
 
-import ProgressTracker from './ProgressTracker';
-import DataChart from '../DataChart';
-import NutrientAmmoniaView from '../NutrientAmmoniaView';
-import KrakenVisualization from '../KrakenVisualization/KrakenVisualization';
-import DataTable from '../DataTable';
+import ProgressTracker from './ProgressTracker.tsx';
+import DataChart from '../../DataChart.tsx';
+import NutrientAmmoniaView from '../../NutrientAmmoniaView.tsx';
+import KrakenVisualization from '../../KrakenVisualization/KrakenVisualization.tsx';
 
 // Import your new dedicated ammonia input component
-import NutrientAmmoniaInput from './ModalInputs/NutrientAmmoniaInput';
+import NutrientAmmoniaInput from './ModalInputs/NutrientAmmoniaInput.tsx';
 
 import { usePowerSync, useQuery } from '@powersync/react';
 import { toCompilableQuery, wrapPowerSyncWithDrizzle } from '@powersync/drizzle-driver';
@@ -42,7 +41,7 @@ import type { SxProps } from '@mui/system';
 import type { Theme } from '@mui/material/styles';
 
 import { ProcessedDataImproved } from '@/lib/types';
-import type { SingleDropBoxProps } from './types';
+import type { SingleDropBoxProps } from './types.ts';
 import CloseIcon from '@mui/icons-material/Close';
 
 const SingleDropBox: React.FC<SingleDropBoxProps> = ({
@@ -166,7 +165,7 @@ const SingleDropBox: React.FC<SingleDropBoxProps> = ({
         async (ammoniaValue: number) => {
             try {
                 setIsAmmoniaProcessing(true);
-                await processNutrientAmmoniaData(sampleGroup.id, { ammoniaValue });
+                await processNutrientAmmoniaData(sampleGroup.id, ammoniaValue);
                 setAmmoniaDialogOpen(false);
             } catch (error) {
                 console.error('Failed to process ammonia data:', error);
@@ -243,8 +242,6 @@ const SingleDropBox: React.FC<SingleDropBoxProps> = ({
                 );
             case DataType.NutrientAmmonia:
                 return <NutrientAmmoniaView data={detailedData} />;
-            default:
-                return <DataTable data={detailedData} />;
         }
     };
 
