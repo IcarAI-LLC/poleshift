@@ -28,6 +28,11 @@ export enum ProximityCategory {
     Far2 = 'Far2'
 }
 
+export enum ServerStatus {
+    Healthy = 'healthy',
+    Unhealthy = 'unhealthy',
+}
+
 export enum TaxonomicRank {
     Root = 'root',
     Domain = 'domain',
@@ -394,6 +399,15 @@ export const taxdb_pr2 = sqliteTable("taxdb_pr2", {
     rank: text("org_id").notNull().$type<TaxonomicRank>(),
 });
 
+export const powersync_servers = sqliteTable("taxdb_pr2", {
+    id: integer("id").notNull().primaryKey(),
+    server_url: text("sample_id").notNull(),
+    name: text("name").notNull(),
+    lat: real("lat").notNull(),
+    long: real("long").notNull(),
+    status: text("status").notNull().$type<ServerStatus>(),
+});
+
 export const DrizzleSchema = {
     role_permissions,
     user_roles,
@@ -417,6 +431,7 @@ export const DrizzleSchema = {
     raw_fastq_data,
     raw_data_improved,
     taxdb_pr2,
+    powersync_servers,
 }
 export default DrizzleSchema;
 

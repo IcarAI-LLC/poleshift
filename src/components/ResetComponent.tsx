@@ -10,7 +10,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useToast } from "@/lib/hooks/use-toast.ts"
+import { useToast } from "@/hooks/use-toast.ts"
 
 interface ResetComponentProps {
     onReset: () => Promise<void>
@@ -19,8 +19,12 @@ interface ResetComponentProps {
 export default function ResetComponent({ onReset }: ResetComponentProps) {
     const [isResetting, setIsResetting] = React.useState(false)
     const { toast } = useToast()
-
     const handleReset = async () => {
+        toast({
+            title: "TESTING!",
+            description: "Resetting...",
+            duration: 10000,
+        });
         setIsResetting(true)
         try {
             // Execute your reset function
@@ -52,9 +56,9 @@ export default function ResetComponent({ onReset }: ResetComponentProps) {
                         aria-label="Reset Application"
                     >
                         {isResetting ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="ml-2 mr-2 h-4 w-4 animate-spin" />
                         ) : (
-                            <RefreshCw className="mr-2 h-4 w-4" />
+                            <RefreshCw className="ml-2 mr-2 h-4 w-4" />
                         )}
                         <span className="sr-only">Reset</span>
                     </Button>

@@ -25,7 +25,6 @@
     "fs:allow-mkdir",
     "fs:allow-resource-write-recursive",
     "fs:allow-resource-read-recursive",
-    "store:default",
     "core:webview:default"
   ]
 }

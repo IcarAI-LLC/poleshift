@@ -4,4 +4,3 @@ packages:
   - 'packages/**'
   # if required, exclude some directories
   - '!**/src-tauri/**'
-ignore-workspace-root-check: true

@@ -1,10 +1,20 @@
-import { CircularProgress, Typography, Box } from '@mui/material';
+"use client";
 
-const LoadingScreen = ({
-                           message = 'Loading application...',
-                           showRefreshHint = true,
-                           size = 44
-                       }) => {
+import React from "react";
+import { Loader2 } from "lucide-react";
+
+interface LoadingScreenProps {
+    message?: string;
+    showRefreshHint?: boolean;
+    size?: number;
+}
+
+const LoadingScreen: React.FC<LoadingScreenProps> = ({
+                                                         message = "Loading application...",
+                                                         showRefreshHint = true,
+                                                         size = 44,
+                                                     }) => {
+    // Replicating the logic for the detailed loading message
     const getDetailMessage = () => {
         if (message.includes("Authenticating")) {
             return "Verifying your credentials and retrieving your user profile...";
@@ -19,68 +29,28 @@ const LoadingScreen = ({
     };
 
     return (
-        <Box
-            sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: '100vh',
-                backgroundColor: 'var(--color-background)',
-                color: 'var(--color-text)'
-            }}
-        >
-            <Box sx={{ position: 'relative', mb: 4 }}>
-                <CircularProgress
-                    size={size}
-                    thickness={4}
-                    sx={{
-                        color: 'var(--color-primary)',
-                        position: 'relative',
-                        zIndex: 1
-                    }}
+        <div>
+            {/* Spinner */}
+            <div style={{ marginBottom: "1rem" }}>
+                <Loader2
+                    className="animate-spin"
+                    style={{ width: size, height: size }}
                 />
-            </Box>
+            </div>
 
-            <Typography
-                variant="h5"
-                sx={{
-                    mb: 2,
-                    color: 'var(--color-text)',
-                    fontWeight: 500,
-                    textAlign: 'center',
-                    px: 2
-                }}
-            >
-                {message}
-            </Typography>
+            {/* Main loading message */}
+            <h2 style={{ marginBottom: "0.5rem" }}>{message}</h2>
 
-            <Box sx={{ maxWidth: '400px', px: 2 }}>
-                <Typography
-                    variant="body1"
-                    sx={{
-                        color: 'var(--color-text-muted)',
-                        textAlign: 'center',
-                        mb: 1
-                    }}
-                >
-                    {getDetailMessage()}
-                </Typography>
+            {/* Detailed message */}
+            <p style={{ marginBottom: "0.5rem" }}>{getDetailMessage()}</p>
 
-                {showRefreshHint && (
-                    <Typography
-                        variant="body2"
-                        sx={{
-                            color: 'var(--color-text-disabled)',
-                            textAlign: 'center',
-                            fontSize: 'var(--font-size-small)'
-                        }}
-                    >
-                        This should take no longer than a minute...
-                    </Typography>
-                )}
-            </Box>
-        </Box>
+            {/* Optional hint */}
+            {showRefreshHint && (
+                <p style={{ fontSize: "0.875rem", opacity: 0.8 }}>
+                    This should take no longer than a minute...
+                </p>
+            )}
+        </div>
     );
 };
 

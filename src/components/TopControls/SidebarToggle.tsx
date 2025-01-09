@@ -1,32 +1,17 @@
 // src/components/TopControls/SidebarToggle.tsx
-import React from 'react';
-import { IconButton } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import type { SxProps, Theme } from '@mui/material/styles';
+import * as React from "react";
+import { Menu } from "lucide-react"; // lucide-react icon
+import { Button } from "@/components/ui/button"; // or wherever your shadcn button lives
 
 interface SidebarToggleProps {
     onToggle: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-const SidebarToggle: React.FC<SidebarToggleProps> = ({ onToggle }) => {
-    const styles: SxProps<Theme> = {
-        color: 'var(--color-text)',
-        padding: '8px',
-        '&:hover': {
-            color: 'var(--color-primary)',
-            backgroundColor: 'transparent',
-        },
-    };
-
+export function SidebarToggle({ onToggle }: SidebarToggleProps) {
     return (
-        <IconButton
-            onClick={onToggle}
-            aria-label="Toggle Sidebar"
-            sx={styles}
-        >
-            <MenuIcon />
-        </IconButton>
+        <Button variant="ghost" onClick={onToggle}>
+            <Menu className="w-4 h-4" />
+            <span className="sr-only">Toggle sidebar</span>
+        </Button>
     );
-};
-
-export default SidebarToggle;
+}

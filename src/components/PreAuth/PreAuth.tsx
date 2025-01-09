@@ -9,7 +9,8 @@ import MainApp from '../MainApp.tsx';
 import ActivateLicense from './ActivateLicense.tsx';
 import ResetComponent from "../ResetComponent.tsx";
 import {useAuthStore} from "@/lib/stores/authStore.ts";
-
+import {Toast} from "@radix-ui/react-toast";
+import {Toaster} from "@/components/ui/toaster.tsx";
 const PreAuth: React.FC = () => {
   const {
     isAuthenticated,
@@ -78,7 +79,9 @@ const PreAuth: React.FC = () => {
       default:
         return (
             <div>
-            <ResetComponent onReset={ handleReset } />
+              <Toast></Toast>
+              <Toaster></Toaster>
+              <ResetComponent onReset={ handleReset } />
             <Login
                 onNavigate={handleNavigate}
                 prefillEmail={prefillEmail}

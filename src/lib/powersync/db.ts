@@ -21,7 +21,7 @@ export class PowerSyncDB {
             this.instance = new PowerSyncDatabase({
                 schema: AppSchema,
                 database: {
-                    dbFilename: 'powersync2.db',
+                    dbFilename: 'powersync.db',
                 },
                 flags: {
                     useWebWorker: false
@@ -37,20 +37,17 @@ export class PowerSyncDB {
  */
 export const setupPowerSync = async () => {
     console.log('Setup Power Sync called');
-
-    // Always reference the singleton DB instance through the static getter
     const db = PowerSyncDB.getInstance();
-    await db.execute("PRAGMA cache_size=-2000000");
+    // Always reference the singleton DB instance through the static getter
+    await db.execute("PRAGMA cache_size=-200000");
     if (db.connected) {
         console.debug('PowerSync is already connected.');
         return;
     }
     console.log('PowerSync is not yet connected');
-
-    console.log('Connector created');
-
     try {
         await db.connect(supabaseConnector);
+        console.log('Connector created');
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);
         return;

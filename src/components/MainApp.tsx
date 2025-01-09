@@ -4,7 +4,7 @@ import {SampleGroupMetadata} from '@/lib/types';
 
 import {useAuth, useData, useNetworkStatus, useUI,} from '@/lib/hooks';
 
-import TopControls from './TopControls/TopControls';
+import { TopControls } from './TopControls/TopControls';
 import LeftSidebar from './LeftSidebar/LeftSidebar';
 import RightSidebar from './RightSidebar';
 import MergedDropBoxes from '@/components/DropBoxView/DropBoxes/MergedDropboxes.tsx';

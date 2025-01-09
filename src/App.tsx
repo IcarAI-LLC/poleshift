@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useEffect, useMemo, useState } from 'react';
+import {StrictMode, useEffect, useState} from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { ThemeProvider } from '@mui/material/styles';
@@ -13,19 +13,29 @@ import { checkForAppUpdates } from './updater';
 
 // Import the TooltipProvider from shadcn/ui
 import { TooltipProvider } from '@/components/ui/tooltip';
-// Adjust the import path above to match where you've placed your shadcn ui components
-function App() {
-    useEffect(() => {
-        checkForAppUpdates();
-    }, []);
+import {ToastProvider} from "@/components/ui/toast.tsx";
+import {Toaster} from "@/components/ui/toaster.tsx";
 
+// Track initialization status outside the component scope
+let isPowerSyncInitialized = false;
+
+function App() {
     const [initialized, setInitialized] = useState(false);
 
-    useMemo(() => {
-        (async () => {
-            await setupPowerSync(); // Connect to PowerSync
-            setInitialized(true);
-        })();
+    useEffect(() => {
+        // Check for app updates
+        checkForAppUpdates();
+
+        // Initialize PowerSync only if it hasn't been initialized
+        if (!isPowerSyncInitialized) {
+            isPowerSyncInitialized = true;
+            (async () => {
+                await setupPowerSync();
+                setInitialized(true);
+            })();
+        } else {
+            setInitialized(true); // Skip initialization if already done
+        }
     }, []);
 
     if (!initialized) {
@@ -33,16 +43,20 @@ function App() {
     }
 
     return (
+        <StrictMode>
         <PowerSyncContext.Provider value={db}>
+            <ToastProvider>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
                 <ThemeProvider theme={theme}>
-                    {/* TooltipProvider must wrap any components using <Tooltip> */}
                     <TooltipProvider>
-                        <PreAuth />
+                        <PreAuth/>
+                        <Toaster></Toaster>
                     </TooltipProvider>
                 </ThemeProvider>
             </LocalizationProvider>
+            </ToastProvider>
         </PowerSyncContext.Provider>
+        </StrictMode>
     );
 }
 

@@ -1,31 +1,16 @@
 // src/components/TopControls/SettingsButton.tsx
-import React from 'react';
-import { IconButton, Tooltip } from '@mui/material';
-import SettingsIcon from '@mui/icons-material/Settings';
+import { Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SettingsButtonProps {
     onClick: () => void;
 }
 
-const SettingsButton: React.FC<SettingsButtonProps> = ({ onClick }) => {
+export function SettingsButton({ onClick }: SettingsButtonProps) {
     return (
-        <Tooltip title="Settings" arrow>
-            <IconButton
-                onClick={onClick}
-                aria-label="Settings"
-                sx={{
-                    color: 'var(--color-white)',
-                    padding: '8px',
-                    '&:hover': {
-                        color: 'var(--color-primary)',
-                        backgroundColor: 'transparent',
-                    },
-                }}
-            >
-                <SettingsIcon />
-            </IconButton>
-        </Tooltip>
+        <Button variant="ghost" onClick={onClick}>
+            <Settings className="w-4 h-4" />
+            <span className="sr-only">Open Settings</span>
+        </Button>
     );
-};
-
-export default SettingsButton;
+}

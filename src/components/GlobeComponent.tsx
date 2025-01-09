@@ -3,7 +3,7 @@
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
-import globeImage from '../assets/combined.png';
+import globeImage from '../assets/combined.jpg';
 import { useData } from '../lib/hooks/useData';
 import { useUI } from '../lib/hooks/useUI';
 import { useQuery } from '@powersync/react';
@@ -110,10 +110,8 @@ export const GlobeComponent: React.FC = () => {
                             if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
                                 return false;
                             }
-                            if (filters.endDate && sampleDate > DateTime.fromISO(filters.endDate)) {
-                                return false;
-                            }
-                            return true;
+                            return !(filters.endDate && sampleDate > DateTime.fromISO(filters.endDate));
+
                         });
 
                     // Only include locations that have samples matching the filters
@@ -142,7 +140,7 @@ export const GlobeComponent: React.FC = () => {
             if (!selectedLocation) return;
 
             setSelectedRightItem(selectedLocation);
-
+            console.log(globeRef.current?.lights().pop());
             if (globeRef.current) {
                 globeRef.current.pointOfView(
                     {
@@ -188,6 +186,7 @@ export const GlobeComponent: React.FC = () => {
                 enablePointerInteraction={true}
                 width={dimensions.width}
                 height={dimensions.height}
+                waitForGlobeReady={true}
             />
         </div>
     );

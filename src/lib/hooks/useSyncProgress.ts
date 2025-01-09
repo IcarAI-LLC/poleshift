@@ -72,6 +72,7 @@ export function useSyncProgress(isSyncing: boolean): SyncProgress {
         fetchTotalCount();
 
         if (isSyncing) {
+            fetchTotalCount();
             // Poll every 10s (tweak as needed)
             intervalId = setInterval(fetchSyncedCount, 30000);
         } else {

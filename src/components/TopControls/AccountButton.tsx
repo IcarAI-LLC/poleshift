@@ -1,32 +1,20 @@
 // src/components/TopControls/AccountButton.tsx
-
-import React from 'react';
-import { IconButton } from '@mui/material';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { User } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface AccountButtonProps {
-  setShowAccountActions: (value: boolean) => void;
+    setShowAccountActions: (value: boolean) => void;
 }
 
-const AccountButton: React.FC<AccountButtonProps> = ({
-                                                       setShowAccountActions,
-                                                     }) => {
-  return (
-      <IconButton
-          onClick={() => setShowAccountActions(true)}
-          aria-label="Account Actions"
-          sx={{
-            color: 'var(--color-white)',
-            padding: '8px',
-            '&:hover': {
-              color: 'var(--color-primary)',
-              backgroundColor: 'transparent',
-            },
-          }}
-      >
-        <AccountCircleIcon />
-      </IconButton>
-  );
-};
+export function AccountButton({ setShowAccountActions }: AccountButtonProps) {
+    const handleClick = () => {
+        setShowAccountActions(true);
+    };
 
-export default AccountButton;
+    return (
+        <Button variant="ghost" onClick={handleClick}>
+            <User className="w-4 h-4" />
+            <span className="sr-only">Account</span>
+        </Button>
+    );
+}

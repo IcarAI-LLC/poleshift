@@ -1,33 +1,18 @@
 // src/components/TopControls/FilterButton.tsx
-import React from 'react';
-import { IconButton, Tooltip } from '@mui/material';
-import FilterListIcon from '@mui/icons-material/FilterList';
+import { Filter } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {RefObject} from "react";
 
 interface FilterButtonProps {
     onClick: () => void;
-    buttonRef: React.RefObject<HTMLButtonElement>;
+    buttonRef: RefObject<HTMLButtonElement>;
 }
 
-const FilterButton: React.FC<FilterButtonProps> = ({ onClick, buttonRef }) => {
+export function FilterButton({ onClick, buttonRef }: FilterButtonProps) {
     return (
-        <Tooltip title="Open Filters" arrow>
-            <IconButton
-                onClick={onClick}
-                ref={buttonRef}
-                aria-label="Open Filters"
-                sx={{
-                    color: 'var(--color-white)',
-                    padding: '8px',
-                    '&:hover': {
-                        color: 'var(--color-primary)',
-                        backgroundColor: 'transparent',
-                    },
-                }}
-            >
-                <FilterListIcon />
-            </IconButton>
-        </Tooltip>
+        <Button variant="ghost" onClick={onClick} ref={buttonRef}>
+            <Filter className="w-4 h-4" />
+            <span className="sr-only">Open Filters</span>
+        </Button>
     );
-};
-
-export default FilterButton;
+}

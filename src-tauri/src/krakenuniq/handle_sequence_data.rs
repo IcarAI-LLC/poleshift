@@ -252,22 +252,29 @@ pub async fn handle_sequence_data<R: Runtime>(
         .collect();
 
     // 8) Transform classification output lines -> ProcessedKrakenUniqStdout
+    // 8) Transform classification output lines -> ProcessedKrakenUniqStdout
     let processed_kraken_uniq_stdout = classification_results
         .kraken_output_lines
         .iter()
         .map(|line| ProcessedKrakenUniqStdout {
-            id: String::from(Uuid::new_v4()),
-            classified: false,
+            id: Uuid::new_v4().to_string(),
+            classified: line.status == 'C',
             tax_id: line.tax_id as i32,
             read_length: line.length as i32,
             hit_data: line.hitlist.to_string(),
-            user_id: String::from(Uuid::parse_str(&user_id).expect("Invalid user_id UUID")),
-            org_id: String::from(Uuid::parse_str(&org_id).expect("Invalid org_id UUID")),
-            sample_id: String::from(Uuid::parse_str(&sample_id).expect("Invalid sample_id UUID")),
+            user_id: Uuid::parse_str(&user_id)
+                .expect("Invalid user_id UUID")
+                .to_string(),
+            org_id: Uuid::parse_str(&org_id)
+                .expect("Invalid org_id UUID")
+                .to_string(),
+            sample_id: Uuid::parse_str(&sample_id)
+                .expect("Invalid sample_id UUID")
+                .to_string(),
             feature_id: line.read_id.to_string(),
-            processed_data_id: String::from(
-                Uuid::parse_str(&processed_data_id).expect("Invalid processed_data_id UUID"),
-            ),
+            processed_data_id: Uuid::parse_str(&processed_data_id)
+                .expect("Invalid processed_data_id UUID")
+                .to_string(),
         })
         .collect::<Vec<_>>();
 

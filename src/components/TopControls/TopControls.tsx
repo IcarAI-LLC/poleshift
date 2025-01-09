@@ -1,45 +1,30 @@
-// src/components/TopControls/TopControls.tsx
-import React, {useState} from 'react';
-import { Box } from '@mui/material';
-import type { Theme } from '@mui/material/styles';
-import type { SxProps } from '@mui/system';
-
-import SidebarToggle from './SidebarToggle';
-import SyncButton from './SyncButton';
-import AccountButton from './AccountButton';
-import FilterButton from './FilterButton';
-import SettingsButton from "./SettingsButton.tsx";
-import SettingsModal from "./SettingsModal.tsx";
+import { SidebarToggle } from "./SidebarToggle";
+import { SyncButton } from "./SyncButton";
+import { FilterButton } from "./FilterButton";
+import { AccountButton } from "./AccountButton";
+import { SettingsButton } from "./SettingsButton";
+import { SettingsModal } from "./SettingsModal";
+import {RefObject, useState} from "react";
 
 interface TopControlsProps {
     isSyncing: boolean;
     onToggleSidebar: (event: React.MouseEvent<HTMLButtonElement>) => void;
     setShowAccountActions: (value: boolean) => void;
     onOpenFilters: () => void;
-    filterButtonRef: React.RefObject<HTMLButtonElement>;
+    filterButtonRef: RefObject<HTMLButtonElement>;
 }
 
-const TopControls: React.FC<TopControlsProps> = ({
-                                                     isSyncing,
-                                                     onToggleSidebar,
-                                                     setShowAccountActions,
-                                                     onOpenFilters,
-                                                     filterButtonRef,
-                                                 }) => {
-    const styles: SxProps<Theme> = {
-        position: 'fixed',
-        top: 'var(--spacing-sm)',
-        left: 'var(--spacing-sm)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        zIndex: 1001,
-    };
-
+export const TopControls: React.FC<TopControlsProps> = ({
+                                                            isSyncing,
+                                                            onToggleSidebar,
+                                                            setShowAccountActions,
+                                                            onOpenFilters,
+                                                            filterButtonRef,
+                                                        }) => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     return (
-        <Box sx={styles}>
+        <div className="fixed top-2 left-2 z-[1001] flex items-center gap-2">
             <SidebarToggle onToggle={onToggleSidebar} />
             <SyncButton isSyncing={isSyncing} />
             <FilterButton onClick={onOpenFilters} buttonRef={filterButtonRef} />
@@ -49,8 +34,6 @@ const TopControls: React.FC<TopControlsProps> = ({
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
             />
-        </Box>
+        </div>
     );
 };
-
-export default TopControls;
