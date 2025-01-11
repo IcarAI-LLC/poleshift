@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import {FC, useState} from "react";
 import { useAuth } from "@/lib/hooks";
 import type { PreAuthView } from "@/lib/types";
 
@@ -35,7 +33,7 @@ interface SignUpProps {
   ) => void;
 }
 
-const SignUp: React.FC<SignUpProps> = ({ onNavigate }) => {
+const SignUp: FC<SignUpProps> = ({ onNavigate }) => {
   const { signUp } = useAuth();
   const [formState, setFormState] = useState<SignUpFormState>({
     email: "",

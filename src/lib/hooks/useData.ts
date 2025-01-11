@@ -7,17 +7,28 @@ import {FileNodes, SampleGroupMetadata} from '../types';
 
 import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
 import {
-    DrizzleSchema, external_database_penguin_data, file_nodes, FileNodeType, sample_group_metadata, sample_locations
+    DrizzleSchema,
+    external_database_penguin_data,
+    file_nodes,
+    FileNodeType,
+    ProximityCategory,
+    sample_group_metadata,
+    sample_locations
 } from "../powersync/DrizzleSchema.ts";
 import {eq} from 'drizzle-orm';
 
 export type FileNodeWithChildren = FileNodes & {
     children: FileNodeWithChildren[];
     type: FileNodeType;
+    // Extra metadata fields for sample groups:
+    excluded?: boolean;
+    penguin_present?: boolean;
+    proximity_category?: ProximityCategory | null;
 };
 
+
 // Helper to build a record by ID from an array of rows
-function arrayToRecord<T extends { id: string | number }>(arr: T[]): Record<string, T> {
+export function arrayToRecord<T extends { id: string | number }>(arr: T[]): Record<string, T> {
     const record: Record<string, T> = {};
     for (const item of arr) {
         record[item.id.toString()] = item;
@@ -47,7 +58,6 @@ export const useData = () => {
         .from(external_database_penguin_data);
     const compiledPenguinDataQuery = toCompilableQuery(penguinDataQuery);
 
-
     const {
         data: locations = [],
         isLoading: locationsLoading,
@@ -69,7 +79,6 @@ export const useData = () => {
         isLoading: penguinDataLoading,
         error: penguinDataError
     } = useQuery(compiledPenguinDataQuery);
-
     // Convert arrays to records for easier lookups
     const fileNodes = useMemo(() => arrayToRecord(fileNodesArray), [fileNodesArray]);
     const sampleGroups = useMemo(() => arrayToRecord(sampleGroupsArray), [sampleGroupsArray]);
@@ -236,16 +245,40 @@ export const useData = () => {
     );
 
     const fileTree = useMemo(() => {
-        // 2. Clone fileNodes into a new record of FileNodeWithChildren
+        // 1) If no fileNodes yet, return empty
+        if (!fileNodesArray.length) return [];
+
+        // 2) Build a record of FileNodeWithChildren
         const nodesById: Record<string, FileNodeWithChildren> = {};
 
         for (const nodeId in fileNodes) {
             const node = fileNodes[nodeId];
-            // Spread node so we don’t modify the DB version
-            nodesById[nodeId] = { ...node, children: [], type: node.type as FileNodeType };
+
+            let excluded: boolean | undefined;
+            let penguin_present: boolean | undefined;
+            let proximity_category: ProximityCategory | null | undefined;
+
+            // If this is a sample group node, merge in metadata
+            if (node.type === FileNodeType.SampleGroup && node.sample_group_id) {
+                const sg = sampleGroups[node.sample_group_id];
+                if (sg) {
+                    excluded = sg.excluded ?? false;
+                    penguin_present = sg.penguin_present === 1;
+                    proximity_category = sg.proximity_category ?? null;
+                }
+            }
+
+            nodesById[nodeId] = {
+                ...node,
+                children: [],
+                type: node.type as FileNodeType,
+                excluded,
+                penguin_present,
+                proximity_category,
+            };
         }
 
-        // 3. Build the tree
+        // 3) Build the tree structure
         const tree: FileNodeWithChildren[] = [];
 
         for (const nodeId in nodesById) {
@@ -261,7 +294,7 @@ export const useData = () => {
         }
 
         return tree;
-    }, [fileNodes]);
+    }, [fileNodes, sampleGroups]);
 
 
     return {

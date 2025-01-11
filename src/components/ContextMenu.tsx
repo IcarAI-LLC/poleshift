@@ -1,16 +1,18 @@
-import React, { useCallback, useEffect } from "react";
-import { useUI } from "../lib/hooks";
-import { useAuthStore } from "../lib/stores/authStore";
-import { PoleshiftPermissions } from "@/lib/types";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Card, CardContent } from "@/components/ui/card";
+import {FC, memo, useCallback, useEffect} from "react"
+import { useUI } from "../lib/hooks"
+import { useAuthStore } from "../lib/stores/authStore"
+import { PoleshiftPermissions } from "@/lib/types"
+
+// shadcn/ui
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface ContextMenuProps {
-  deleteItem: (id: string) => Promise<void>;
+  deleteItem: (id: string) => Promise<void>
 }
 
-export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
+export const ContextMenu: FC<ContextMenuProps> = ({ deleteItem }) => {
   const {
     leftSidebarContextMenu,
     selectedLeftItem,
@@ -18,50 +20,50 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
     closeLeftSidebarContextMenu,
     setErrorMessage,
     setShowMoveModal,
-  } = useUI();
+  } = useUI()
 
-  const { userPermissions } = useAuthStore.getState();
-  const { isVisible, x, y, itemId } = leftSidebarContextMenu;
+  const { userPermissions } = useAuthStore.getState()
+  const { isVisible, x, y, itemId } = leftSidebarContextMenu
 
   const canDeleteSampleGroup =
-      userPermissions?.includes(PoleshiftPermissions.DeleteSampleGroup) ?? false;
+      userPermissions?.includes(PoleshiftPermissions.DeleteSampleGroup) ?? false
   const canModifySampleGroup =
-      userPermissions?.includes(PoleshiftPermissions.ModifySampleGroup) ?? false;
+      userPermissions?.includes(PoleshiftPermissions.ModifySampleGroup) ?? false
 
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible) return
 
     const handleClickOutside = (event: MouseEvent) => {
-      const menu = document.getElementById("context-menu");
+      const menu = document.getElementById("context-menu")
       if (menu && !menu.contains(event.target as Node)) {
-        closeLeftSidebarContextMenu();
+        closeLeftSidebarContextMenu()
       }
-    };
+    }
 
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isVisible, closeLeftSidebarContextMenu]);
+    document.addEventListener("click", handleClickOutside)
+    return () => document.removeEventListener("click", handleClickOutside)
+  }, [isVisible, closeLeftSidebarContextMenu])
 
   const handleDelete = useCallback(async () => {
-    if (!itemId) return;
+    if (!itemId) return
 
     if (!canDeleteSampleGroup) {
-      setErrorMessage("You do not have permission to delete this sample group.");
-      return;
+      setErrorMessage("You do not have permission to delete this sample group.")
+      return
     }
 
     try {
-      await deleteItem(itemId);
+      await deleteItem(itemId)
       if (selectedLeftItem?.id === itemId) {
-        setSelectedLeftItem(undefined);
+        setSelectedLeftItem(undefined)
       }
     } catch (error: any) {
-      console.error("Error deleting item:", error);
+      console.error("Error deleting item:", error)
       setErrorMessage(
           error instanceof Error ? error.message : "Failed to delete item"
-      );
+      )
     } finally {
-      closeLeftSidebarContextMenu();
+      closeLeftSidebarContextMenu()
     }
   }, [
     itemId,
@@ -71,29 +73,27 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
     setErrorMessage,
     closeLeftSidebarContextMenu,
     canDeleteSampleGroup,
-  ]);
+  ])
 
   const handleMoveToFolder = useCallback(() => {
-    if (!itemId) return;
+    if (!itemId) return
 
     if (!canModifySampleGroup) {
-      setErrorMessage(
-          "You do not have permission to modify this sample group."
-      );
-      return;
+      setErrorMessage("You do not have permission to modify this sample group.")
+      return
     }
 
-    setShowMoveModal(itemId);
-    closeLeftSidebarContextMenu();
+    setShowMoveModal(itemId)
+    closeLeftSidebarContextMenu()
   }, [
     itemId,
     closeLeftSidebarContextMenu,
     setShowMoveModal,
     canModifySampleGroup,
     setErrorMessage,
-  ]);
+  ])
 
-  if (!isVisible) return null;
+  if (!isVisible) return null
 
   return (
       <div
@@ -117,7 +117,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
           <CardContent>
             <div className="space-y-2">
               <Tooltip>
-                <TooltipTrigger>
+                {/* Use asChild to avoid nesting <button> in <button> */}
+                <TooltipTrigger asChild>
                   <Button
                       variant="ghost"
                       onClick={handleDelete}
@@ -137,7 +138,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
               </Tooltip>
 
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger asChild>
                   <Button
                       variant="ghost"
                       onClick={handleMoveToFolder}
@@ -161,7 +162,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ deleteItem }) => {
           </CardContent>
         </Card>
       </div>
-  );
-};
+  )
+}
 
-export default React.memo(ContextMenu);
+export default memo(ContextMenu)

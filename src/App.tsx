@@ -1,13 +1,9 @@
 // src/App.tsx
 import {StrictMode, useEffect, useState} from 'react';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { ThemeProvider } from '@mui/material/styles';
 import { PowerSyncContext } from '@powersync/react';
 
-import { theme } from './theme';
 import PreAuth from './components/PreAuth/PreAuth.tsx';
-import './App.css';
+import './App-new.css';
 import { db, setupPowerSync } from './lib/powersync/db';
 import { checkForAppUpdates } from './updater';
 
@@ -46,14 +42,10 @@ function App() {
         <StrictMode>
         <PowerSyncContext.Provider value={db}>
             <ToastProvider>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-                <ThemeProvider theme={theme}>
                     <TooltipProvider>
                         <PreAuth/>
                         <Toaster></Toaster>
                     </TooltipProvider>
-                </ThemeProvider>
-            </LocalizationProvider>
             </ToastProvider>
         </PowerSyncContext.Provider>
         </StrictMode>

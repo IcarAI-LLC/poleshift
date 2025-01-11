@@ -1,10 +1,4 @@
-"use client"
-
-import React, {
-    useCallback,
-    useMemo,
-    useState,
-} from "react"
+import React, { useCallback, useMemo, useState } from "react"
 import { X } from "lucide-react"
 import ReactDatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
@@ -110,24 +104,28 @@ export function FilterMenu({ onApply, onReset, onClose }: FilterMenuProps) {
 
     const startDateValue = useMemo(
         () =>
-            localFilters.startDate ? DateTime.fromISO(localFilters.startDate).toJSDate() : null,
+            localFilters.startDate
+                ? DateTime.fromISO(localFilters.startDate).toJSDate()
+                : null,
         [localFilters.startDate]
     )
     const endDateValue = useMemo(
         () =>
-            localFilters.endDate ? DateTime.fromISO(localFilters.endDate).toJSDate() : null,
+            localFilters.endDate
+                ? DateTime.fromISO(localFilters.endDate).toJSDate()
+                : null,
         [localFilters.endDate]
     )
 
     return (
         <div
             onClick={(e) => e.stopPropagation()}
-            className="fixed top-20 right-5 z-50 w-[350px] rounded-md bg-background p-6 shadow-lg"
+            className="fixed top-20 right-5 z-50 w-[350px] rounded-md bg-white p-6 shadow-lg"
         >
             <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Filters</h2>
                 <Button variant="ghost" size="icon" onClick={onClose} aria-label="close">
-                    <X className="h-4 w-4"/>
+                    <X className="h-4 w-4" />
                 </Button>
             </div>
 
@@ -138,8 +136,9 @@ export function FilterMenu({ onApply, onReset, onClose }: FilterMenuProps) {
                     selected={startDateValue}
                     onChange={(date) => handleDateChange("startDate", date)}
                     placeholderText="Select start date..."
-                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                />
+                    className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    showMonthDropdown={false}
+                    showYearDropdown={false}/>
             </div>
 
             <div className="mb-4 space-y-1">
@@ -149,7 +148,7 @@ export function FilterMenu({ onApply, onReset, onClose }: FilterMenuProps) {
                     selected={endDateValue}
                     onChange={(date) => handleDateChange("endDate", date)}
                     placeholderText="Select end date..."
-                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
             </div>
 
@@ -165,21 +164,22 @@ export function FilterMenu({ onApply, onReset, onClose }: FilterMenuProps) {
                     </PopoverTrigger>
                     <PopoverContent className="w-72 p-0">
                         <Command>
-                            <CommandInput placeholder="Search location..."/>
+                            <CommandInput placeholder="Search location..." />
                             <CommandList>
                                 <CommandEmpty>No results found.</CommandEmpty>
                                 <CommandGroup>
                                     {enabledLocations
                                         .sort((a, b) => a.label.localeCompare(b.label))
                                         .map((loc) => {
-                                            const isChecked = localFilters.selectedLocations.includes(loc.id)
+                                            const isChecked =
+                                                localFilters.selectedLocations.includes(loc.id)
                                             return (
                                                 <CommandItem
                                                     key={loc.id}
                                                     onSelect={() => toggleLocation(loc.id)}
                                                     className="flex cursor-pointer items-center space-x-2"
                                                 >
-                                                    <Checkbox checked={isChecked}/>
+                                                    <Checkbox checked={isChecked} />
                                                     <span>{loc.label}</span>
                                                 </CommandItem>
                                             )
@@ -193,11 +193,13 @@ export function FilterMenu({ onApply, onReset, onClose }: FilterMenuProps) {
                 {localFilters.selectedLocations.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                         {enabledLocations
-                            .filter((loc) => localFilters.selectedLocations.includes(loc.id))
+                            .filter((loc) =>
+                                localFilters.selectedLocations.includes(loc.id)
+                            )
                             .map((loc) => (
                                 <span
                                     key={loc.id}
-                                    className="inline-flex items-center rounded-full bg-primary px-2 py-1 text-xs text-white"
+                                    className="inline-flex items-center rounded-full bg-blue-500 px-2 py-1 text-xs text-white"
                                 >
                   {loc.label}
                 </span>

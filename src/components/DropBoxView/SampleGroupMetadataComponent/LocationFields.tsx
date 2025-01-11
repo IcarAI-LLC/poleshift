@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+
+import {useState, useEffect, useCallback, useMemo, FC} from 'react'
 import { useData } from '../../../lib/hooks'
 import type { SampleGroupMetadata } from '@/lib/types'
 import { Input } from '@/components/ui/input.tsx'
@@ -22,7 +23,7 @@ const COORDINATE_LIMITS = {
     longitude: { min: -180, max: 180 },
 } as const
 
-export const LocationFields: React.FC<LocationFieldsProps> = ({
+export const LocationFields: FC<LocationFieldsProps> = ({
                                                                   sampleGroup,
                                                                   // Use flex + items-center so label & input stay side by side
                                                                   metadataItemStyles = 'flex items-center gap-2 py-2',

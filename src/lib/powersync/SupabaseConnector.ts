@@ -145,7 +145,7 @@ export class SupabaseConnector {
             console.debug('Credentials fetched successfully.');
             console.log(import.meta.env.VITE_SUPABASE_URL);
             return {
-                endpoint: powersync_server || import.meta.env.VITE_POWERSYNC_URL,
+                endpoint: powersync_server,
                 token: data.session.access_token ?? '',
                 expiresAt: data.session.expires_at
                     ? new Date(data.session.expires_at * 1000)

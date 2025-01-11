@@ -4,7 +4,6 @@ export default {
     autoprefixer: {},
   },
   theme: {
-    extend: {
       fontFamily: {
         // Matches MUI's "Roboto, sans-serif"
         sans: ['Roboto', 'sans-serif'],
@@ -39,5 +38,4 @@ export default {
         divider: 'rgba(255, 255, 255, 0.1)',
       },
     },
-  },
 }

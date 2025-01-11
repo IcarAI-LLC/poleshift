@@ -1,91 +1,83 @@
-import React, { useMemo } from 'react';
-import { Box, Typography } from '@mui/material';
 
-import { useAuth, useData, useUI } from '@/lib/hooks';
-import { useAuthStore } from '@/lib/stores/authStore.ts';
+import { useMemo } from "react";
+import SingleDropBox from "./SingleDropBox";
 
-import SingleDropBox from './SingleDropBox.tsx';
+import { useAuth, useData, useUI } from "@/lib/hooks";
+import { useAuthStore } from "@/lib/stores/authStore";
+import { PoleshiftPermissions, SampleGroupMetadata } from "@/lib/types";
+import dropboxConfig from "../../../config/dropboxConfig";
+import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
 
-import dropboxConfig from '../../../config/dropboxConfig.ts';
-import type { DropboxesProps } from './types.ts';
-import { PoleshiftPermissions } from '@/lib/types';
-import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
+interface DropboxesProps {
+    onError: (message: string) => void;
+}
 
-const MergedDropBoxes: React.FC<DropboxesProps> = ({ onError }) => {
-    // All hooks at the top level
+export default function MergedDropBoxes({ onError }: DropboxesProps) {
+    // Hooks
     const { selectedLeftItem } = useUI();
-    const { sampleGroups, getLocationById } = useData();
+    const { sampleGroups, getLocationById, loading } = useData();
     const { organization } = useAuth();
     const userPermissions = useAuthStore((state) => state.userPermissions);
 
-    // Derived state calculations
-    const sampleGroupId =
-        selectedLeftItem?.type === FileNodeType.SampleGroup ? selectedLeftItem.id : null;
-
+    // Permissions
     const hasModifyPermission = userPermissions?.includes(
         PoleshiftPermissions.ModifySampleGroup
     );
 
-    // Memoized sampleGroup and location
-    const { sampleGroup} = useMemo(() => {
-        if (!sampleGroupId) {
-            return { sampleGroup: null };
-        }
-        const currentSampleGroup = sampleGroups[sampleGroupId];
-        return {
-            sampleGroup: currentSampleGroup || null,
-        };
+    // Identify the sample group from the left sidebar selection
+    const sampleGroupId =
+        selectedLeftItem?.type === FileNodeType.SampleGroup
+            ? selectedLeftItem?.id
+            : null;
+
+    // Memoize the sample group
+    const sampleGroup = useMemo<SampleGroupMetadata | null>(() => {
+        if (!sampleGroupId) return null;
+        return sampleGroups[sampleGroupId] || null;
     }, [sampleGroupId, sampleGroups, getLocationById]);
 
-    // Style for each drop box
-    const boxStyles = useMemo(() => ({
-        width: {
-            xs: '100%',
-            sm: 'calc(50% - var(--spacing-md))',
-            md: 'calc(33.333% - var(--spacing-md))',
-        },
-    }), []);
-
-    // Render
+    if (loading) {
+        return (
+            <p className="text-sm text-gray-500 text-center w-full p-2">
+                Loading...
+            </p>
+        );
+    }
+    // If no sample group, prompt the user to select one
     if (!sampleGroup) {
         return (
-            <Typography
-                variant="body1"
-                sx={{
-                    color: 'text.secondary',
-                    textAlign: 'center',
-                    width: '100%',
-                    padding: 2,
-                }}
-            >
+            <p className="text-sm text-gray-500 text-center w-full p-2">
                 Please select a sample group to view DropBoxes.
-            </Typography>
+            </p>
         );
     }
 
+    // Render each dropbox config item (only if `isEnabled`)
     return (
-        <Box className="dropBoxes" sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+        /**
+         * Updated for 3 columns:
+         *  - 1 column on mobile
+         *  - 2 columns on small screens
+         *  - 3 columns on medium+
+         */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {dropboxConfig
-                .filter((configItem) => configItem?.isEnabled)
+                .filter((configItem) => configItem.isEnabled)
                 .map((configItem) => {
-                    // If user doesn't have modify permission, "lock" the box unless we want read-only access for existing data
-                    // In many flows, if you cannot modify, you also cannot upload new data, so we treat it as locked.
+                    // Lock if user doesn't have modify permission
                     const locked = !hasModifyPermission;
 
                     return (
-                        <Box key={configItem.id} sx={boxStyles}>
-                            <SingleDropBox
-                                configItem={configItem}
-                                sampleGroup={sampleGroup}
-                                organization={organization}
-                                isLocked={locked}
-                                onError={onError}
-                            />
-                        </Box>
+                        <SingleDropBox
+                            key={configItem.id}
+                            configItem={configItem}
+                            sampleGroup={sampleGroup}
+                            organization={organization}
+                            isLocked={locked}
+                            onError={onError}
+                        />
                     );
                 })}
-        </Box>
+        </div>
     );
-};
-
-export default MergedDropBoxes;
+}

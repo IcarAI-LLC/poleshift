@@ -1,12 +1,21 @@
-import React from 'react';
-import { Chart } from "react-google-charts";
+
+import {
+    CartesianGrid,
+    XAxis,
+    YAxis,
+    Tooltip,
+    AreaChart,
+    Area,
+    ResponsiveContainer,
+} from "recharts";
+
 import {
     Card,
     CardHeader,
+    CardTitle,
     CardContent,
-    Typography,
-    Box,
-} from '@mui/material';
+    CardFooter,
+} from "@/components/ui/card";
 
 interface DistributionData {
     taxon: string;
@@ -23,120 +32,136 @@ interface DistributionChartProps {
     title: string;
 }
 
-const DistributionChart: React.FC<DistributionChartProps> = ({ data = [], title }) => {
+// A small helper to format large numbers with commas
+function formatNumber(num: number): string {
+    return new Intl.NumberFormat("en-US").format(num);
+}
+
+function formatPercentage(num: number): string {
+    return `${num.toFixed(2)}%`;
+}
+
+export default function DistributionChart({
+                                              data = [],
+                                              title,
+                                          }: DistributionChartProps) {
+    // If no data, show an empty card
     if (!Array.isArray(data) || data.length === 0) {
         return (
-            <Card sx={{ bgcolor: 'black' }}>
-                <CardHeader
-                    title={title.charAt(0).toUpperCase() + title.slice(1)}
-                    sx={{ color: 'white' }}
-                />
+            <Card className="bg-black text-white">
+                <CardHeader>
+                    <CardTitle>{title.charAt(0).toUpperCase() + title.slice(1)}</CardTitle>
+                </CardHeader>
                 <CardContent>
-                    <Typography variant="body1" color="white" align="center">
-                        No data available for visualization
-                    </Typography>
+                    <p className="text-center">No data available for visualization</p>
                 </CardContent>
             </Card>
         );
     }
 
-    // 1) Sort by percentage (descending).
-    // 2) Take the top 20.
-    const sortedData = [...data].sort((a, b) => (b.percentage ?? 0) - (a.percentage ?? 0));
+    // 1) Sort by percentage descending
+    const sortedData = [...data].sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
+    // 2) Take the top 20
     const top20Data = sortedData.slice(0, 20);
 
-    // Process data without truncating taxon labels
-    const processedData = top20Data.map((item) => ({
-        taxon: item.taxon || 'Unknown',
-        percentage: item.percentage ?? 0,
-        reads: item.reads ?? 0,
-        taxReads: item.taxReads ?? 0,
-    }));
+    // Compute basic stats for the footer
+    const percentages = top20Data.map((d) => d.percentage);
+    const minPercentage = Math.min(...percentages);
+    const maxPercentage = Math.max(...percentages);
+    const avgPercentage =
+        percentages.reduce((acc, val) => acc + val, 0) / percentages.length;
 
-    const chartData = [
-        ['Taxon', 'Percentage', { role: 'tooltip', type: 'string', p: { html: true } }],
-        ...processedData.map((item) => [
-            item.taxon,
-            item.percentage,
-            `<div style="padding: 10px; background: rgba(0,0,0,0.8); color: white; border: 1px solid white;">
-                <strong>${item.taxon}</strong><br/>
-                Percentage: ${item.percentage.toFixed(2)}%<br/>
-                Reads: ${item.reads.toLocaleString()}<br/>
-                Tax Reads: ${item.taxReads.toLocaleString()}
-             </div>`
-        ])
-    ];
-
-    const options = {
-        title,
-        backgroundColor: '#000000',
-        titleTextStyle: {
-            color: '#ffffff'
-        },
-        tooltip: {
-            isHtml: true,
-            trigger: 'hover'
-        },
-        // Rotating the labels and adding more bottom margin
-        hAxis: {
-            title: 'Taxon',
-            titleTextStyle: { color: '#ffffff' },
-            textStyle: {
-                color: '#ffffff',
-                fontSize: 12,
-                // Try these to override the chart’s default truncation:
-                textOverflow: 'none',     // or 'ellipsis' if you want partial truncation
-            },
-            slantedText: true,       // display labels at an angle
-            slantedTextAngle: 60,    // adjust angle as needed (40-90)
-            gridlines: { color: '#333333' },
-        },
-        vAxis: {
-            title: 'Percentage (%)',
-            titleTextStyle: { color: '#ffffff' },
-            textStyle: { color: '#ffffff' },
-            gridlines: { color: '#333333' },
-            minValue: 0,
-            maxValue: Math.ceil(Math.max(...data.map(item => item.percentage ?? 0)) * 1.1),
-        },
-        legend: { position: 'none' },
-        colors: ['#2196f3'],
-        annotations: {
-            textStyle: {
-                color: '#ffffff',
-                fontSize: 12,
-            },
-            alwaysOutside: false,
-        },
-        chartArea: {
-            left: 60,
-            top: 30,
-            right: 20,
-            bottom: 150, // Increase bottom to give more space for long x-axis labels
-            width: '100%',
-            height: '100%',
-        },
-    };
+    // If there's only one data point, we can still show a filled area by:
+    // - using type="monotone" or "linear"
+    // - domain includes some room for the top
+    // - Recharts draws a dot, and the fill area extends down to 0
+    // => By default, Recharts will fill the area if there's a domain > 0
+    const singleDataPoint = top20Data.length === 1;
 
     return (
-        <Card sx={{ bgcolor: 'black' }}>
-            <CardHeader
-                title={title.charAt(0).toUpperCase() + title.slice(1)}
-                sx={{ color: 'white' }}
-            />
+        <Card className="bg-black text-white">
+            <CardHeader>
+                <CardTitle>{title.charAt(0).toUpperCase() + title.slice(1)}</CardTitle>
+            </CardHeader>
             <CardContent>
-                <Box style={{ width: '100%', height: 400 }}>
-                    <Chart
-                        chartType="ColumnChart"
-                        width="100%"
-                        height="350px"
-                        data={chartData}
-                        options={options}
-                    />
-                </Box>
+                <div style={{ width: "100%", height: 400 }}>
+                    <ResponsiveContainer>
+                        <AreaChart
+                            data={top20Data}
+                            margin={{ top: 20, right: 20, bottom: 160, left: 20 }}
+                        >
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                vertical={false}
+                                stroke="#333333"
+                            />
+                            <XAxis
+                                dataKey="taxon"
+                                tickLine={false}
+                                axisLine={false}
+                                tickMargin={8}
+                                tick={{ fill: "#ffffff", fontSize: 12 }}
+                                angle={-45}
+                                textAnchor="end"
+                                interval={0} // show all labels
+                            />
+                            <YAxis
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: "#ffffff" }}
+                                // domain ensures some headroom
+                                domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.1)]}
+                            />
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: "rgba(0,0,0,0.8)",
+                                    border: "1px solid #ffffff",
+                                }}
+                                labelStyle={{ color: "#ffffff" }}
+                                formatter={(value: number, name: string) =>
+                                    name === "percentage" ? formatPercentage(value) : value
+                                }
+                                labelFormatter={(label: string, payload: any) => {
+                                    // Combine relevant data in the tooltip
+                                    if (!payload || !payload.length) return label;
+                                    const entry = payload[0]?.payload;
+                                    return [
+                                        `${entry.taxon}`,
+                                        `Reads: ${formatNumber(entry.reads)}`,
+                                        `Tax Reads: ${formatNumber(entry.taxReads)}`,
+                                        `Percentage: ${formatPercentage(entry.percentage)}`,
+                                    ].join(" • ");
+                                }}
+                            />
+                            <Area
+                                type={singleDataPoint ? "linear" : "monotone"}
+                                dataKey="percentage"
+                                stroke="#2196f3"
+                                fill="#2196f3"
+                                fillOpacity={0.4}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
             </CardContent>
+            <CardFooter>
+                {/* Show min, max, average percentages in the footer */}
+                <div className="flex items-center gap-4 text-sm">
+                    <div>
+                        <span className="font-medium">Min:</span>{" "}
+                        {formatPercentage(minPercentage)}
+                    </div>
+                    <div>
+                        <span className="font-medium">Max:</span>{" "}
+                        {formatPercentage(maxPercentage)}
+                    </div>
+                    <div>
+                        <span className="font-medium">Avg:</span>{" "}
+                        {formatPercentage(avgPercentage)}
+                    </div>
+                    <span className="text-muted-foreground">(Top 20 by percentage)</span>
+                </div>
+            </CardFooter>
         </Card>
     );
-};
-
-export default DistributionChart;
+}

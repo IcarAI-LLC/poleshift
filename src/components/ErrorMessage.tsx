@@ -1,6 +1,6 @@
 // src/renderer/components/ErrorMessage.tsx
 
-import React, { useEffect } from 'react';
+import {FC, useEffect} from 'react';
 import { FaExclamationCircle } from 'react-icons/fa';
 import { cn } from '@/lib/utils'; // Utility for conditional class names
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -11,7 +11,7 @@ interface ErrorMessageProps {
   className?: string;
 }
 
-const ErrorMessage: React.FC<ErrorMessageProps> = ({
+const ErrorMessage: FC<ErrorMessageProps> = ({
                                                      message,
                                                      onClose,
                                                      className,

@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import {FC, useState} from "react";
 import { useAuth } from "@/lib/hooks";
 import type { PreAuthView } from "@/lib/types";
 
@@ -26,7 +24,7 @@ interface LoginProps {
   message?: string;
 }
 
-const Login: React.FC<LoginProps> = ({
+const Login: FC<LoginProps> = ({
                                        onNavigate,
                                        prefillEmail = "",
                                        message,

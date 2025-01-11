@@ -27,6 +27,7 @@ export class PowerSyncDB {
                     useWebWorker: false
                 }
             });
+            this.instance.execute("PRAGMA cache_size=500000");
         }
         return this.instance;
     }
@@ -39,7 +40,6 @@ export const setupPowerSync = async () => {
     console.log('Setup Power Sync called');
     const db = PowerSyncDB.getInstance();
     // Always reference the singleton DB instance through the static getter
-    await db.execute("PRAGMA cache_size=-200000");
     if (db.connected) {
         console.debug('PowerSync is already connected.');
         return;

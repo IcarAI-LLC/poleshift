@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import {FC, useState} from 'react';
 import { useAuth } from '@/lib/hooks';
 import type { PreAuthView } from '@/lib/types';
 import LoadingScreen from './LoadingScreen.tsx';
@@ -11,7 +11,7 @@ import ResetComponent from "../ResetComponent.tsx";
 import {useAuthStore} from "@/lib/stores/authStore.ts";
 import {Toast} from "@radix-ui/react-toast";
 import {Toaster} from "@/components/ui/toaster.tsx";
-const PreAuth: React.FC = () => {
+const PreAuth: FC = () => {
   const {
     isAuthenticated,
     loading: authLoading,
@@ -21,7 +21,6 @@ const PreAuth: React.FC = () => {
   const {
     organizationId
   } = useAuthStore.getState();
-
   // Define the reset logic
   const handleReset = async () => {
     try {

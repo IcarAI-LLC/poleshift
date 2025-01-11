@@ -82,7 +82,7 @@ export const useAuth = () => {
             setLoading(true);
             setUser(null);
             await supabaseConnector.logout();
-            await db.disconnectAndClear();
+            await db.disconnectAndClear({clearLocal: true});
             setUser(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Logout failed');

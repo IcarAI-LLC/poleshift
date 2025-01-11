@@ -172,7 +172,10 @@ export const GlobeComponent: React.FC = () => {
     }
 
     return (
-        <div className="globe-container">
+        <div
+            className="fixed"
+            style={{ overflow: 'hidden' }}
+        >
             <Globe
                 ref={globeRef}
                 globeImageUrl={globeImage}

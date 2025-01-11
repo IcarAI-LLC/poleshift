@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { RefreshCw, Loader2 } from "lucide-react"
 
@@ -20,11 +18,6 @@ export default function ResetComponent({ onReset }: ResetComponentProps) {
     const [isResetting, setIsResetting] = React.useState(false)
     const { toast } = useToast()
     const handleReset = async () => {
-        toast({
-            title: "TESTING!",
-            description: "Resetting...",
-            duration: 10000,
-        });
         setIsResetting(true)
         try {
             // Execute your reset function
@@ -53,6 +46,7 @@ export default function ResetComponent({ onReset }: ResetComponentProps) {
                         variant="ghost"
                         onClick={handleReset}
                         disabled={isResetting}
+                        autoFocus={false}
                         aria-label="Reset Application"
                     >
                         {isResetting ? (
@@ -60,7 +54,6 @@ export default function ResetComponent({ onReset }: ResetComponentProps) {
                         ) : (
                             <RefreshCw className="ml-2 mr-2 h-4 w-4" />
                         )}
-                        <span className="sr-only">Reset</span>
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent>

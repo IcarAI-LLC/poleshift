@@ -12,9 +12,15 @@ const __dirname = path.dirname(__filename);
 
 const host = process.env.TAURI_DEV_HOST;
 
+
 // Use top-level await if necessary to resolve any async configuration steps before defining the config
-const main = async (ReactCompilerConfig: string | boolean | object) => {
+export default function main() {
     // If you have asynchronous steps, resolve them here
+    const ReactCompilerConfig = {
+        sources: (filename: string | string[]) => {
+            return filename.indexOf('./src') !== -1;
+        },
+    };
 
     return defineConfig({
         plugins: [
@@ -71,12 +77,3 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
         },
     });
 };
-
-const ReactCompilerConfig = {
-    sources: (filename: string | string[]) => {
-        return filename.indexOf('./src') !== -1;
-    },
-};
-
-
-export default main(ReactCompilerConfig);

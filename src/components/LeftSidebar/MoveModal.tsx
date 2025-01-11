@@ -1,19 +1,48 @@
-// src/components/MoveModal.tsx
-import React, { useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
-import {FileNodeWithChildren, useData, useUI} from '@/lib/hooks';
+import {FC, useEffect, useState} from "react";
+import { FileNodeWithChildren, useData, useUI } from "@/lib/hooks";
+// shadcn/ui components
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
-const MoveModal: React.FC = () => {
+const MoveModal: FC = () => {
     const { fileTree, moveNode } = useData();
     const { moveModalItemId, setHideMoveModal } = useUI();
-    const [selectedFolderId, setSelectedFolderId] = useState<string>('');
-    if (!moveModalItemId) return null;
 
-    // Filter folders only (type === 'folder')
+    // Local state to control open/close
+    const [open, setOpen] = useState(false);
+
+    // The user’s currently chosen parent folder
+    // Use "ROOT" to indicate that we want no parent (root).
+    const [selectedFolderId, setSelectedFolderId] = useState<string>("ROOT");
+
+    // Whenever moveModalItemId changes, we open/close the modal accordingly
+    useEffect(() => {
+        if (moveModalItemId) {
+            setOpen(true);
+        } else {
+            setOpen(false);
+        }
+    }, [moveModalItemId]);
+
+    // Helper function: recursively gather only the folders
     const allFolders = (nodes: FileNodeWithChildren[]): FileNodeWithChildren[] => {
         let result: FileNodeWithChildren[] = [];
         for (const node of nodes) {
-            if (node.type === 'folder') result.push(node);
+            if (node.type === "folder") result.push(node);
             if (node.children && node.children.length > 0) {
                 result = result.concat(allFolders(node.children));
             }
@@ -24,37 +53,74 @@ const MoveModal: React.FC = () => {
     const folders = allFolders(fileTree);
 
     const handleMove = async () => {
-        await moveNode(moveModalItemId, selectedFolderId || null);
+        if (!moveModalItemId) return;
+
+        // If user selects "ROOT", pass `null` as the parent
+        const newParent = selectedFolderId === "ROOT" ? null : selectedFolderId;
+
+        await moveNode(moveModalItemId, newParent);
+
+        // Close modal locally
+        setOpen(false);
+
+        // Notify the parent we’re done
         setHideMoveModal();
     };
 
+    const handleCloseDialog = (nextOpen: boolean) => {
+        // If the dialog is closing, also reset parent UI state
+        if (!nextOpen) {
+            setHideMoveModal();
+            setSelectedFolderId("ROOT");
+        }
+        setOpen(nextOpen);
+    };
+
     return (
-        <Dialog open={Boolean(moveModalItemId)} onClose={setHideMoveModal}>
-            <DialogTitle>Move to Folder</DialogTitle>
+        <Dialog open={open} onOpenChange={handleCloseDialog} aria-describedby="move-modal-description">
             <DialogContent>
-                <FormControl fullWidth>
-                    <InputLabel id="folder-select-label">Select Folder</InputLabel>
+                <DialogHeader>
+                    <DialogTitle>Move to Folder</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2">
+                    <Label htmlFor="folder-select">Select Folder</Label>
                     <Select
-                        labelId="folder-select-label"
-                        label="Select Folder"
                         value={selectedFolderId}
-                        onChange={(e) => setSelectedFolderId(e.target.value)}
+                        onValueChange={(value) => setSelectedFolderId(value)}
                     >
-                        <MenuItem value="">(No Parent)</MenuItem>
-                        {folders.map((folder) => (
-                            <MenuItem key={folder.id} value={folder.id}>
-                                {folder.name}
-                            </MenuItem>
-                        ))}
+                        <SelectTrigger id="folder-select">
+                            <SelectValue placeholder="Select Folder" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {/* "ROOT" = (No Parent) */}
+                            <SelectItem value="ROOT">(No Parent)</SelectItem>
+
+                            {/* Render all folders as valid targets */}
+                            {folders.map((folder) => (
+                                <SelectItem key={folder.id} value={folder.id}>
+                                    {folder.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
                     </Select>
-                </FormControl>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => handleCloseDialog(false)}>
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="default"
+                        onClick={handleMove}
+                        // If no folders exist AND user is forced to pick "ROOT", it might be fine.
+                        // Or if you want to disable the button when there's no real folder to move to,
+                        // keep an additional check here. For example:
+                        // disabled={!folders.length && selectedFolderId === "ROOT"}
+                    >
+                        Move
+                    </Button>
+                </DialogFooter>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={setHideMoveModal}>Cancel</Button>
-                <Button variant="contained" onClick={handleMove} disabled={!folders.length && selectedFolderId === ''}>
-                    Move
-                </Button>
-            </DialogActions>
         </Dialog>
     );
 };

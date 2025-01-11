@@ -1,5 +1,3 @@
-"use client"; // or remove if you're not using Next.js
-
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DateTime } from "luxon";
 

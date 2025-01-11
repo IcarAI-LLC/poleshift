@@ -1,91 +1,83 @@
 // ProgressTracker.tsx
 
-import React, { memo, useMemo } from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import React, { memo, useMemo } from "react"
 
 interface ProgressTrackerProps {
-  progress: number;
-  status: string;
-  showPercentage?: boolean;
-  type: 'processing';
+    progress: number
+    status: string
+    showPercentage?: boolean
+    type: "processing"
 }
 
 const ProgressTracker: React.FC<ProgressTrackerProps> = memo(
-  ({ progress, status, showPercentage = false, type }) => {
+    ({ progress, status, showPercentage = false, type }) => {
+        // Choose a text color class based on type
+        const progressColorClass = useMemo(() => {
+            // You can modify these to your preferred colors
+            return type === "processing" ? "text-blue-500" : "text-gray-500"
+        }, [type])
 
-    // Memoize the color based on type
-    const progressColor = useMemo(() => {
-      return type === 'processing' ? 'secondary' : 'primary';
-    }, [type]);
-
-    return (
-      <Box
-        sx={{
-          width: '100%',
-          textAlign: 'center',
-        }}
-      >
-        <Typography
-          sx={{
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            mb: 1,
-            color: 'text.primary',
-          }}
-        >
-          {status}
-        </Typography>
-        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-          <CircularProgressWithLabel
-            value={progress}
-            color={progressColor}
-            showPercentage={showPercentage}
-          />
-        </Box>
-      </Box>
-    );
-  },
-);
+        return (
+            <div className="w-full text-center">
+                <p className="text-sm font-medium mb-1">{status}</p>
+                <div className="inline-flex relative">
+                    <CircularProgressWithLabel
+                        value={progress}
+                        colorClass={progressColorClass}
+                        showPercentage={showPercentage}
+                    />
+                </div>
+            </div>
+        )
+    },
+)
 
 interface CircularProgressWithLabelProps {
-  value: number;
-  color: 'primary' | 'secondary';
-  showPercentage: boolean;
+    value: number
+    colorClass: string
+    showPercentage: boolean
 }
 
+/**
+ * A minimal circular progress indicator using an SVG <circle>.
+ */
 const CircularProgressWithLabel: React.FC<CircularProgressWithLabelProps> = memo(
-  ({ value, color, showPercentage }) => {
-    return (
-      <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-        <CircularProgress
-          variant="determinate"
-          value={value}
-          color={color}
-          size={40}
-        />
-        {showPercentage && (
-          <Box
-            sx={{
-              top: 0,
-              left: 0,
-              bottom: 0,
-              right: 0,
-              position: 'absolute',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Typography
-              variant="caption"
-              component="div"
-              color="text.secondary"
-            >{`${Math.round(value)}%`}</Typography>
-          </Box>
-        )}
-      </Box>
-    );
-  },
-);
+    ({ value, colorClass, showPercentage }) => {
+        // Basic circle math
+        const radius = 20
+        const stroke = 4
+        const normalizedRadius = radius - stroke * 2
+        const circumference = normalizedRadius * 2 * Math.PI
+        const strokeDashoffset = circumference - (value / 100) * circumference
 
-export default ProgressTracker;
+        return (
+            <div className="relative inline-flex">
+                {/* Rotated -90deg to have the circle start from the top */}
+                <svg
+                    height={radius * 2}
+                    width={radius * 2}
+                    className={`rotate-[-90deg] ${colorClass}`}
+                >
+                    <circle
+                        stroke="currentColor"
+                        fill="transparent"
+                        strokeWidth={stroke}
+                        strokeDasharray={`${circumference} ${circumference}`}
+                        style={{ strokeDashoffset }}
+                        r={normalizedRadius}
+                        cx={radius}
+                        cy={radius}
+                        strokeLinecap="round"
+                    />
+                </svg>
+                {showPercentage && (
+                    <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-600">
+                        {Math.round(value)}%
+                    </div>
+                )}
+            </div>
+        )
+    },
+)
+
+export default ProgressTracker

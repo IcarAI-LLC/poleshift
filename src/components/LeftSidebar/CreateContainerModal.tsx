@@ -1,18 +1,19 @@
-// src/components/LeftSidebar/modals/CreateContainerModal.tsx
+import { useEffect, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 
-import React, { useEffect, useState } from 'react';
+import type { Organizations } from "@/lib/types";
+
+// ShadCN/UI components
 import {
     Dialog,
-    DialogTitle,
     DialogContent,
-    DialogActions,
-    Button,
-    TextField,
-    Box,
-} from '@mui/material';
-import { v4 as uuidv4 } from 'uuid';
-
-import type { Organizations } from '../../lib/types';
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface CreateContainerModalProps {
     open: boolean;
@@ -23,19 +24,19 @@ interface CreateContainerModalProps {
 }
 
 const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
-                                                                 open,
-                                                                 onClose,
-                                                                 organization,
-                                                                 addFileNode,
-                                                                 setErrorMessage,
-                                                             }) => {
-    const [containerName, setContainerName] = useState('');
+                                                                       open,
+                                                                       onClose,
+                                                                       organization,
+                                                                       addFileNode,
+                                                                       setErrorMessage,
+                                                                   }) => {
+    const [containerName, setContainerName] = useState("");
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Reset fields when open changes
+    // Reset fields whenever the dialog closes
     useEffect(() => {
         if (!open) {
-            setContainerName('');
+            setContainerName("");
             setIsProcessing(false);
         }
     }, [open]);
@@ -44,12 +45,12 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
         e.preventDefault();
 
         if (!containerName.trim()) {
-            setErrorMessage('Container name is required.');
+            setErrorMessage("Container name is required.");
             return;
         }
 
         if (!organization?.id) {
-            setErrorMessage('No organization info found.');
+            setErrorMessage("No organization info found.");
             return;
         }
 
@@ -59,8 +60,8 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
             const newContainer = {
                 id: uuidv4(),
                 org_id: organization.id,
-                name: containerName,
-                type: 'container' as const,
+                name: containerName.trim(),
+                type: "container" as const,
                 parent_id: null,
                 droppable: 0,
                 children: [],
@@ -70,39 +71,42 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
             };
 
             await addFileNode(newContainer);
-            setErrorMessage('');
+            setErrorMessage("");
             onClose();
         } catch (error: any) {
-            console.error('Error creating container:', error);
-            setErrorMessage(error.message || 'An unexpected error occurred.');
+            console.error("Error creating container:", error);
+            setErrorMessage(error.message || "An unexpected error occurred.");
         } finally {
             setIsProcessing(false);
         }
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+        <Dialog open={open} onOpenChange={onClose}>
             <form onSubmit={handleSubmit}>
-                <DialogTitle>Create New Query Container</DialogTitle>
-                <DialogContent dividers>
-                    <Box marginBottom={2}>
-                        <TextField
-                            label="Container Name"
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create New Query Container</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-2 py-2">
+                        <Label htmlFor="container-name">Container Name</Label>
+                        <Input
+                            id="container-name"
                             value={containerName}
                             onChange={(e) => setContainerName(e.target.value)}
-                            fullWidth
                             required
                         />
-                    </Box>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" type="button" onClick={onClose} disabled={isProcessing}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isProcessing}>
+                            {isProcessing ? "Creating..." : "Create"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={onClose} disabled={isProcessing}>
-                        Cancel
-                    </Button>
-                    <Button type="submit" variant="contained" disabled={isProcessing}>
-                        {isProcessing ? 'Creating...' : 'Create'}
-                    </Button>
-                </DialogActions>
             </form>
         </Dialog>
     );

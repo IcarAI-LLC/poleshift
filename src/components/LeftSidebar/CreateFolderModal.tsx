@@ -1,18 +1,19 @@
-// src/components/LeftSidebar/modals/CreateFolderModal.tsx
+import { useEffect, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 
-import React, { useEffect, useState } from 'react';
+import type { Organizations } from "@/lib/types";
+
+// ShadCN/UI components
 import {
     Dialog,
-    DialogTitle,
     DialogContent,
-    DialogActions,
-    Button,
-    TextField,
-    Box,
-} from '@mui/material';
-import { v4 as uuidv4 } from 'uuid';
-
-import type { Organizations } from '@/lib/types';
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface CreateFolderModalProps {
     open: boolean;
@@ -29,13 +30,13 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
                                                                  addFileNode,
                                                                  setErrorMessage,
                                                              }) => {
-    const [folderName, setFolderName] = useState('');
+    const [folderName, setFolderName] = useState("");
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Reset fields when open changes
+    // Reset fields whenever the dialog closes
     useEffect(() => {
         if (!open) {
-            setFolderName('');
+            setFolderName("");
             setIsProcessing(false);
         }
     }, [open]);
@@ -44,12 +45,12 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
         e.preventDefault();
 
         if (!folderName.trim()) {
-            setErrorMessage('Folder name is required.');
+            setErrorMessage("Folder name is required.");
             return;
         }
 
         if (!organization?.id) {
-            setErrorMessage('No organization info found.');
+            setErrorMessage("No organization info found.");
             return;
         }
 
@@ -59,8 +60,8 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
             const newFolder = {
                 id: uuidv4(),
                 org_id: organization.id,
-                name: folderName,
-                type: 'folder' as const,
+                name: folderName.trim(),
+                type: "folder" as const,
                 parent_id: null,
                 droppable: 1,
                 children: [],
@@ -70,39 +71,42 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
             };
 
             await addFileNode(newFolder);
-            setErrorMessage('');
+            setErrorMessage("");
             onClose();
         } catch (error: any) {
-            console.error('Error creating folder:', error);
-            setErrorMessage(error.message || 'An unexpected error occurred.');
+            console.error("Error creating folder:", error);
+            setErrorMessage(error.message || "An unexpected error occurred.");
         } finally {
             setIsProcessing(false);
         }
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+        <Dialog open={open} onOpenChange={onClose}>
             <form onSubmit={handleSubmit}>
-                <DialogTitle>Create New Folder</DialogTitle>
-                <DialogContent dividers>
-                    <Box marginBottom={2}>
-                        <TextField
-                            label="Folder Name"
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create New Folder</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-2 py-2">
+                        <Label htmlFor="folder-name">Folder Name</Label>
+                        <Input
+                            id="folder-name"
                             value={folderName}
                             onChange={(e) => setFolderName(e.target.value)}
-                            fullWidth
                             required
                         />
-                    </Box>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" type="button" onClick={onClose} disabled={isProcessing}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isProcessing}>
+                            {isProcessing ? "Creating..." : "Create"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={onClose} disabled={isProcessing}>
-                        Cancel
-                    </Button>
-                    <Button type="submit" variant="contained" disabled={isProcessing}>
-                        {isProcessing ? 'Creating...' : 'Create'}
-                    </Button>
-                </DialogActions>
             </form>
         </Dialog>
     );

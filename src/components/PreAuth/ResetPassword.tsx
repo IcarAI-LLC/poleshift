@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState, useCallback } from "react";
+import {useState, useCallback, FC} from "react";
 import { useAuth } from "@/lib/hooks";
 import type { PreAuthView } from "@/lib/types";
 
@@ -31,7 +29,7 @@ interface FormState {
   isLoading: boolean;
 }
 
-const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
+const ResetPassword: FC<ResetPasswordProps> = ({ onNavigate }) => {
   const { resetPassword } = useAuth();
   const [formState, setFormState] = useState<FormState>({
     email: "",

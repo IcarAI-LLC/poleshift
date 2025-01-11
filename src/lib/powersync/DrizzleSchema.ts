@@ -151,7 +151,7 @@ export const license_keys = sqliteTable("license_keys", {
  *  10) role_permissions
  *  ────────────────────────────────────────────────────────────────────────────**/
 export const role_permissions = sqliteTable("role_permissions", {
-    id: real("id").notNull().primaryKey(),
+    id: text("id").notNull().primaryKey(),
     role: text("role").$type<UserRole>().notNull(),
     permission: text("permission").$type<Permissions>().notNull(),
 });
@@ -160,7 +160,7 @@ export const role_permissions = sqliteTable("role_permissions", {
  *  11) user_roles
  *  ────────────────────────────────────────────────────────────────────────────**/
 export const user_roles = sqliteTable("user_roles", {
-    id: real("id").notNull().primaryKey(),
+    id: text("id").notNull().primaryKey(),
     user_id: text("user_id").notNull().references(() => user_profiles.id),
     role: text("role").$type<UserRole>().notNull(),
 });
@@ -169,7 +169,7 @@ export const user_roles = sqliteTable("user_roles", {
  *  12) scar_locations
  *  ────────────────────────────────────────────────────────────────────────────**/
 export const external_database_scar_locations = sqliteTable("external_database_scar_locations", {
-    id: real("id").notNull().primaryKey(),
+    id: text("id").notNull().primaryKey(),
     narrative: text("narrative").notNull(),
 });
 
@@ -190,7 +190,7 @@ export const external_database_penguin_data = sqliteTable("external_database_pen
  *  14) organization_settings
  *  ────────────────────────────────────────────────────────────────────────────**/
 export const organization_settings = sqliteTable("organization_settings", {
-    id: integer("id").notNull().primaryKey(),
+    id: text("id").notNull().primaryKey(),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -393,19 +393,10 @@ export const processed_kraken_uniq_stdout = sqliteTable("processed_kraken_uniq_s
 
 
 export const taxdb_pr2 = sqliteTable("taxdb_pr2", {
-    id: integer("id").notNull().primaryKey(),
-    parent_id: integer("sample_id").notNull(),
-    tax_name: text("user_id").notNull(),
-    rank: text("org_id").notNull().$type<TaxonomicRank>(),
-});
-
-export const powersync_servers = sqliteTable("taxdb_pr2", {
-    id: integer("id").notNull().primaryKey(),
-    server_url: text("sample_id").notNull(),
-    name: text("name").notNull(),
-    lat: real("lat").notNull(),
-    long: real("long").notNull(),
-    status: text("status").notNull().$type<ServerStatus>(),
+    id: text("id").notNull().primaryKey(),
+    parent_id: integer("parent_id", {mode: "number"}).notNull(),
+    rank: text("rank").notNull().$type<TaxonomicRank>(),
+    tax_name: text("tax_name").notNull(),
 });
 
 export const DrizzleSchema = {
@@ -431,7 +422,6 @@ export const DrizzleSchema = {
     raw_fastq_data,
     raw_data_improved,
     taxdb_pr2,
-    powersync_servers,
 }
 export default DrizzleSchema;
 

@@ -1,7 +1,5 @@
-"use client";
-
-import React from "react";
 import { Loader2 } from "lucide-react";
+import {FC} from "react";
 
 interface LoadingScreenProps {
     message?: string;
@@ -9,7 +7,7 @@ interface LoadingScreenProps {
     size?: number;
 }
 
-const LoadingScreen: React.FC<LoadingScreenProps> = ({
+const LoadingScreen: FC<LoadingScreenProps> = ({
                                                          message = "Loading application...",
                                                          showRefreshHint = true,
                                                          size = 44,

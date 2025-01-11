@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import {useState, useMemo, FC} from "react";
 import {
   ScatterChart,
   Scatter,
@@ -9,7 +9,7 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label"
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert } from "@/components/ui/alert";
 import { ProcessedCtdRbrDataValues } from "@/lib/types";
@@ -58,8 +58,10 @@ function renameKeysInData(dataArray: ProcessedCtdRbrDataValues[]): any[] {
   });
 }
 
-const DataChart: React.FC<DataChartProps> = ({ data }) => {
+const DataChart: FC<DataChartProps> = ({ data }) => {
+  // Transform the data once when the component mounts or data changes
   const transformedData = useMemo(() => renameKeysInData(data), [data]);
+
   const plottableFields = [
     "Depth",
     "Pressure",
@@ -71,8 +73,11 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
     "Specific Conductivity",
   ];
 
+  console.debug("DataChart transformedData", transformedData);
+
   const [selectedVariables, setSelectedVariables] = useState<string[]>([]);
 
+  // Extract variable options and their units from the first row of data
   const { variableOptions, units } = useMemo(() => {
     if (transformedData.length === 0) return { variableOptions: [], units: {} };
     const firstRow = transformedData[0];
@@ -93,6 +98,7 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
     };
   }, [transformedData]);
 
+  // Toggle selection of variables
   const handleToggle = (variableName: string) => {
     setSelectedVariables((prev) =>
         prev.includes(variableName)
@@ -101,30 +107,22 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
     );
   };
 
-  const chartData = selectedVariables.flatMap((variableName) =>
-      transformedData
-          .filter((item) => item[variableName] != null && item["Depth"] != null)
-          .map((item) => ({
-            variable: variableName,
-            value: item[variableName],
-            depth: item["Depth"],
-          }))
-  );
-
   return (
-      <Card className="bg-black text-white">
-        <CardContent>
+      <Card>
+        <CardContent className={"m-1"}>
+          {/* Check if there's no data */}
           {transformedData.length === 0 ? (
-              <Alert>No data available to display.</Alert>
+                <p>No data available to display, it's likely that no data was recorded with a depth {">"} 0.</p>
           ) : (
               <>
-                <div className="flex flex-wrap mb-4">
+                {/* Variable Selection Section */}
+                <div className="flex flex-wrap m-4">
                   {variableOptions.map((variableName) => (
-                      <div key={variableName} className="mr-4">
+                      <div key={variableName} className="mr-4 mb-2">
                         <Label>
                           <Checkbox
                               checked={selectedVariables.includes(variableName)}
-                              onChange={() => handleToggle(variableName)}
+                              onCheckedChange={() => handleToggle(variableName)}
                           />
                           {`${variableName} (${units[variableName] || "N/A"})`}
                         </Label>
@@ -132,18 +130,25 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
                   ))}
                 </div>
 
+                {/* Alert when no variables are selected */}
                 {selectedVariables.length === 0 ? (
-                    <Alert>Please select at least one variable to display the chart.</Alert>
+                    <Alert className="mb-4">
+                      Please select at least one variable to display the chart.
+                    </Alert>
                 ) : (
+                    /* Scatter Chart Rendering */
                     <ScatterChart
-                        width={800}
-                        height={500}
-                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                        width={600}
+                        height={400}
+                        margin={{ top: 40, right: 40, bottom: 40, left: 40 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
+
                       <XAxis
+                          type="number"
                           dataKey="value"
                           name="Variable Value"
+                          domain={["dataMin", "dataMax"]}
                           label={{
                             value:
                                 selectedVariables.length === 1
@@ -153,28 +158,51 @@ const DataChart: React.FC<DataChartProps> = ({ data }) => {
                             offset: -10,
                           }}
                       />
+
                       <YAxis
+                          type="number"
                           dataKey="depth"
                           name="Depth"
+                          domain={["dataMin", "dataMax"]}
+                          reversed
                           label={{
                             value: `Depth (${units["Depth"] || "m"})`,
                             angle: -90,
                             position: "insideLeft",
                           }}
-                          reversed
                       />
+
                       <Tooltip />
-                      <Legend />
-                      {selectedVariables.map((variableName, index) => (
-                          <Scatter
-                              key={variableName}
-                              name={`${variableName} (${units[variableName] || "N/A"})`}
-                              data={chartData.filter(
-                                  (item) => item.variable === variableName
-                              )}
-                              fill={colorArray[index % colorArray.length]}
-                          />
-                      ))}
+                      <Legend className="p-4" />
+
+                      {selectedVariables.map((variableName, index) => {
+                        const scatterData = transformedData
+                            .filter(
+                                (item) =>
+                                    item[variableName] != null && item["Depth"] != null
+                            )
+                            .map((item) => ({
+                              variable: variableName,
+                              value: item[variableName],
+                              depth: item["Depth"],
+                            }))
+                            // Sort primarily by x (value), then y (depth)
+                            .sort((a, b) => {
+                              if (a.value === b.value) {
+                                return a.depth - b.depth;
+                              }
+                              return a.value - b.value;
+                            });
+
+                        return (
+                            <Scatter
+                                key={variableName}
+                                name={`${variableName} (${units[variableName] || "N/A"})`}
+                                data={scatterData}
+                                fill={colorArray[index % colorArray.length]}
+                            />
+                        );
+                      })}
                     </ScatterChart>
                 )}
               </>
