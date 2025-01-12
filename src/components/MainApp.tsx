@@ -4,7 +4,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { SampleGroupMetadata } from "src/types";
 import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
 import { useAuth, useData, useUI } from "@/hooks";
 
@@ -31,7 +30,7 @@ const MainApp: React.FC = () => {
 
   // ---- Destructure values from hooks ----
   const { error: authError, setError: setAuthError } = auth;
-  const { sampleGroups, deleteNode, error: dataError } = data;
+  const { deleteNode, error: dataError } = data;
   const {
     selectedLeftItem,
     showAccountActions,
@@ -39,32 +38,13 @@ const MainApp: React.FC = () => {
     setErrorMessage,
     leftSidebarContextMenu,
     closeLeftSidebarContextMenu,
-    isLeftSidebarCollapsed,
   } = ui;
   // ---- Local state ----
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   // ---- Refs ----
   const openButtonRef = useRef<HTMLButtonElement>(null);
-
-  // ---- Derived values ----
-  const sampleGroup =
-      selectedLeftItem?.type === FileNodeType.SampleGroup
-          ? (sampleGroups[selectedLeftItem.id] as SampleGroupMetadata)
-          : null;
-
   const displayedError = authError || dataError || errorMessage;
-
-  /**
-   * Decide how much to shift everything (metadata + dropboxes)
-   * when a sample group is selected.
-   */
-  const sidebarOffset =
-      !sampleGroup && selectedLeftItem?.type !== FileNodeType.Container
-          ? ""
-          : isLeftSidebarCollapsed
-              ? "ml-16"
-              : "ml-[350px]";
 
   /**
    * Render main content depending on what is selected:
@@ -74,13 +54,15 @@ const MainApp: React.FC = () => {
    */
   const renderContent = (() => {
     if (selectedLeftItem?.type === FileNodeType.SampleGroup) {
-      return <MergedDropBoxes onError={setErrorMessage} />;
+      return(
+      <div>
+      <SampleGroupMetadataComponent />
+      <MergedDropBoxes onError={setErrorMessage} />
+      </div>);
     }
     if (selectedLeftItem?.type === FileNodeType.Container) {
       return <ContainerScreen />;
     }
-    // Otherwise, show the globe
-    return <GlobeComponent />;
   })();
 
   // ---- Callbacks ----
@@ -165,15 +147,11 @@ const MainApp: React.FC = () => {
           in a <div> that transitions margin-left with the sidebar.
         */}
           <div className="flex flex-col w-full">
-            <div className={`transition-all duration-300 ${sidebarOffset}`}>
-              {/* If there's a selected SampleGroup, show metadata */}
-              {sampleGroup && <SampleGroupMetadataComponent />}
-
-              {/* The main "body" content (dropboxes, container screen, etc.) */}
-              <div className="w-full">{renderContent}</div>
+            <div className={`transition-all duration-300`}>
+              {renderContent}
             </div>
           </div>
-
+          {!selectedLeftItem && <GlobeComponent />}
           {/* If there's an error, show it */}
           {displayedError && (
               <ErrorMessage

@@ -1,7 +1,13 @@
+import { FC } from "react";
 import { Cloud, CloudOff } from "lucide-react";
 import { useNetworkStatus } from "@/hooks";
 
-export function NetworkIndicator() {
+export interface NetworkIndicatorProps {
+    showText?: boolean;
+}
+
+// Option 1: Arrow function component
+export const NetworkIndicator: FC<NetworkIndicatorProps> = ({ showText }) => {
     const { isOnline } = useNetworkStatus();
 
     return (
@@ -12,8 +18,8 @@ export function NetworkIndicator() {
                 <CloudOff className="text-red-500 h-4 w-4" aria-label="offline" />
             )}
             <span className="text-sm">
-        {isOnline ? "Online" : "Offline"}
+        {isOnline && showText ? "Online" : "Offline"}
       </span>
         </div>
     );
-}
+};

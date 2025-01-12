@@ -418,23 +418,21 @@ export function LeftSidebar({ openFilterMenu: handleOpenFilters }: LeftSidebarPr
     );
 
     return (
-        <div className="flex flex-col max-w-[345px] overflow-y-auto bg-background-primary">
+        <div className="overflow-y-auto bg-background-primary">
             <SidebarProvider
                 open={!isLeftSidebarCollapsed}
                 onOpenChange={toggleLeftSidebar}
             >
                 <Sidebar
                     side="left"
-                    variant="sidebar"
+                    variant="floating"
                     collapsible="icon"
-                    className={`transition-all duration-300 ${
-                        isLeftSidebarCollapsed ? "w-16" : "w-[345px]"
-                    }`}
                 >
                     {/* Header with toggle button */}
-                    <SidebarHeader>
-                        <Button onClick={toggleLeftSidebar} variant="ghost" className="p-2">
-                            <Menu className="h-4 w-4" />
+                    <SidebarHeader className={"place-content-start"}>
+                        <Button onClick={toggleLeftSidebar} variant="ghost" className="p-2h-4 w-4 flex-start justify-start">
+                            <Menu className="h-4 w-4 flex-start justify-start" />
+                            {!isLeftSidebarCollapsed && <span>Poleshift</span>}
                         </Button>
                     </SidebarHeader>
 
