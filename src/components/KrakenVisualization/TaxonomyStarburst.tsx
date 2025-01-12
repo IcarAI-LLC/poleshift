@@ -6,7 +6,7 @@ import {
     useState,
     useCallback,
 } from "react";
-import Plotly from "plotly.js";
+import Plotly from "plotly.js-dist";
 
 // ShadCN UI
 import { Button } from "@/components/ui/button"; // Adjust path as needed

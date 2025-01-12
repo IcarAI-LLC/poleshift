@@ -8,16 +8,15 @@ mod process_sidebar_stats;
 use chat::create_chatbot_session;
 use handle_ctd_data::handle_ctd_data;
 use krakenuniq::handle_sequence_data::handle_sequence_data;
+use tauri::Manager;
 use process_sidebar_stats::process_sidebar_stats;
-use portpicker;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let port = portpicker::pick_unused_port().expect("No ports free");
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_upload::init())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![

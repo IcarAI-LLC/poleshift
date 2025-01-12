@@ -48,6 +48,7 @@ import CreateFolderModal from "./CreateFolderModal";
 import CreateContainerModal from "./CreateContainerModal";
 import {SettingsModal} from "@/components/TopControls/SettingsModal.tsx";
 import {SyncProgressIndicator} from "@/components/LeftSidebar/SyncIndicator.tsx";
+import {ResourceDownloadIndicator} from "@/components/LeftSidebar/ResourceDownloadIndicator.tsx";
 
 function SettingsAndSyncActions({
                                     onOpenFilters,
@@ -512,6 +513,7 @@ export function LeftSidebar({openFilterMenu: handleOpenFilters}: LeftSidebarProp
                             </SidebarGroup>
                         </Collapsible>
                     </SidebarContent>
+                    <ResourceDownloadIndicator />
 
                     <SidebarRail />
                 </Sidebar>

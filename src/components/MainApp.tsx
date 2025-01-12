@@ -1,7 +1,6 @@
 import React, {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -18,10 +17,12 @@ import ContextMenu from "./ContextMenu";
 import AccountActions from "./Account/AccountActions";
 import SampleGroupMetadataComponent from "./DropBoxView/SampleGroupMetadataComponent/SampleGroupMetadataComponent";
 import FilterMenu from "./FilterMenu";
-import OfflineWarning from "./OfflineWarning";
 import MoveModal from "./LeftSidebar/MoveModal";
 import ContainerScreen from "@/components/Container/ContainerScreen";
 import ChatWidget from "@/components/Chatbot/ChatWidget";
+import CheckResourceFiles from "@/components/CheckResourceFiles.tsx";
+import { toast } from "@/hooks/use-toast.ts";
+import { CloudOff } from "lucide-react";
 
 const MainApp: React.FC = () => {
   // ---- Hooks ----
@@ -29,6 +30,7 @@ const MainApp: React.FC = () => {
   const data = useData();
   const ui = useUI();
   const networkStatus = useNetworkStatus();
+  CheckResourceFiles({});
 
   // ---- Destructure values from hooks ----
   const { error: authError, setError: setAuthError } = auth;
@@ -40,41 +42,33 @@ const MainApp: React.FC = () => {
     setErrorMessage,
     leftSidebarContextMenu,
     closeLeftSidebarContextMenu,
-    isLeftSidebarCollapsed, // <-- important for shifting
+    isLeftSidebarCollapsed,
   } = ui;
   const { isOnline } = networkStatus;
 
   // ---- Local state ----
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const [showOfflineWarning, setShowOfflineWarning] = useState(true);
 
   // ---- Refs ----
   const openButtonRef = useRef<HTMLButtonElement>(null);
 
-  // ---- Memoized values ----
-  const sampleGroup = useMemo<SampleGroupMetadata | null>(() => {
-    if (!selectedLeftItem || selectedLeftItem.type !== FileNodeType.SampleGroup) {
-      return null;
-    }
-    return sampleGroups[selectedLeftItem.id] as SampleGroupMetadata;
-  }, [selectedLeftItem, sampleGroups]);
+  // ---- Derived values ----
+  const sampleGroup = selectedLeftItem?.type === FileNodeType.SampleGroup
+      ? (sampleGroups[selectedLeftItem.id] as SampleGroupMetadata)
+      : null;
 
-  const displayedError = useMemo(
-      () => authError || dataError || errorMessage,
-      [authError, dataError, errorMessage]
-  );
+  const displayedError = authError || dataError || errorMessage;
 
   /**
    * Decide how much to shift everything (metadata + dropboxes)
-   * when a sample group is selected:
+   * when a sample group is selected.
    */
-  const sidebarOffset = useMemo(() => {
-    // If the sidebar is collapsed => margin-left: 4rem (16px icon bar)
-    // If expanded => margin-left: 350px
-    // If no sample group selected => no offset
-    if (!sampleGroup) return "";
-    return isLeftSidebarCollapsed ? "ml-16" : "ml-[350px]";
-  }, [isLeftSidebarCollapsed, sampleGroup]);
+  const sidebarOffset =
+      !sampleGroup && selectedLeftItem?.type !== FileNodeType.Container
+          ? ""
+          : isLeftSidebarCollapsed
+              ? "ml-16"
+              : "ml-[350px]";
 
   /**
    * Render main content depending on what is selected:
@@ -82,7 +76,7 @@ const MainApp: React.FC = () => {
    * - Container => show container screen
    * - Default => globe
    */
-  const renderContent = useMemo(() => {
+  const renderContent = (() => {
     if (selectedLeftItem?.type === FileNodeType.SampleGroup) {
       return <MergedDropBoxes onError={setErrorMessage} />;
     }
@@ -91,7 +85,7 @@ const MainApp: React.FC = () => {
     }
     // Otherwise, show the globe
     return <GlobeComponent />;
-  }, [selectedLeftItem?.type, setErrorMessage]);
+  })();
 
   // ---- Callbacks ----
   const handleDeleteSample = useCallback(async () => {
@@ -146,16 +140,33 @@ const MainApp: React.FC = () => {
   }, [displayedError, setErrorMessage, setAuthError]);
 
   useEffect(() => {
-    setShowOfflineWarning(!isOnline);
-  }, [isOnline]);
-
-  useEffect(() => {
     // Prevent scrolling behind filter menu
     document.body.style.overflow = isFilterMenuOpen ? "hidden" : "auto";
     return () => {
       document.body.style.overflow = "auto";
     };
   }, [isFilterMenuOpen]);
+
+  if (!isOnline) {
+    toast({
+      title: "You’re offline",
+      description:
+          "We could not connect to a Poleshift server; until we connect, your changes will not be replicated globally.",
+      variant: "default",
+      className:
+          "bg-yellow-200 bg-opacity-30 p-4 border border-yellow-400 " +
+          "rounded-lg shadow-lg fixed top-4 right-4 z-50 flex items-center " +
+          "min-w-[300px] max-w-[400px] animate-fadeIn",
+      action: (
+          <div className="flex items-center">
+            <CloudOff
+                aria-label="offline"
+                className="text-amber-700 mr-2 w-6 h-6"
+            />
+          </div>
+      ),
+    });
+  }
 
   // ---- Render ----
   return (
@@ -172,13 +183,6 @@ const MainApp: React.FC = () => {
         {/* Main content area: left sidebar + center content + right sidebar */}
         <div className="flex flex-1">
           <LeftSidebar openFilterMenu={openFilterMenu} />
-
-          {/* Offline warning on top if needed */}
-          <OfflineWarning
-              isVisible={!isOnline && showOfflineWarning}
-              message="You are offline"
-              onClose={() => setShowOfflineWarning(false)}
-          />
 
           {/*
           Wrap BOTH the SampleGroupMetadata and main body content

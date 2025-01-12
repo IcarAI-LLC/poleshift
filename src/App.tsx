@@ -1,5 +1,5 @@
 // src/App.tsx
-import {StrictMode, useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import { PowerSyncContext } from '@powersync/react';
 
 import PreAuth from './components/PreAuth/PreAuth.tsx';
@@ -11,17 +11,16 @@ import { checkForAppUpdates } from './updater';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {ToastProvider} from "@/components/ui/toast.tsx";
 import {Toaster} from "@/components/ui/toaster.tsx";
+import {ResourceDownloadProvider} from "@/lib/stores/ResourceDownloadContext.tsx";
 
 // Track initialization status outside the component scope
 let isPowerSyncInitialized = false;
-
 function App() {
     const [initialized, setInitialized] = useState(false);
 
     useEffect(() => {
         // Check for app updates
         checkForAppUpdates();
-
         // Initialize PowerSync only if it hasn't been initialized
         if (!isPowerSyncInitialized) {
             isPowerSyncInitialized = true;
@@ -39,16 +38,16 @@ function App() {
     }
 
     return (
-        <StrictMode>
         <PowerSyncContext.Provider value={db}>
+            <ResourceDownloadProvider>
             <ToastProvider>
                     <TooltipProvider>
                         <PreAuth/>
                         <Toaster></Toaster>
                     </TooltipProvider>
             </ToastProvider>
+            </ResourceDownloadProvider>
         </PowerSyncContext.Provider>
-        </StrictMode>
     );
 }
 

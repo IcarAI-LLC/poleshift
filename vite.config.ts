@@ -4,23 +4,18 @@ import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import * as path from "node:path";
 import eslint from "vite-plugin-eslint";
-import {nodePolyfills} from "vite-plugin-node-polyfills";
 //because __dirname was showing undefined
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+import { visualizer } from "rollup-plugin-visualizer";
+import {imagetools} from "vite-imagetools";
 
 const host = process.env.TAURI_DEV_HOST;
 
-
 // Use top-level await if necessary to resolve any async configuration steps before defining the config
-export default function main() {
+const main = async (ReactCompilerConfig: string | boolean | object) => {
     // If you have asynchronous steps, resolve them here
-    const ReactCompilerConfig = {
-        sources: (filename: string | string[]) => {
-            return filename.indexOf('./src') !== -1;
-        },
-    };
 
     return defineConfig({
         plugins: [
@@ -31,7 +26,7 @@ export default function main() {
                         ReactCompilerConfig],
                     ],
             }
-            }), eslint(), nodePolyfills()],
+            }), eslint(), visualizer(), imagetools()],
         // PowerSync
         optimizeDeps: {
             // Don't optimize these packages as they contain web workers and WASM files.
@@ -77,3 +72,12 @@ export default function main() {
         },
     });
 };
+
+const ReactCompilerConfig = {
+    sources: (filename: string | string[]) => {
+        return filename.indexOf('./src') !== -1;
+    },
+};
+
+
+export default main(ReactCompilerConfig);

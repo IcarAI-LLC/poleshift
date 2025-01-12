@@ -1,9 +1,9 @@
 //src/components/GlobeComponent.tsx
-
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
-import globeImage from '../assets/combined.jpg';
+//@ts-ignore
+import Image from '../assets/combined.png?format=png&effort=max&quality=100';
 import { useData } from '../lib/hooks/useData';
 import { useUI } from '../lib/hooks/useUI';
 import { useQuery } from '@powersync/react';
@@ -28,7 +28,6 @@ const GLOBE_CONFIG = {
 export const GlobeComponent: React.FC = () => {
     const { userSettings } = useSettings();
     const firstUserSetting = userSettings || null;
-
     const userGlobeColor = firstUserSetting?.globe_datapoint_color ?? GLOBE_CONFIG.pointColor;
     const userGlobeDiameter = parseFloat(firstUserSetting?.globe_datapoint_diameter ?? String(GLOBE_CONFIG.pointRadius));
     const userGlobeAltitude = firstUserSetting
@@ -172,26 +171,26 @@ export const GlobeComponent: React.FC = () => {
     }
 
     return (
-        <div
-            className="fixed"
-            style={{ overflow: 'hidden' }}
-        >
-            <Globe
-                ref={globeRef}
-                globeImageUrl={globeImage}
-                pointsData={pointsData}
-                onPointClick={handlePointClick}
-                pointAltitude={finalGlobeConfig.pointAltitude}
-                pointRadius={finalGlobeConfig.pointRadius}
-                pointColor={finalGlobeConfig.pointColor}
-                pointLabel="name"
-                backgroundColor={finalGlobeConfig.backgroundColor}
-                enablePointerInteraction={true}
-                width={dimensions.width}
-                height={dimensions.height}
-                waitForGlobeReady={true}
-            />
-        </div>
+            <div
+                className="fixed"
+                style={{overflow: 'hidden'}}
+            >
+                <Globe
+                    ref={globeRef}
+                    globeImageUrl={Image}
+                    pointsData={pointsData}
+                    onPointClick={handlePointClick}
+                    pointAltitude={finalGlobeConfig.pointAltitude}
+                    pointRadius={finalGlobeConfig.pointRadius}
+                    pointColor={finalGlobeConfig.pointColor}
+                    pointLabel="name"
+                    backgroundColor={finalGlobeConfig.backgroundColor}
+                    enablePointerInteraction={true}
+                    width={dimensions.width}
+                    height={dimensions.height}
+                    waitForGlobeReady={true}
+                />
+            </div>
     );
 };
 

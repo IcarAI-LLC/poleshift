@@ -11,6 +11,7 @@
   "permissions": [
     "updater:default",
     "cli:default",
-    "positioner:default"
+    "positioner:default",
+    "upload:allow-download"
   ]
 }

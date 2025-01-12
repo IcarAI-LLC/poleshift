@@ -8,7 +8,7 @@ const ContainerScreen = () => {
     const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
 
     return (
-        <div className="p-4">
+        <div className="m-2 flex flex-col overflow-hidden">
             <div className="mb-6 flex items-center justify-between">
                 <h2 className="text-2xl font-bold">Container Analysis</h2>
                 <Button onClick={() => setIsVisualizationOpen(true)}>

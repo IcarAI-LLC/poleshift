@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, LogicalSize, Manager, PhysicalSize, Size, WebviewUrl, WebviewWindowBuilder, Window};
+use tauri::{
+    AppHandle, LogicalSize, Manager, PhysicalSize, Size, WebviewUrl, WebviewWindowBuilder, Window,
+};
 use tauri_plugin_http::reqwest::Client;
-use tauri_plugin_positioner::{WindowExt, Position};
+use tauri_plugin_positioner::{Position, WindowExt};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CreateSessionResponse {
@@ -54,7 +56,7 @@ pub async fn create_chatbot_session(
         Err(e) => {
             eprintln!("Error: {}", e);
             std::process::exit(1); // Exit the program with code 1
-        },
+        }
     };
 
     // Now `name` is in scope here.
@@ -101,11 +103,11 @@ pub async fn create_chatbot_session(
         window_label,
         WebviewUrl::External(fetched_url.parse().unwrap()),
     )
-        .title("Poleshift Chat")
-        .inner_size(800.0, 800.0)
-        .focused(true)
-        .build()
-        .map_err(|e| format!("Failed to create window: {}", e))?;
+    .title("Poleshift Chat")
+    .inner_size(800.0, 800.0)
+    .focused(true)
+    .build()
+    .map_err(|e| format!("Failed to create window: {}", e))?;
 
     // Move the newly created window to the bottom-right.
     window
