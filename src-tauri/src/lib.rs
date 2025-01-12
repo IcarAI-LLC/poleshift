@@ -8,8 +8,8 @@ mod process_sidebar_stats;
 use chat::create_chatbot_session;
 use handle_ctd_data::handle_ctd_data;
 use krakenuniq::handle_sequence_data::handle_sequence_data;
-use tauri::Manager;
 use process_sidebar_stats::process_sidebar_stats;
+use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

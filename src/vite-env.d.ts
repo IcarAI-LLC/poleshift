@@ -11,8 +11,3 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv;
 }
-
-declare module 'plotly.js-dist' {
-    import * as Plotly from 'plotly.js';
-    export default Plotly;
-}

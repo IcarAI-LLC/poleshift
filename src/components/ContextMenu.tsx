@@ -1,7 +1,7 @@
 import {FC, memo, useCallback, useEffect} from "react"
-import { useUI } from "../hooks"
+import { useUI } from "@/hooks"
 import { useAuthStore } from "@/stores/authStore"
-import { PoleshiftPermissions } from "src/types"
+import { PoleshiftPermissions } from "@/types"
 
 // shadcn/ui
 import { Button } from "@/components/ui/button"

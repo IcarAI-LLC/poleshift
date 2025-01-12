@@ -1,7 +1,7 @@
 import { Cloud, CloudOff } from "lucide-react";
 import { useNetworkStatus } from "@/hooks";
 
-function NetworkIndicator() {
+export function NetworkIndicator() {
     const { isOnline } = useNetworkStatus();
 
     return (
@@ -17,5 +17,3 @@ function NetworkIndicator() {
         </div>
     );
 }
-
-export default NetworkIndicator;

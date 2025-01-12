@@ -17,7 +17,7 @@ import {
     HandleCtdDataResult,
     HandleSequenceDataResult,
     ProgressPayload
-} from 'src/types';
+} from '@/types';
 
 import {
     DataType,

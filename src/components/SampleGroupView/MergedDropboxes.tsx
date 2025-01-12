@@ -4,8 +4,8 @@ import SingleDropBox from "./SingleDropBox.tsx";
 
 import { useAuth, useData, useUI } from "@/hooks";
 import { useAuthStore } from "@/stores/authStore.ts";
-import { PoleshiftPermissions, SampleGroupMetadata } from "src/types";
-import dropboxConfig from "../../config/dropboxConfig.ts";
+import { PoleshiftPermissions, SampleGroupMetadata } from "@/types";
+import dropboxConfig from "@/config/dropboxConfig.ts";
 import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
 
 interface DropboxesProps {

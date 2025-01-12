@@ -2,12 +2,11 @@
 import { useState, useEffect, useCallback } from "react"
 import { Clock } from "lucide-react"
 
-import { useData, useUI } from "../../hooks"
+import { useData, useUI } from "@/hooks"
 import { useAuthStore } from "@/stores/authStore.ts"
-import type { SampleGroupMetadata as TSampleGroupMetadata } from "../../types"
-import { PoleshiftPermissions } from "src/types"
+import { SampleGroupMetadata, PoleshiftPermissions } from "@/types"
 import { ProximityCategory } from "@/lib/powersync/DrizzleSchema.ts"
-import PenguinIcon from "../../assets/icons/penguin.svg"
+import PenguinIcon from "@/assets/icons/penguin.svg"
 
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import {
@@ -332,7 +331,7 @@ export default function SampleGroupMetadataComponent() {
 
                 {/* Location Fields (sub-component) */}
                 <LocationFields
-                    sampleGroup={sampleGroup as TSampleGroupMetadata}
+                    sampleGroup={sampleGroup as SampleGroupMetadata}
                     metadataItemStyles="py-1"
                     labelStyles="w-36 text-gray-500 text-sm"
                     disabled={!hasModifyPermission}

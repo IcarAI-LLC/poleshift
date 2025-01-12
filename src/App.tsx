@@ -3,7 +3,7 @@ import {useEffect, useState} from 'react';
 import { PowerSyncContext } from '@powersync/react';
 
 import PreAuth from './components/PreAuth/PreAuth.tsx';
-import './App-new.css';
+import './App.css';
 import { db, setupPowerSync } from './lib/powersync/db';
 import { checkForAppUpdates } from './updater';
 

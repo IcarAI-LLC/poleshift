@@ -17,7 +17,7 @@ import ContextMenu from "./ContextMenu";
 import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
 import SampleGroupMetadataComponent from "@/components/SampleGroupView/SampleGroupMetadataComponent.tsx";
 import FilterMenu from "./FilterMenu";
-import MoveModal from "./LeftSidebar/MoveModal";
+import MoveModal from "./LeftSidebar/Modals/MoveModal";
 import ContainerScreen from "@/components/Container/ContainerScreen";
 import ChatWidget from "@/components/Chatbot/ChatWidget";
 import CheckResourceFiles from "@/components/CheckResourceFiles.tsx";

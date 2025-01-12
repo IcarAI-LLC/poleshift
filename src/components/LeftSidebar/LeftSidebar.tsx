@@ -36,7 +36,7 @@ import PenguinIcon from "../../assets/icons/penguin.svg";
 
 import { useUI, useData, useAuth } from "@/hooks";
 import { useAuthStore } from "@/stores/authStore";
-import { PoleshiftPermissions } from "src/types";
+import { PoleshiftPermissions } from "@/types";
 import { FileNodeWithChildren } from "@/hooks/useData.ts";
 import { FileNodeType, ProximityCategory } from "@/lib/powersync/DrizzleSchema";
 
@@ -46,7 +46,7 @@ import CreateContainerModal from "./Modals/CreateContainerModal.tsx";
 import { SettingsModal } from "./Modals/SettingsModal.tsx";
 import { SyncProgressIndicator } from "./Indicators/SyncIndicator.tsx";
 import { ResourceDownloadIndicator } from "./Indicators/ResourceDownloadIndicator.tsx";
-import NetworkIndicator from "./Indicators/NetworkIndicator.tsx";
+import { NetworkIndicator } from "./Indicators/NetworkIndicator.tsx";
 
 /* -------------------------------------------------------------------------
    1. Settings & Sync

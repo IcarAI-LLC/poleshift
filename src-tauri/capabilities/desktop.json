@@ -12,6 +12,8 @@
     "updater:default",
     "cli:default",
     "positioner:default",
-    "upload:allow-download"
+    "upload:allow-download",
+    "cli:default",
+    "cli:default"
   ]
 }
