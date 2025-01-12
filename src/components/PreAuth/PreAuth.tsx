@@ -1,6 +1,6 @@
 import {FC, useState} from 'react';
-import { useAuth } from '@/lib/hooks';
-import type { PreAuthView } from '@/lib/types';
+import { useAuth } from '@/hooks';
+import type { PreAuthView } from 'src/types';
 import LoadingScreen from './LoadingScreen.tsx';
 import Login from './Login.tsx';
 import SignUp from './SignUp.tsx';
@@ -8,7 +8,7 @@ import ResetPassword from './ResetPassword.tsx';
 import MainApp from '../MainApp.tsx';
 import ActivateLicense from './ActivateLicense.tsx';
 import ResetComponent from "../ResetComponent.tsx";
-import {useAuthStore} from "@/lib/stores/authStore.ts";
+import {useAuthStore} from "@/stores/authStore.ts";
 import {Toast} from "@radix-ui/react-toast";
 import {Toaster} from "@/components/ui/toaster.tsx";
 const PreAuth: FC = () => {

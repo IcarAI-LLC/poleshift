@@ -5,7 +5,7 @@ import {
     TooltipContent,
     TooltipProvider,
 } from "@/components/ui/tooltip";
-import { useResourceDownloadContext } from "@/lib/stores/ResourceDownloadContext";
+import { useResourceDownloadContext } from "@/stores/ResourceDownloadContext";
 import { Download } from "lucide-react";
 
 export function ResourceDownloadIndicator() {

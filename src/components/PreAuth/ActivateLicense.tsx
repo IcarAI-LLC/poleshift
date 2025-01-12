@@ -1,5 +1,5 @@
 import {FC, useState} from "react";
-import { useAuth } from "@/lib/hooks";
+import { useAuth } from "@/hooks";
 
 // shadcn/ui components
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";

@@ -11,7 +11,7 @@ import { X } from "lucide-react";
 
 // --- Your custom hooks and data methods ---
 import { usePowerSync, useQuery } from "@powersync/react";
-import { useUI, useData } from "../lib/hooks";
+import { useUI, useData } from "../hooks";
 import {
   DrizzleSchema,
   processed_data_improved,

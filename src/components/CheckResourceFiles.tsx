@@ -3,7 +3,7 @@ import React, { useEffect } from "react";
 import { exists } from "@tauri-apps/plugin-fs";
 import { resourceDir, resolve } from "@tauri-apps/api/path";
 import { download } from "@tauri-apps/plugin-upload";
-import {useResourceDownloadContext} from "@/lib/stores/ResourceDownloadContext.tsx";
+import {useResourceDownloadContext} from "@/stores/ResourceDownloadContext.tsx";
 
 
 /**

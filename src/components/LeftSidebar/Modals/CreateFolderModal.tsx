@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
-import type { Organizations } from "@/lib/types";
+import type { Organizations } from "src/types";
 
 // ShadCN/UI components
 import {
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface CreateContainerModalProps {
+interface CreateFolderModalProps {
     open: boolean;
     onClose: () => void;
     organization: Organizations | null;
@@ -23,20 +23,20 @@ interface CreateContainerModalProps {
     setErrorMessage: (msg: string) => void;
 }
 
-const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
-                                                                       open,
-                                                                       onClose,
-                                                                       organization,
-                                                                       addFileNode,
-                                                                       setErrorMessage,
-                                                                   }) => {
-    const [containerName, setContainerName] = useState("");
+const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
+                                                                 open,
+                                                                 onClose,
+                                                                 organization,
+                                                                 addFileNode,
+                                                                 setErrorMessage,
+                                                             }) => {
+    const [folderName, setFolderName] = useState("");
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Reset fields whenever the dialog closes
     useEffect(() => {
         if (!open) {
-            setContainerName("");
+            setFolderName("");
             setIsProcessing(false);
         }
     }, [open]);
@@ -44,8 +44,8 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!containerName.trim()) {
-            setErrorMessage("Container name is required.");
+        if (!folderName.trim()) {
+            setErrorMessage("Folder name is required.");
             return;
         }
 
@@ -57,24 +57,24 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
         try {
             setIsProcessing(true);
 
-            const newContainer = {
+            const newFolder = {
                 id: uuidv4(),
                 org_id: organization.id,
-                name: containerName.trim(),
-                type: "container" as const,
+                name: folderName.trim(),
+                type: "folder" as const,
                 parent_id: null,
-                droppable: 0,
+                droppable: 1,
                 children: [],
                 version: 1,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             };
 
-            await addFileNode(newContainer);
+            await addFileNode(newFolder);
             setErrorMessage("");
             onClose();
         } catch (error: any) {
-            console.error("Error creating container:", error);
+            console.error("Error creating folder:", error);
             setErrorMessage(error.message || "An unexpected error occurred.");
         } finally {
             setIsProcessing(false);
@@ -86,15 +86,15 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
             <form onSubmit={handleSubmit}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Create New Query Container</DialogTitle>
+                        <DialogTitle>Create New Folder</DialogTitle>
                     </DialogHeader>
 
                     <div className="space-y-2 py-2">
-                        <Label htmlFor="container-name">Container Name</Label>
+                        <Label htmlFor="folder-name">Folder Name</Label>
                         <Input
-                            id="container-name"
-                            value={containerName}
-                            onChange={(e) => setContainerName(e.target.value)}
+                            id="folder-name"
+                            value={folderName}
+                            onChange={(e) => setFolderName(e.target.value)}
                             required
                         />
                     </div>
@@ -112,4 +112,4 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
     );
 };
 
-export default CreateContainerModal;
+export default CreateFolderModal;

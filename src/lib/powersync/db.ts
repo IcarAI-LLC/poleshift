@@ -27,7 +27,7 @@ export class PowerSyncDB {
                     useWebWorker: false
                 }
             });
-            this.instance.execute("PRAGMA cache_size=500000");
+            this.instance.execute("PRAGMA cache_size=2000000");
         }
         return this.instance;
     }

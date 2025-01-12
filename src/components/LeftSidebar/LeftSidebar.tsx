@@ -25,31 +25,32 @@ import {
     FlaskConical,
     Ban,
     Menu,
-    ChevronDown,
-    // 1) Import both folder-open and folder-closed icons:
     Folder as FolderClosedIcon,
     FolderOpen as FolderOpenIcon,
-    FilterIcon, UserIcon, Settings,
+    FilterIcon,
+    UserIcon,
+    Settings,
 } from "lucide-react";
 
-import PenguinIcon from "@/assets/icons/penguin.svg";
+import PenguinIcon from "../../assets/icons/penguin.svg";
 
-// Optional: for collapsible groups
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@radix-ui/react-collapsible";
-
-import {useUI, useData, useAuth, useNetworkStatus} from "@/lib/hooks";
-import { useAuthStore } from "@/lib/stores/authStore";
-import { PoleshiftPermissions } from "@/lib/types";
-import { FileNodeWithChildren } from "@/lib/hooks/useData";
+import { useUI, useData, useAuth } from "@/hooks";
+import { useAuthStore } from "@/stores/authStore";
+import { PoleshiftPermissions } from "src/types";
+import { FileNodeWithChildren } from "@/hooks/useData.ts";
 import { FileNodeType, ProximityCategory } from "@/lib/powersync/DrizzleSchema";
 
-import CreateSampleGroupModal from "./CreateSampleGroupModal";
-import CreateFolderModal from "./CreateFolderModal";
-import CreateContainerModal from "./CreateContainerModal";
-import {SettingsModal} from "@/components/TopControls/SettingsModal.tsx";
-import {SyncProgressIndicator} from "@/components/LeftSidebar/SyncIndicator.tsx";
-import {ResourceDownloadIndicator} from "@/components/LeftSidebar/ResourceDownloadIndicator.tsx";
+import CreateSampleGroupModal from "./Modals/CreateSampleGroupModal";
+import CreateFolderModal from "./Modals/CreateFolderModal.tsx";
+import CreateContainerModal from "./Modals/CreateContainerModal.tsx";
+import { SettingsModal } from "./Modals/SettingsModal.tsx";
+import { SyncProgressIndicator } from "./Indicators/SyncIndicator.tsx";
+import { ResourceDownloadIndicator } from "./Indicators/ResourceDownloadIndicator.tsx";
+import NetworkIndicator from "./Indicators/NetworkIndicator.tsx";
 
+/* -------------------------------------------------------------------------
+   1. Settings & Sync
+------------------------------------------------------------------------- */
 function SettingsAndSyncActions({
                                     onOpenFilters,
                                     onShowAccountActions,
@@ -62,11 +63,9 @@ function SettingsAndSyncActions({
     onOpenSettings: () => void;
     onCloseSettings: () => void;
     isSettingsOpen: boolean;
-    isSyncing: boolean;
 }) {
     return (
         <>
-            {/* Wrap them in a SidebarMenu just like "CreateSample" actions */}
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton asChild>
@@ -76,8 +75,6 @@ function SettingsAndSyncActions({
                         >
                             <FilterIcon className="h-4 w-4" />
                             <span>Filters</span>
-
-                            {/* Or use your existing FilterButton, which might contain its own icon */}
                         </button>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -107,22 +104,22 @@ function SettingsAndSyncActions({
                 </SidebarMenuItem>
             </SidebarMenu>
 
-            {/* Keep the modal outside the menu */}
-            <SettingsModal
-                isOpen={isSettingsOpen}
-                onClose={onCloseSettings}
-            />
+            {/* Modal kept outside the menu */}
+            <SettingsModal isOpen={isSettingsOpen} onClose={onCloseSettings} />
         </>
     );
 }
 
-/* --------------------------------------------------------------------------------
-   1. Helpers for icons & labels
-----------------------------------------------------------------------------------*/
+/* -------------------------------------------------------------------------
+   2. Helpers for icons & labels
+------------------------------------------------------------------------- */
 function getNodeIcon(node: FileNodeWithChildren, expanded: boolean) {
     if (node.type === FileNodeType.Folder) {
-        // Show FolderOpen if expanded, FolderClosed otherwise:
-        return expanded ? <FolderOpenIcon className="h-4 w-4" /> : <FolderClosedIcon className="h-4 w-4" />;
+        return expanded ? (
+            <FolderOpenIcon className="h-4 w-4" />
+        ) : (
+            <FolderClosedIcon className="h-4 w-4" />
+        );
     }
     if (node.type === FileNodeType.Container) {
         return <DatabaseIcon className="h-4 w-4" />;
@@ -152,9 +149,9 @@ function getProximityLabel(cat?: ProximityCategory | null) {
     }
 }
 
-/* --------------------------------------------------------------------------------
-   2. Recursively render the file tree
-----------------------------------------------------------------------------------*/
+/* -------------------------------------------------------------------------
+   3. Recursively render the file tree
+------------------------------------------------------------------------- */
 function renderTree(
     nodes: FileNodeWithChildren[],
     expandedIds: string[],
@@ -171,59 +168,59 @@ function renderTree(
         if (hasChildren) {
             return (
                 <SidebarMenuItem key={node.id}>
-                    {/*
-                      On click, we both toggle expand and select the node.
-                      If you'd prefer separate “arrow vs label” clicks,
-                      split them into two clickable elements.
-                    */}
-                    <SidebarMenuButton asChild isActive={isActive}>
-                        <button
-                            className="flex w-full items-center gap-2 px-2 py-1"
-                            onClick={() => {
-                                onSelect(node);
-                                onToggleExpand(node.id);
-                            }}
-                        >
+                    <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        onClick={() => {
+                            onSelect(node);
+                            onToggleExpand(node.id);
+                        }}
+                    >
+                        <button className="flex w-full items-center gap-2 px-2 py-1">
                             {getNodeIcon(node, isExpanded)}
                             <span className="truncate">{node.name}</span>
                             {proximityLabel && (
-                                <span className="ml-2 text-xs text-muted-foreground">{proximityLabel}</span>
+                                <span className="ml-2 text-xs text-muted-foreground">
+                  {proximityLabel}
+                </span>
                             )}
                         </button>
                     </SidebarMenuButton>
 
-                    {/* Conditionally render the child subtree if expanded */}
+                    {/* Conditionally render child subtree if expanded */}
                     {isExpanded && (
                         <SidebarMenuSub>
                             {node.children.map((child) => {
                                 const childActive = child.id === selectedId;
-                                const childProximity = getProximityLabel(child.proximity_category);
                                 const childHasKids = child.children && child.children.length > 0;
                                 const childIsExpanded = expandedIds.includes(child.id);
+                                const childProximity = getProximityLabel(
+                                    child.proximity_category
+                                );
 
                                 if (childHasKids) {
                                     return (
                                         <SidebarMenuSubItem key={child.id}>
-                                            <SidebarMenuSubButton asChild isActive={childActive}>
-                                                <button
-                                                    className="flex w-full items-center gap-2 px-2 py-1"
-                                                    onClick={() => {
-                                                        onSelect(child);
-                                                        onToggleExpand(child.id);
-                                                    }}
-                                                >
+                                            <SidebarMenuSubButton
+                                                asChild
+                                                isActive={childActive}
+                                                onClick={() => {
+                                                    onSelect(child);
+                                                    onToggleExpand(child.id);
+                                                }}
+                                            >
+                                                <button className="flex w-full items-center gap-2 px-2 py-1">
                                                     {getNodeIcon(child, childIsExpanded)}
                                                     <span className="truncate">{child.name}</span>
                                                     {childProximity && (
                                                         <span className="ml-2 text-xs text-muted-foreground">
-                                                            {childProximity}
-                                                        </span>
+                              {childProximity}
+                            </span>
                                                     )}
                                                 </button>
                                             </SidebarMenuSubButton>
                                             {childIsExpanded && (
                                                 <SidebarMenuSub>
-                                                    {/* Recursively render grandchildren, etc. */}
                                                     {renderTree(
                                                         child.children,
                                                         expandedIds,
@@ -250,8 +247,8 @@ function renderTree(
                                                 <span className="truncate">{child.name}</span>
                                                 {childProximity && (
                                                     <span className="ml-2 text-xs text-muted-foreground">
-                                                        {childProximity}
-                                                    </span>
+                            {childProximity}
+                          </span>
                                                 )}
                                             </button>
                                         </SidebarMenuSubButton>
@@ -267,12 +264,18 @@ function renderTree(
         // Leaf node
         return (
             <SidebarMenuItem key={node.id}>
-                <SidebarMenuButton asChild isActive={isActive} onClick={() => onSelect(node)}>
+                <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    onClick={() => onSelect(node)}
+                >
                     <button className="flex w-full items-center gap-2 px-2 py-1">
                         {getNodeIcon(node, false)}
                         <span className="truncate">{node.name}</span>
                         {proximityLabel && (
-                            <span className="ml-2 text-xs text-muted-foreground">{proximityLabel}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">
+                {proximityLabel}
+              </span>
                         )}
                     </button>
                 </SidebarMenuButton>
@@ -281,9 +284,9 @@ function renderTree(
     });
 }
 
-/* --------------------------------------------------------------------------------
-   3. A small component for your "Application" actions
-----------------------------------------------------------------------------------*/
+/* -------------------------------------------------------------------------
+   4. "Application" actions for new folders, containers, etc.
+------------------------------------------------------------------------- */
 function ApplicationActions({
                                 onNewSampleGroup,
                                 onNewFolder,
@@ -329,16 +332,18 @@ function ApplicationActions({
         </SidebarMenu>
     );
 }
+
 interface LeftSidebarProps {
     openFilterMenu: () => void;
 }
-/* --------------------------------------------------------------------------------
-   4. The main LeftSidebar
-----------------------------------------------------------------------------------*/
-export function LeftSidebar({openFilterMenu: handleOpenFilters}: LeftSidebarProps) {
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-    // Hooks
+/* -------------------------------------------------------------------------
+   5. The main LeftSidebar
+------------------------------------------------------------------------- */
+export function LeftSidebar({ openFilterMenu: handleOpenFilters }: LeftSidebarProps) {
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    // UI & data hooks
     const {
         toggleLeftSidebar,
         isLeftSidebarCollapsed,
@@ -347,24 +352,25 @@ export function LeftSidebar({openFilterMenu: handleOpenFilters}: LeftSidebarProp
         selectedLeftItem,
         setShowAccountActions,
     } = useUI();
-
-    const { isSyncing } = useNetworkStatus();
     const { organization } = useAuth();
-    const { fileTree, sampleGroups, locations, createSampleGroup, addFileNode } = useData();
+    const { fileTree, sampleGroups, locations, createSampleGroup, addFileNode } =
+        useData();
     const { userPermissions } = useAuthStore.getState();
 
     // Permission check
-    const hasCreatePermission = userPermissions?.includes(PoleshiftPermissions.CreateSampleGroup);
+    const hasCreatePermission = userPermissions?.includes(
+        PoleshiftPermissions.CreateSampleGroup
+    );
 
     // Local modals
     const [isSampleGroupModalOpen, setIsSampleGroupModalOpen] = useState(false);
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [isContainerModalOpen, setIsContainerModalOpen] = useState(false);
 
-    // Track which folders are expanded
+    // Track expanded IDs for the tree
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
-    // Toggle expand/collapse for a folder
+    // Toggle folder expand/collapse
     const handleToggleExpand = useCallback((id: string) => {
         setExpandedIds((prev) =>
             prev.includes(id) ? prev.filter((cur) => cur !== id) : [...prev, id]
@@ -399,11 +405,11 @@ export function LeftSidebar({openFilterMenu: handleOpenFilters}: LeftSidebarProp
     // Reset selection
     const handleResetSelection = useCallback(() => {
         setSelectedLeftItem(undefined);
-        // optional: clear expansions if you want everything collapsed
+        // If you want everything collapsed on reset:
         // setExpandedIds([]);
     }, [setSelectedLeftItem]);
 
-    // Handle tree node selection
+    // Tree node selection
     const handleSelectNode = useCallback(
         (node: FileNodeWithChildren) => {
             setSelectedLeftItem(node);
@@ -412,109 +418,85 @@ export function LeftSidebar({openFilterMenu: handleOpenFilters}: LeftSidebarProp
     );
 
     return (
-        <div className={ "flex flex-col max-w-1 overflow-y-auto bg-background-primary"}>
-            <SidebarProvider open={!isLeftSidebarCollapsed} onOpenChange={toggleLeftSidebar}>
+        <div className="flex flex-col max-w-[345px] overflow-y-auto bg-background-primary">
+            <SidebarProvider
+                open={!isLeftSidebarCollapsed}
+                onOpenChange={toggleLeftSidebar}
+            >
                 <Sidebar
                     side="left"
                     variant="sidebar"
-                    collapsible={"icon"}
+                    collapsible="icon"
                     className={`transition-all duration-300 ${
                         isLeftSidebarCollapsed ? "w-16" : "w-[345px]"
                     }`}
                 >
-                    <SidebarHeader className="justify-left p-2 flex-row">
+                    {/* Header with toggle button */}
+                    <SidebarHeader>
                         <Button onClick={toggleLeftSidebar} variant="ghost" className="p-2">
                             <Menu className="h-4 w-4" />
                         </Button>
                     </SidebarHeader>
 
+                    {/* Main content */}
                     <SidebarContent>
-                        {/* "App Manage */}
-                        <Collapsible defaultOpen className="group/collapsible">
-                            <SidebarGroup>
-                                <SidebarGroupLabel asChild>
-                                    <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-2 text-sm font-medium">
-                                        Settings
-                                        <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                                    </CollapsibleTrigger>
-                                </SidebarGroupLabel>
+                        {/* 1) Settings & Sync */}
+                        <SidebarGroup>
+                            <SidebarGroupLabel>Settings</SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <SyncProgressIndicator collapsed={isLeftSidebarCollapsed} />
+                                <NetworkIndicator />
+                                <SettingsAndSyncActions
+                                    onOpenFilters={handleOpenFilters}
+                                    onShowAccountActions={() => setShowAccountActions(true)}
+                                    onOpenSettings={() => setIsSettingsOpen(true)}
+                                    onCloseSettings={() => setIsSettingsOpen(false)}
+                                    isSettingsOpen={isSettingsOpen}
+                                />
+                            </SidebarGroupContent>
+                        </SidebarGroup>
 
-                                <CollapsibleContent>
-                                    <SidebarGroupContent>
-                                        {/* Now use the new SettingsAndSyncActions */}
-                                        <SyncProgressIndicator collapsed={isLeftSidebarCollapsed}/>
-                                        <SettingsAndSyncActions
-                                            onOpenFilters={handleOpenFilters}
-                                            onShowAccountActions={() => setShowAccountActions(true)}
-                                            onOpenSettings={() => setIsSettingsOpen(true)}
-                                            onCloseSettings={() => setIsSettingsOpen(false)}
-                                            isSettingsOpen={isSettingsOpen}
-                                            isSyncing={isSyncing}
-                                        />
-                                    </SidebarGroupContent>
-                                </CollapsibleContent>
-                            </SidebarGroup>
-                        </Collapsible>
+                        {/* 2) Create actions */}
+                        <SidebarGroup>
+                            <SidebarGroupLabel>Create</SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <ApplicationActions
+                                    onNewSampleGroup={openSampleGroupModal}
+                                    onNewFolder={openFolderModal}
+                                    onNewContainer={openContainerModal}
+                                    onReset={handleResetSelection}
+                                    canCreate={hasCreatePermission ?? false}
+                                />
+                            </SidebarGroupContent>
+                        </SidebarGroup>
 
-                        {/* "Create and Manage" group (Collapsible) */}
-                        <Collapsible defaultOpen className="group/collapsible">
-                            <SidebarGroup>
-                                <SidebarGroupLabel asChild>
-                                    <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-2 text-sm font-medium">
-                                        Create
-                                        <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                                    </CollapsibleTrigger>
-                                </SidebarGroupLabel>
-
-                                <CollapsibleContent>
-                                    <SidebarGroupContent>
-                                        <ApplicationActions
-                                            onNewSampleGroup={openSampleGroupModal}
-                                            onNewFolder={openFolderModal}
-                                            onNewContainer={openContainerModal}
-                                            onReset={handleResetSelection}
-                                            canCreate={hasCreatePermission ?? false}
-                                        />
-                                    </SidebarGroupContent>
-                                </CollapsibleContent>
-                            </SidebarGroup>
-                        </Collapsible>
-
-                        {/* "Samples" group (Collapsible) */}
-                        <Collapsible defaultOpen className="group/collapsible">
-                            <SidebarGroup>
-                                <SidebarGroupLabel asChild>
-                                    <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-2 text-sm font-medium">
-                                        <span>Samples</span>
-                                        <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                                    </CollapsibleTrigger>
-                                </SidebarGroupLabel>
-                                <CollapsibleContent>
-                                    <SidebarGroupContent>
-                                        <SidebarMenu>
-                                            {fileTree && fileTree.length > 0 ? (
-                                                renderTree(
-                                                    fileTree,
-                                                    expandedIds,
-                                                    handleToggleExpand,
-                                                    selectedLeftItem?.id,
-                                                    handleSelectNode
-                                                )
-                                            ) : (
-                                                <SidebarMenuItem>
-                                                    <SidebarMenuButton asChild>
-                                                        <Button variant="ghost">No items to display</Button>
-                                                    </SidebarMenuButton>
-                                                </SidebarMenuItem>
-                                            )}
-                                        </SidebarMenu>
-                                    </SidebarGroupContent>
-                                </CollapsibleContent>
-                            </SidebarGroup>
-                        </Collapsible>
+                        {/* 3) Samples tree */}
+                        <SidebarGroup>
+                            <SidebarGroupLabel>Samples</SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <SidebarMenu>
+                                    {fileTree && fileTree.length > 0 ? (
+                                        renderTree(
+                                            fileTree,
+                                            expandedIds,
+                                            handleToggleExpand,
+                                            selectedLeftItem?.id,
+                                            handleSelectNode
+                                        )
+                                    ) : (
+                                        <SidebarMenuItem>
+                                            <SidebarMenuButton asChild>
+                                                <Button variant="ghost">No items to display</Button>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    )}
+                                </SidebarMenu>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
                     </SidebarContent>
-                    <ResourceDownloadIndicator />
 
+                    {/* Optional download indicator & “rail” */}
+                    <ResourceDownloadIndicator />
                     <SidebarRail />
                 </Sidebar>
             </SidebarProvider>
@@ -531,6 +513,7 @@ export function LeftSidebar({openFilterMenu: handleOpenFilters}: LeftSidebarProp
                     setErrorMessage={setErrorMessage}
                 />
             )}
+
             {isFolderModalOpen && (
                 <CreateFolderModal
                     open={isFolderModalOpen}
@@ -540,6 +523,7 @@ export function LeftSidebar({openFilterMenu: handleOpenFilters}: LeftSidebarProp
                     setErrorMessage={setErrorMessage}
                 />
             )}
+
             {isContainerModalOpen && (
                 <CreateContainerModal
                     open={isContainerModalOpen}
@@ -549,7 +533,7 @@ export function LeftSidebar({openFilterMenu: handleOpenFilters}: LeftSidebarProp
                     setErrorMessage={setErrorMessage}
                 />
             )}
-    </div>
+        </div>
     );
 }
 

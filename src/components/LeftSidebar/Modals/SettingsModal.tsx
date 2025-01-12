@@ -1,4 +1,4 @@
-// src/components/SettingsModal.tsx
+// src/components/LeftSidebar/Modals/SettingsModal.tsx
 import { useState, useCallback, useEffect } from "react";
 import { Globe as GlobeIcon, Loader2, Dna } from "lucide-react";
 
@@ -26,9 +26,9 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import { useSettings } from "@/lib/hooks/useSettings";
-import { useAuth } from "@/lib/hooks";
-import { UserSettings } from "@/lib/types";
+import { useSettings } from "@/hooks/useSettings";
+import { useAuth } from "@/hooks";
+import { UserSettings } from "src/types";
 import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema";
 
 interface SettingsModalProps {
@@ -89,10 +89,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            {/*
-        You can remove className entirely or keep a small max width if desired:
-        <DialogContent className="max-w-xl">
-      */}
             <DialogContent>
                 <DialogTitle>
                     {userSettings ? "Edit Settings" : "Create Your Settings"}
@@ -116,32 +112,43 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 {/* User Settings Subheading */}
                 <p>{userSettings ? "User Settings" : "Create New Setting"}</p>
 
-                {/* ======== PowerSync Section ======== */}
-                <Label htmlFor="powersync_server">PowerSync</Label>
+                {/* ======== PowerSync Performance Slider ======== */}
+                <Label htmlFor="powersyncPerformance">PowerSync Performance</Label>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Input
-                            id="powersync_server"
-                            placeholder="https://icarai.net"
-                            value={newSetting.powersync_server || ""}
-                            onChange={(e) =>
-                                setNewSetting((prev) => ({
-                                    ...prev,
-                                    powersync_server: e.target.value,
-                                }))
-                            }
-                        />
+                        <div className="flex items-center gap-2">
+                            <Input
+                                id="powersyncPerformance"
+                                type="range"
+                                min={50000}
+                                max={2000000}
+                                step={5000}
+                                value={newSetting.powersyncPerformance ?? 50000}
+                                onChange={(e) =>
+                                    setNewSetting((prev) => ({
+                                        ...prev,
+                                        powersyncPerformance: Number(e.target.value),
+                                    }))
+                                }
+                            />
+                            {/* Show the numeric value for clarity */}
+                            <span className="text-sm w-16">
+                {newSetting.powersyncPerformance ?? 50000}
+              </span>
+                        </div>
                     </TooltipTrigger>
-                    <TooltipContent>Enter the full URL of your PowerSync server.</TooltipContent>
+                    <TooltipContent>
+                        Set performance between 50,000 and 2,000,000.
+                    </TooltipContent>
                 </Tooltip>
 
                 {/* ======== Taxonomic Starburst Section ======== */}
-
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-4">
                     <Dna className="h-5 w-5" />
                     <p>Taxonomic Starburst</p>
                 </div>
-                {/* Max Rank */}
+
+                {/* Max Rank (kept as is) */}
                 <Label htmlFor="taxonomic_starburst_max_rank">Max Rank</Label>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -169,36 +176,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <TooltipContent>Max depth to query for taxonomic data</TooltipContent>
                 </Tooltip>
 
-                {/* Min Rank */}
-                <Label htmlFor="taxonomic_starburst_min_rank">Min Rank</Label>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Select
-                            onValueChange={(val: TaxonomicRank) =>
-                                setNewSetting((prev) => ({
-                                    ...prev,
-                                    taxonomic_starburst_min_rank: val,
-                                }))
-                            }
-                            value={newSetting.taxonomic_starburst_min_rank || ""}
-                        >
-                            <SelectTrigger id="taxonomic_starburst_min_rank">
-                                <SelectValue placeholder="Select a rank" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {Object.values(TaxonomicRank).map((rank) => (
-                                    <SelectItem key={rank} value={rank}>
-                                        {rank}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </TooltipTrigger>
-                    <TooltipContent>Experimental setting, use at your own risk</TooltipContent>
-                </Tooltip>
+                {/*
+          REMOVED:
+          <Label htmlFor="taxonomic_starburst_min_rank">Min Rank</Label>
+          // old min rank code...
+        */}
 
                 {/* ======== Globe Section ======== */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-4">
                     <GlobeIcon className="h-5 w-5" />
                     <p>Globe</p>
                 </div>

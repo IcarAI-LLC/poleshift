@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert } from "@/components/ui/alert";
-import { ProcessedCtdRbrDataValues } from "@/lib/types";
+import { ProcessedCtdRbrDataValues } from "src/types";
 
 interface DataChartProps {
   data: ProcessedCtdRbrDataValues[];

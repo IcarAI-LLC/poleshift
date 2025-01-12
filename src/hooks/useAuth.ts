@@ -1,10 +1,10 @@
-import {useAuthStore} from '../stores/authStore';
-import {supabaseConnector} from '../powersync/SupabaseConnector';
+import {useAuthStore} from '@/stores/authStore.ts';
+import {supabaseConnector} from '../lib/powersync/SupabaseConnector.ts';
 import {useCallback, useMemo} from 'react';
 import {usePowerSync, useQuery} from "@powersync/react";
 import {Organizations, UserProfiles} from "../types";
 import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
-import {DrizzleSchema, organizations, user_profiles} from "../powersync/DrizzleSchema.ts";
+import {DrizzleSchema, organizations, user_profiles} from "../lib/powersync/DrizzleSchema.ts";
 import {eq} from "drizzle-orm";
 import {setupPowerSync} from "@/lib/powersync/db.ts";
 

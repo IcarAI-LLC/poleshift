@@ -8,7 +8,7 @@ import { usePowerSync } from '@powersync/react';
 import { wrapPowerSyncWithDrizzle } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 
-import { useAuthStore } from '../stores/authStore.ts';
+import { useAuthStore } from '@/stores/authStore.ts';
 import {
     TauriProcessingFunctions,
     RawDataImproved,
@@ -17,7 +17,7 @@ import {
     HandleCtdDataResult,
     HandleSequenceDataResult,
     ProgressPayload
-} from '@/lib/types';
+} from 'src/types';
 
 import {
     DataType,
@@ -27,7 +27,7 @@ import {
     raw_ctd_rbr_data_values,
     raw_data_improved,
     raw_nutrient_ammonia_data
-} from '../powersync/DrizzleSchema.ts';
+} from '../lib/powersync/DrizzleSchema.ts';
 
 const BATCH_SIZE = 10000;
 

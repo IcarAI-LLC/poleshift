@@ -1,7 +1,7 @@
 // src/lib/hooks/useUI.ts
 
 import { useCallback } from 'react';
-import { useUIStore } from '../stores/uiStore';
+import { useUIStore } from '@/stores/uiStore.ts';
 import type { FileNodes, SampleLocations } from '../types';
 
 export const useUI = () => {

@@ -6,7 +6,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import {v4 as uuidv4} from "uuid";
 import {DateTime} from "luxon";
-import {UserRole} from "../types";
+import {UserRole} from "../../types";
 
 export enum DataType {
     CTD = 'ctd',
@@ -199,11 +199,10 @@ export const organization_settings = sqliteTable("organization_settings", {
 export const user_settings = sqliteTable("user_settings", {
     id:text("id").notNull().references(() => user_profiles.id),
     taxonomic_starburst_max_rank: text("taxonomic_starburst_max_rank").notNull().$type<TaxonomicRank>(),
-    taxonomic_starburst_min_rank: text("taxonomic_starburst_min_rank").notNull().$type<TaxonomicRank>(),
     globe_datapoint_poles: integer("globe_datapoint_poles").notNull(),
     globe_datapoint_color: text("globe_datapoint_color").notNull(),
     globe_datapoint_diameter: text("globe_datapoint_diameter").notNull(),
-    powersync_server: text("powersync_server").notNull(),
+    powersyncPerformance: integer('powersync_performance'), // e.g. Drizzle type
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────

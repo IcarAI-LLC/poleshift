@@ -4,10 +4,10 @@ import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
 //@ts-ignore
 import Image from '../assets/combined.png?format=png&effort=max&quality=100';
-import { useData } from '../lib/hooks/useData';
-import { useUI } from '../lib/hooks/useUI';
+import { useData } from '../hooks/useData.ts';
+import { useUI } from '../hooks/useUI.ts';
 import { useQuery } from '@powersync/react';
-import useSettings from "../lib/hooks/useSettings";
+import useSettings from "../hooks/useSettings.ts";
 
 interface GlobePoint {
     lat: number;

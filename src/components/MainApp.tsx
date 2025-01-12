@@ -4,32 +4,29 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { SampleGroupMetadata } from "@/lib/types";
+import { SampleGroupMetadata } from "src/types";
 import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
-import { useAuth, useData, useNetworkStatus, useUI } from "@/lib/hooks";
+import { useAuth, useData, useUI } from "@/hooks";
 
 import LeftSidebar from "./LeftSidebar/LeftSidebar";
 import RightSidebar from "./RightSidebar";
-import MergedDropBoxes from "@/components/DropBoxView/DropBoxes/MergedDropboxes";
+import MergedDropBoxes from "@/components/SampleGroupView/MergedDropboxes.tsx";
 import ErrorMessage from "./ErrorMessage";
 import GlobeComponent from "./GlobeComponent";
 import ContextMenu from "./ContextMenu";
-import AccountActions from "./Account/AccountActions";
-import SampleGroupMetadataComponent from "./DropBoxView/SampleGroupMetadataComponent/SampleGroupMetadataComponent";
+import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
+import SampleGroupMetadataComponent from "@/components/SampleGroupView/SampleGroupMetadataComponent.tsx";
 import FilterMenu from "./FilterMenu";
 import MoveModal from "./LeftSidebar/MoveModal";
 import ContainerScreen from "@/components/Container/ContainerScreen";
 import ChatWidget from "@/components/Chatbot/ChatWidget";
 import CheckResourceFiles from "@/components/CheckResourceFiles.tsx";
-import { toast } from "@/hooks/use-toast.ts";
-import { CloudOff } from "lucide-react";
 
 const MainApp: React.FC = () => {
   // ---- Hooks ----
   const auth = useAuth();
   const data = useData();
   const ui = useUI();
-  const networkStatus = useNetworkStatus();
   CheckResourceFiles({});
 
   // ---- Destructure values from hooks ----
@@ -44,8 +41,6 @@ const MainApp: React.FC = () => {
     closeLeftSidebarContextMenu,
     isLeftSidebarCollapsed,
   } = ui;
-  const { isOnline } = networkStatus;
-
   // ---- Local state ----
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
@@ -53,9 +48,10 @@ const MainApp: React.FC = () => {
   const openButtonRef = useRef<HTMLButtonElement>(null);
 
   // ---- Derived values ----
-  const sampleGroup = selectedLeftItem?.type === FileNodeType.SampleGroup
-      ? (sampleGroups[selectedLeftItem.id] as SampleGroupMetadata)
-      : null;
+  const sampleGroup =
+      selectedLeftItem?.type === FileNodeType.SampleGroup
+          ? (sampleGroups[selectedLeftItem.id] as SampleGroupMetadata)
+          : null;
 
   const displayedError = authError || dataError || errorMessage;
 
@@ -129,6 +125,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   // ---- Effects ----
+  // Auto-dismiss errors after 5s
   useEffect(() => {
     if (displayedError) {
       const timer = setTimeout(() => {
@@ -139,34 +136,13 @@ const MainApp: React.FC = () => {
     }
   }, [displayedError, setErrorMessage, setAuthError]);
 
+  // Prevent scrolling behind filter menu
   useEffect(() => {
-    // Prevent scrolling behind filter menu
     document.body.style.overflow = isFilterMenuOpen ? "hidden" : "auto";
     return () => {
       document.body.style.overflow = "auto";
     };
   }, [isFilterMenuOpen]);
-
-  if (!isOnline) {
-    toast({
-      title: "You’re offline",
-      description:
-          "We could not connect to a Poleshift server; until we connect, your changes will not be replicated globally.",
-      variant: "default",
-      className:
-          "bg-yellow-200 bg-opacity-30 p-4 border border-yellow-400 " +
-          "rounded-lg shadow-lg fixed top-4 right-4 z-50 flex items-center " +
-          "min-w-[300px] max-w-[400px] animate-fadeIn",
-      action: (
-          <div className="flex items-center">
-            <CloudOff
-                aria-label="offline"
-                className="text-amber-700 mr-2 w-6 h-6"
-            />
-          </div>
-      ),
-    });
-  }
 
   // ---- Render ----
   return (
@@ -212,7 +188,7 @@ const MainApp: React.FC = () => {
 
         {/* Chat widget + account actions if needed */}
         <ChatWidget />
-        {showAccountActions && <AccountActions />}
+        {showAccountActions && <AccountModal />}
 
         {/* Context menu + Move modal */}
         <ContextMenu deleteItem={handleDeleteSample} />

@@ -1,5 +1,5 @@
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { AbstractPowerSyncDatabase, CrudEntry, UpdateType } from '@powersync/web';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 import {
@@ -9,7 +9,7 @@ import {
     researcherPermissions,
     viewerPermissions,
     PoleshiftPermissions
-} from "../types";
+} from "../../types";
 import {assignClosestHealthyServer} from "@/lib/powersync/assignServer.ts";
 
 interface SupabaseJwtPayload extends JwtPayload {

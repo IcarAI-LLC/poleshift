@@ -2,32 +2,32 @@
 import { useState, useEffect, useCallback } from "react"
 import { Clock } from "lucide-react"
 
-import { useData, useUI } from "../../../lib/hooks"
-import { useAuthStore } from "@/lib/stores/authStore"
-import type { SampleGroupMetadata as TSampleGroupMetadata } from "../../../lib/types"
-import { PoleshiftPermissions } from "@/lib/types"
-import { ProximityCategory } from "@/lib/powersync/DrizzleSchema"
-import PenguinIcon from "@/assets/icons/penguin.svg"
+import { useData, useUI } from "../../hooks"
+import { useAuthStore } from "@/stores/authStore.ts"
+import type { SampleGroupMetadata as TSampleGroupMetadata } from "../../types"
+import { PoleshiftPermissions } from "src/types"
+import { ProximityCategory } from "@/lib/powersync/DrizzleSchema.ts"
+import PenguinIcon from "../../assets/icons/penguin.svg"
 
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card.tsx"
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"
-import { Switch } from "@/components/ui/switch"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/accordion.tsx"
+import { Switch } from "@/components/ui/switch.tsx"
+import { Input } from "@/components/ui/input.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import LocationFields from "./LocationFields"
+} from "@/components/ui/select.tsx"
+import { Label } from "@/components/ui/label.tsx"
+import LocationFields from "./LocationFields.tsx"
 
 /**
  * Special string value for "no proximity category"

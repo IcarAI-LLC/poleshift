@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/command"
 import { Checkbox } from "@/components/ui/checkbox"
 
-import { useUI, useData } from "../lib/hooks"
+import { useUI, useData } from "../hooks"
 
 interface FilterMenuProps {
     onApply: () => void

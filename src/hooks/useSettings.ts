@@ -4,10 +4,11 @@ import { useQuery } from '@powersync/react';
 import { usePowerSync } from '@powersync/react';
 import { toCompilableQuery, wrapPowerSyncWithDrizzle } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
-import { DrizzleSchema, user_settings } from '../powersync/DrizzleSchema';
-import { UserSettings } from '../types';
+import { DrizzleSchema, user_settings } from '@/lib/powersync/DrizzleSchema';
+import { UserSettings } from '@/types';
+
 // Import your auth hook to get the current user’s ID
-import { useAuth } from '@/lib/hooks'; // or wherever your auth hook is
+import { useAuth } from '@/hooks'; // or wherever your auth hook is
 
 /**
  * A React hook providing reactive access to **the current user’s** `user_settings` row
@@ -40,6 +41,7 @@ export const useSettings = () => {
         isLoading: userSettingsLoading,
         error: userSettingsError,
     } = useQuery<UserSettings>(compiledUserSettingsQuery);
+
     // 5. Typically there is only one settings row per user, so pick the first
     const userSettings = userSettingsArray[0];
 
@@ -58,8 +60,6 @@ export const useSettings = () => {
 
     /**
      * Add a new user_settings row for this user.
-     * If you’re treating the `id` column as the user’s ID, you might
-     * want to do an upsert or just handle errors if a row already exists.
      */
     const addUserSetting = useCallback(
         async (setting: UserSettings) => {

@@ -19,7 +19,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' style-src 'self' 'unsafe-inline'"
+      "csp": null
     }
   },
   "bundle": {
@@ -33,10 +33,7 @@
       "developmentTeam": "HZ64UH7RCV"
     },
     "resources": [
-      "resources/taxDB.gz",
-      "resources/database.idx.gz",
-      "resources/database.kdb.gz",
-      "resources/database.kdb.counts.gz"
+      "resources/index.ps"
     ],
     "icon": [
       "icons/32x32.png",

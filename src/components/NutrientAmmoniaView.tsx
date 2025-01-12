@@ -1,7 +1,7 @@
 import { Info } from "lucide-react"
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { ProcessedNutrientAmmoniaData } from "@/lib/types"
+import { ProcessedNutrientAmmoniaData } from "src/types"
 
 interface NutrientAmmoniaViewProps {
   data: ProcessedNutrientAmmoniaData[]

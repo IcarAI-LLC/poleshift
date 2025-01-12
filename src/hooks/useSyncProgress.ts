@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePowerSync } from '@powersync/react';
 import { supabaseConnector } from "@/lib/powersync/SupabaseConnector.ts";
-import {useAuth} from "@/lib/hooks/useAuth.ts";
+import {useAuth} from "@/hooks/useAuth.ts";
 
 interface SyncProgress {
     syncedCount: number | null;      // number of items already synced (ps_oplog grows)

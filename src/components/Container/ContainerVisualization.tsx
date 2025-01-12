@@ -39,7 +39,7 @@ import {
     buildChartData,
     getProximityGroup,
 } from "./taxonomicUtils";
-import {ProcessedKrakenUniqReport} from "@/lib/types";
+import {ProcessedKrakenUniqReport} from "src/types";
 
 interface ContainerVisualizationProps {
     open: boolean;

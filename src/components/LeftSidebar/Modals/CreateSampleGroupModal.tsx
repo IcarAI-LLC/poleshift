@@ -6,8 +6,8 @@ import type {
     Organizations,
     SampleGroupMetadata,
     SampleLocations,
-} from "@/lib/types";
-import { useAuthStore } from "@/lib/stores/authStore";
+} from "src/types";
+import { useAuthStore } from "@/stores/authStore";
 
 // shadcn/ui components
 import {

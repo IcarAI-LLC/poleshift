@@ -3,23 +3,23 @@ import { useCallback, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Plus, CheckCircle2, Lock, Search } from "lucide-react";
 
-import ProgressTracker from "./ProgressTracker"; // Replace MUI references with custom ShadCN logic
-import DataChart from "../../DataChart";
-import NutrientAmmoniaView from "../../NutrientAmmoniaView";
-import KrakenVisualization from "../../KrakenVisualization/KrakenVisualization";
-import NutrientAmmoniaInput from "./ModalInputs/NutrientAmmoniaInput";
+import ProgressTracker from "./ProgressTracker.tsx"; // Replace MUI references with custom ShadCN logic
+import DataChart from "../DataChart.tsx";
+import NutrientAmmoniaView from "../NutrientAmmoniaView.tsx";
+import KrakenVisualization from "../KrakenVisualization/KrakenVisualization.tsx";
+import NutrientAmmoniaInput from "@/components/SampleGroupView/NutrientAmmoniaInput.tsx";
 
 import {
     Tooltip,
     TooltipTrigger,
     TooltipContent,
-} from "@/components/ui/tooltip";
+} from "@/components/ui/tooltip.tsx";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog.tsx";
 import {
     DataType,
     ProcessingState,
@@ -27,16 +27,24 @@ import {
     processed_ctd_rbr_data_values,
     processed_nutrient_ammonia_data,
     processed_kraken_uniq_report,
-} from "@/lib/powersync/DrizzleSchema";
+} from "@/lib/powersync/DrizzleSchema.ts";
 
-import { useTauriDataProcessor } from "@/lib/hooks/useTauriDataProcessor";
+import { useTauriDataProcessor } from "@/hooks/useTauriDataProcessor.ts";
 import { wrapPowerSyncWithDrizzle } from "@powersync/drizzle-driver";
 import { usePowerSync, useQuery } from "@powersync/react";
 import { eq, desc, and } from "drizzle-orm";
 import { toCompilableQuery } from "@powersync/drizzle-driver";
 
-import type { SingleDropBoxProps } from "./types";
-import type { ProcessedDataImproved } from "@/lib/types";
+import {Organizations, ProcessedDataImproved, SampleGroupMetadata} from "src/types";
+import {DropboxConfigItem} from "@/config/dropboxConfig.ts";
+
+export interface SingleDropBoxProps {
+    configItem: DropboxConfigItem;
+    sampleGroup: SampleGroupMetadata;
+    organization: Organizations | null;
+    isLocked: boolean;
+    onError: (message: string) => void;
+}
 
 export default function SingleDropBox({
                                           configItem,

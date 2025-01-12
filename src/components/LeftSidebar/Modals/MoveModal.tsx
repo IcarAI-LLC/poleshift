@@ -1,5 +1,5 @@
 import {FC, useEffect, useState} from "react";
-import { FileNodeWithChildren, useData, useUI } from "@/lib/hooks";
+import { FileNodeWithChildren, useData, useUI } from "@/hooks";
 // shadcn/ui components
 import {
     Dialog,

@@ -12,7 +12,7 @@ import HierarchyTree from "./HierarchyTree";
 import DistributionChart from "./DistributionChart";
 import TaxonomyStarburst from "./TaxonomyStarburst";
 
-import type { ProcessedKrakenUniqReport } from "@/lib/types";
+import type { ProcessedKrakenUniqReport } from "src/types";
 
 // ShadCN UI
 import {

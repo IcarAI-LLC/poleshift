@@ -11,7 +11,7 @@ import { checkForAppUpdates } from './updater';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {ToastProvider} from "@/components/ui/toast.tsx";
 import {Toaster} from "@/components/ui/toaster.tsx";
-import {ResourceDownloadProvider} from "@/lib/stores/ResourceDownloadContext.tsx";
+import {ResourceDownloadProvider} from "@/stores/ResourceDownloadContext.tsx";
 
 // Track initialization status outside the component scope
 let isPowerSyncInitialized = false;

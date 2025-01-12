@@ -1,4 +1,4 @@
-// src/components/Account/AccountActions.tsx
+// src/components/LeftSidebar/Modals/AccountModal.tsx
 
 import { FC } from "react"
 import {
@@ -7,14 +7,14 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+} from "@/components/ui/dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
 
-import { useUI } from "../../lib/hooks"
-import { useAuth } from "@/lib/hooks"
-import ResetComponent from "../ResetComponent"
+import { useUI } from "../../../hooks"
+import { useAuth } from "@/hooks"
+import ResetComponent from "../../ResetComponent.tsx"
 
-const AccountActions: FC = () => {
+const AccountModal: FC = () => {
     const { showAccountActions, setShowAccountActions } = useUI()
     const { user, logout, userProfile, organization, resetApp } = useAuth()
 
@@ -70,4 +70,4 @@ const AccountActions: FC = () => {
     )
 }
 
-export default AccountActions
+export default AccountModal

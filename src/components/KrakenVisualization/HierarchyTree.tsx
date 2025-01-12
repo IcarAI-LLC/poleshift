@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { Folder, FolderOpen, FlaskConical } from "lucide-react";
 
-import type { ProcessedKrakenUniqReport } from "@/lib/types";
+import type { ProcessedKrakenUniqReport } from "src/types";
 import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema";
 
 interface TaxonomyFileNode {

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Button } from '@/components/ui/button'
 import { MessageSquare } from 'lucide-react'
-import {useAuthStore} from "@/lib/stores/authStore.ts";
+import {useAuthStore} from "@/stores/authStore.ts";
 
 export function ChatWidget() {
 

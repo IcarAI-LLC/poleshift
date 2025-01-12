@@ -2,8 +2,8 @@ import { Progress } from "@/components/ui/progress";
 import clsx from "clsx";
 import { Loader2 } from "lucide-react"; // shadcn spinner icon
 
-import { useNetworkStatus } from "@/lib/hooks/useNetworkStatus";
-import { useSyncProgress } from "@/lib/hooks/useSyncProgress";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus.ts";
+import { useSyncProgress } from "@/hooks/useSyncProgress.ts";
 
 interface SyncProgressIndicatorProps {
     collapsed?: boolean;

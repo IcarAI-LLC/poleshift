@@ -1,7 +1,7 @@
 
 import {useState, useEffect, useCallback, useMemo, FC} from 'react'
-import { useData } from '../../../lib/hooks'
-import type { SampleGroupMetadata } from '@/lib/types'
+import { useData } from '../../hooks'
+import type { SampleGroupMetadata } from 'src/types'
 import { Input } from '@/components/ui/input.tsx'
 import { Label } from '@/components/ui/label.tsx'
 

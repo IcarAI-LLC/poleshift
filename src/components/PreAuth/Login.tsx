@@ -1,6 +1,6 @@
 import {FC, useState} from "react";
-import { useAuth } from "@/lib/hooks";
-import type { PreAuthView } from "@/lib/types";
+import { useAuth } from "@/hooks";
+import type { PreAuthView } from "src/types";
 
 // shadcn/ui components
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";

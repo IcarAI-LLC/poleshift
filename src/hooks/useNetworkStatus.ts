@@ -8,7 +8,7 @@ export const useNetworkStatus = () => {
     const status = useStatus();
 
     // Derive states from the PowerSync status
-    const isOnline = status.connected;
+    const isOnline = status.connected || status.dataFlowStatus?.uploading || status.dataFlowStatus?.downloading;
     const isSyncing = Boolean(status.dataFlowStatus?.uploading || status.dataFlowStatus?.downloading);
     const lastSyncTime = status.lastSyncedAt;
 

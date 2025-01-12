@@ -14,7 +14,7 @@ import {
     ProximityCategory,
     sample_group_metadata,
     sample_locations
-} from "../powersync/DrizzleSchema.ts";
+} from "../lib/powersync/DrizzleSchema.ts";
 import {eq} from 'drizzle-orm';
 
 export type FileNodeWithChildren = FileNodes & {

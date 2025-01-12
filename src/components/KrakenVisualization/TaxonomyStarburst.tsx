@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button"; // Adjust path as needed
 // For text, just use <p> or <span> with tailwind classes
 // Instead of MUI’s `Typography`:
 
-import useSettings from "@/lib/hooks/useSettings";
-import { ProcessedKrakenUniqReport } from "@/lib/types";
+import useSettings from "@/hooks/useSettings.ts";
+import { ProcessedKrakenUniqReport } from "src/types";
 import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema"; // Adjust path if needed
 
 interface TaxonomyStarburstProps {

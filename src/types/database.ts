@@ -1,4 +1,4 @@
-import { DrizzleSchema } from '../powersync/DrizzleSchema'
+import { DrizzleSchema } from '../lib/powersync/DrizzleSchema.ts'
 import { type InferSelectModel } from 'drizzle-orm'
 
 export type Organizations = InferSelectModel<typeof DrizzleSchema.organizations>
