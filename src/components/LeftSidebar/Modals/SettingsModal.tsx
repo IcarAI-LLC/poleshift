@@ -30,6 +30,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks";
 import { UserSettings } from "src/types";
 import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema";
+import {Slider} from "@/components/ui/slider";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -117,17 +118,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <div className="flex items-center gap-2">
-                            <Input
+                            <Slider
                                 id="powersyncPerformance"
-                                type="range"
                                 min={50000}
                                 max={2000000}
                                 step={5000}
-                                value={newSetting.powersyncPerformance ?? 50000}
-                                onChange={(e) =>
+                                defaultValue={[newSetting.powersyncPerformance || 50000]}
+                                onValueChange={(e) =>
                                     setNewSetting((prev) => ({
                                         ...prev,
-                                        powersyncPerformance: Number(e.target.value),
+                                        powersyncPerformance: Number([e]),
                                     }))
                                 }
                             />

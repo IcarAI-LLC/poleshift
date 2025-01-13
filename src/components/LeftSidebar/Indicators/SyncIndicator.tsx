@@ -43,7 +43,7 @@ export function SyncProgressIndicator({ collapsed = false }: SyncProgressIndicat
                 </svg>
                 {/* Show text only if not collapsed */}
                 {!collapsed && (
-                    <span className="ml-2 text-sm text-muted-foreground">Synced</span>
+                    <span className="ml-2 text-sm">Synced</span>
                 )}
             </div>
         );

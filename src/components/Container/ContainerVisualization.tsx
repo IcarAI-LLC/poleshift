@@ -9,7 +9,7 @@ import { save as tauriSave } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
 // ShadCN UI Components
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +52,7 @@ interface DataWithProximity extends ProcessedKrakenUniqReport {
     loc_id: string;
     proximity_category: ProximityCategory;
     // NEW: we’ll store the raw date we fetch:
-    collection_date: string | null;
+    collection_date: string;
 }
 
 export default function ContainerVisualization({ open, onClose }: ContainerVisualizationProps) {
@@ -370,10 +370,10 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
     // ---------------------------------------
     return (
         <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-            <DialogContent className={"max-w-full p-0 flex flex-col h-full overflow-y-scroll"}>
-                <DialogHeader className="bg-primary p-2 text-primary-foreground">
+            <DialogContent className={"max-w-full flex flex-col h-full overflow-y-scroll"}>
+                <DialogTitle>
                     <DialogTitle>Query Builder</DialogTitle>
-                </DialogHeader>
+                </DialogTitle>
 
                 {/* (A) Query Builder Card */}
                 <Card className="m-2">

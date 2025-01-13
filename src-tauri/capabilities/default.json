@@ -9,22 +9,6 @@
     "core:default",
     "dialog:default",
     "dialog:allow-open",
-    "fs:default",
-    "core:resources:allow-close",
-    "fs:read-app-specific-dirs-recursive",
-    "fs:allow-app-write",
-    "core:path:allow-resolve",
-    "core:path:allow-join",
-    "core:path:allow-dirname",
-    "core:path:allow-extname",
-    "core:menu:allow-popup",
-    "updater:default",
-    "fs:allow-create",
-    "fs:allow-seek",
-    "fs:allow-size",
-    "fs:allow-mkdir",
-    "fs:allow-resource-write-recursive",
-    "fs:allow-resource-read-recursive",
     "core:webview:default"
   ]
 }

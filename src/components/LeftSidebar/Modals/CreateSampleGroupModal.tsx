@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import {useEffect, useState, useMemo, FormEvent, FC} from "react";
 import { v4 as uuidv4 } from "uuid";
 import { DateTime } from "luxon";
 
@@ -45,7 +45,7 @@ interface CreateSampleGroupModalProps {
     setErrorMessage: (msg: string) => void;
 }
 
-const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
+const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
                                                                            open,
                                                                            onClose,
                                                                            organization,
@@ -75,7 +75,9 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
         }
     }, [open]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
+        console.log("Creating sample group.");
+
         e.preventDefault();
 
         if (!organization?.id || !organization.org_short_id) {
@@ -167,7 +169,9 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
             await createSampleGroup(sampleGroupData, newNode);
             setErrorMessage("");
             onClose();
-        }finally {
+        }catch(e){console.error(e); // @ts-expect-error: Error message no type
+            setErrorMessage(e.message);}
+        finally {
             setIsProcessing(false);
         }
     };
@@ -187,7 +191,6 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <form onSubmit={handleSubmit}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Create New Sampling Event</DialogTitle>
@@ -275,12 +278,11 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
                         >
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isProcessing}>
+                        <Button type="submit" disabled={isProcessing} onClick={handleSubmit}>
                             {isProcessing ? "Creating..." : "Create"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
-            </form>
         </Dialog>
     );
 };

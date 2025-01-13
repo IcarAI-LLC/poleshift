@@ -1,4 +1,3 @@
-
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import {
     BarChart,
@@ -29,6 +28,10 @@ export interface ChartRendererProps {
     chartTitle: string;
     showAsIntraPercent: boolean;
     taxaColors: Record<string, string>;
+    /**
+     * If you want to override the x-axis key, pass it in.
+     * Otherwise we default to "locationCharId".
+     */
     xAxisKey?: string;
 }
 
@@ -37,22 +40,50 @@ export interface ChartRendererRef {
     exportPDF: () => Promise<void>;
 }
 
+// 1) A small custom legend that displays char_id => full location name
+function LocationLegend({ data }: { data: Record<string, any>[] }) {
+    // Build a map of { [char_id]: fullName }
+    const locationMap = new Map<string, string>();
+    data.forEach((row) => {
+        const charId = row.locationCharId;   // Or whatever you named the field
+        const fullName = row.locationName;
+        if (charId && fullName && !locationMap.has(charId)) {
+            locationMap.set(charId, fullName);
+        }
+    });
+
+    // If none found, return null
+    if (locationMap.size === 0) return null;
+
+    return (
+        <div className="mt-4">
+            <p className="font-semibold mb-2">Location Legend:</p>
+            <ul className="text-sm space-y-1">
+                {[...locationMap.entries()].map(([charId, fullName]) => (
+                    <li key={charId}>
+                        <strong>{charId}:</strong> {fullName}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
 export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
-    (
-        { chartData, chartTitle, showAsIntraPercent, taxaColors, xAxisKey },
-        ref
-    ) => {
+    ({ chartData, chartTitle, showAsIntraPercent, taxaColors, xAxisKey }, ref) => {
         const chartContainerRef = useRef<HTMLDivElement>(null);
 
-        // Editable Title State
+        // Editable Title
         const [editableTitle, setEditableTitle] = useState(chartTitle);
         const [isEditingTitle, setIsEditingTitle] = useState(false);
 
-        // Editable Footer State
-        const [editableFooterLine1, setEditableFooterLine1] = useState("Visualization made with Poleshift");
+        // Editable Footer
+        const [editableFooterLine1, setEditableFooterLine1] = useState(
+            "Visualization made with Poleshift"
+        );
         const [isEditingFooter, setIsEditingFooter] = useState(false);
 
-        // 1) Expose export methods via ref
+        // 2) Expose export methods
         useImperativeHandle(ref, () => ({
             exportImage: async (format: "png" | "jpeg") => {
                 if (!chartContainerRef.current) return;
@@ -95,10 +126,10 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
             },
         }));
 
-        // 2) If container didn't specify xAxisKey, default to "location"
-        const finalXAxisKey = xAxisKey ?? "location";
+        // 3) Default X-axis key if not provided
+        const finalXAxisKey = xAxisKey ?? "locationCharId";
 
-        // 3) Format helpers for Y-axis and tooltip
+        // 4) Format helpers
         const yAxisTickFormatter = (val: number) =>
             showAsIntraPercent ? `${(val * 100).toFixed(0)}%` : val.toLocaleString();
 
@@ -107,66 +138,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                 ? `${(val * 100).toFixed(2)}%`
                 : `${val.toLocaleString()} reads`;
 
-        // 4) Custom X-axis tick with a 45° rotation + optional divider
-        function CustomXAxisTick(props: any) {
-            const { x, y, payload, index, visibleTicks } = props;
-            const label = payload?.value ?? "";
-
-            // If visibleTicks isn't defined, just render the label with rotation
-            if (!visibleTicks) {
-                return (
-                    <g transform={`translate(${x}, ${y})`}>
-                        <text
-                            transform="rotate(-60)"
-                            textAnchor="end"
-                            fill="#ffffff"
-                            dy={16}
-                        >
-                            {label}
-                        </text>
-                    </g>
-                );
-            }
-
-            // Otherwise, preserve your divider logic
-            const [locName] = label.split(" (");
-            let drawDivider = false;
-            if (index < visibleTicks.length - 1) {
-                const nextLabel = visibleTicks[index + 1].value;
-                const [nextLocName] = nextLabel.split(" (");
-                if (nextLocName !== locName) {
-                    drawDivider = true;
-                }
-            }
-
-            return (
-                <g transform={`translate(${x}, ${y})`}>
-                    {/* The axis label (rotated) */}
-                    <text
-                        transform="rotate(-90)"
-                        textAnchor="end"
-                        fill="#ffffff"
-                        dy={16}
-                    >
-                        {label}
-                    </text>
-
-                    {/* Optionally draw a small vertical line (divider) if next location differs */}
-                    {drawDivider && (
-                        <line
-                            x1={50}
-                            y1={-100}
-                            x2={50}
-                            y2={0}
-                            stroke="#ffffff"
-                            strokeWidth={2}
-                        />
-                    )}
-                </g>
-            );
-        }
-
-        // 5) Final render using shadcn UI card
+        // 5) Render
         return (
             <Card className="bg-[#333333] text-white w-full">
                 <CardHeader className="relative">
@@ -191,20 +163,11 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                     <CardDescription>
                         {showAsIntraPercent ? "Intra-sample percentages" : `Filtered reads`}
                     </CardDescription>
-                    {/* Optional Edit Button */}
-                    {/* <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setIsEditingTitle(true)}
-                        className="absolute top-4 right-4"
-                    >
-                        ✏️
-                    </Button> */}
                 </CardHeader>
 
-                {/* We store the chart within this div so html2canvas can capture it. */}
+                {/* Chart Container for export */}
                 <div ref={chartContainerRef} className="p-4">
-                    <CardContent className="h-[800px]">
+                    <CardContent>
                         <ResponsiveContainer width="100%" height="100%" minHeight={700}>
                             <BarChart
                                 data={chartData}
@@ -212,12 +175,18 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                                 style={{ backgroundColor: "#333333" }}
                                 margin={{ top: 20, right: 20, bottom: 200, left: 60 }}
                             >
+                                {/* This is the built-in legend for the stacked bars (taxa) */}
+                                <Legend
+                                    verticalAlign={"top"}
+                                    iconType={"wye"}
+                                    align={"center"}
+                                />
                                 <CartesianGrid strokeDasharray="3 3" stroke="#999999" />
                                 <XAxis
-                                    dataKey={finalXAxisKey}
-                                    tick={<CustomXAxisTick />}
-                                    interval={0}
+                                    dataKey={finalXAxisKey}  // <---- use locationCharId on the axis
                                     stroke="#ffffff"
+                                    interval={0}
+                                    angle={30}
                                 />
                                 <YAxis
                                     tickFormatter={yAxisTickFormatter}
@@ -238,16 +207,8 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                                         `${finalXAxisKey}: ${label}`
                                     }
                                 />
-                                <Legend
-                                    wrapperStyle={{
-                                        position: "relative",
-                                        marginTop: 120,
-                                        paddingRight: 20,
-                                        color: "#ffffff",
-                                    }}
-                                />
 
-                                {/* Render a Bar for every taxon, stacking them. */}
+                                {/* Render a Bar for every taxon key */}
                                 {Object.keys(taxaColors).map((taxon) =>
                                     taxon !== finalXAxisKey ? (
                                         <Bar
@@ -261,11 +222,13 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                                 )}
                             </BarChart>
                         </ResponsiveContainer>
+
+                        {/* Custom location legend listing char_id => full name */}
+                        <LocationLegend data={chartData} />
                     </CardContent>
                 </div>
 
                 <CardFooter className="flex flex-col gap-1">
-                    {/* Editable Footer Line 1 */}
                     {isEditingFooter ? (
                         <input
                             type="text"
