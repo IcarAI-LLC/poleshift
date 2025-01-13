@@ -11,6 +11,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@eslint/js": "^9.18.0",
     "@journeyapps/wa-sqlite": "^1.2.0",
     "@powersync/common": "^1.22.2",
     "@powersync/drizzle-driver": "^0.3.0",
@@ -33,6 +34,7 @@
     "@supabase/supabase-js": "^2.47.12",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-cli": "^2.2.0",
+    "@tauri-apps/plugin-deep-link": "~2",
     "@tauri-apps/plugin-dialog": "^2.2.0",
     "@tauri-apps/plugin-fs": "^2.2.0",
     "@tauri-apps/plugin-http": "~2",
@@ -72,6 +74,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.19.2",
+    "typescript-eslint": "^8.19.1",
     "uuid": "^11.0.5",
     "zustand": "^5.0.3"
   },
@@ -101,11 +104,15 @@
     "postcss": "^8.4.49",
     "react-compiler-healthcheck": "19.0.0-beta-63e3235-20250105",
     "rollup-plugin-visualizer": "^5.14.0",
+    "sharp": "^0.33.5",
+    "svgo": "^3.3.2",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vite": "~6.0.7",
     "vite-imagetools": "^7.0.5",
     "vite-plugin-eslint": "^1.8.1",
+    "vite-plugin-image-optimizer": "^1.1.8",
+    "vite-plugin-node-polyfills": "^0.22.0",
     "vite-plugin-top-level-await": "^1.4.4",
     "vite-plugin-wasm": "^3.4.1"
   },

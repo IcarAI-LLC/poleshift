@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import {FC, FormEvent, useEffect, useState} from "react";
 import { v4 as uuidv4 } from "uuid";
 
-import type { Organizations } from "src/types";
+import type {FileNodes, Organizations} from "src/types";
 
 // ShadCN/UI components
 import {
@@ -19,11 +19,11 @@ interface CreateFolderModalProps {
     open: boolean;
     onClose: () => void;
     organization: Organizations | null;
-    addFileNode: (node: any) => Promise<void>;
+    addFileNode: (node: FileNodes) => Promise<void>;
     setErrorMessage: (msg: string) => void;
 }
 
-const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
+const CreateFolderModal: FC<CreateFolderModalProps> = ({
                                                                  open,
                                                                  onClose,
                                                                  organization,
@@ -41,7 +41,7 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
         }
     }, [open]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
 
         if (!folderName.trim()) {
@@ -60,11 +60,11 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
             const newFolder = {
                 id: uuidv4(),
                 org_id: organization.id,
+                sample_group_id: null,
                 name: folderName.trim(),
                 type: "folder" as const,
                 parent_id: null,
                 droppable: 1,
-                children: [],
                 version: 1,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
@@ -73,10 +73,7 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
             await addFileNode(newFolder);
             setErrorMessage("");
             onClose();
-        } catch (error: any) {
-            console.error("Error creating folder:", error);
-            setErrorMessage(error.message || "An unexpected error occurred.");
-        } finally {
+        }finally {
             setIsProcessing(false);
         }
     };

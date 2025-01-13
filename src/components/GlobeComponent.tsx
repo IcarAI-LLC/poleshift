@@ -2,12 +2,12 @@
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
-//@ts-ignore
-import Image from '../assets/combined.png?format=png&effort=max&quality=100';
+import Image from '../assets/combined.png';
 import { useData } from '../hooks/useData.ts';
 import { useUI } from '../hooks/useUI.ts';
 import { useQuery } from '@powersync/react';
 import useSettings from "../hooks/useSettings.ts";
+import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx";
 
 interface GlobePoint {
     lat: number;
@@ -52,7 +52,7 @@ export const GlobeComponent: React.FC = () => {
       FROM sample_locations sl
       WHERE sl.is_enabled = 1
     `;
-        const params: any[] = [];
+        const params: string[] = [];
 
         if (filters.selectedLocations.length > 0) {
             const placeholders = filters.selectedLocations.map(() => '?').join(', ');
@@ -131,8 +131,6 @@ export const GlobeComponent: React.FC = () => {
     const handlePointClick = useCallback(
         (
             point: object,
-            _event: MouseEvent,
-            _coords: { lat: number; lng: number; altitude: number }
         ) => {
             const pointData = point as GlobePoint;
             const selectedLocation = filteredLocations.find(loc => loc.id === pointData.id);
@@ -164,10 +162,11 @@ export const GlobeComponent: React.FC = () => {
     }, []);
 
     if (locationsLoading) {
-        return <div>Loading Globe...</div>;
-    }
-    if (locationsError) {
-        return <div>Error loading globe data: {locationsError.message}</div>;
+        return <div className={"flex justify-center items-center h-screen w-screen"}><DnaLoadingIcon width={100} height={100}
+                                                                                            text={"Loading Globe Locations..."}/></div>;
+            }
+            if (locationsError) {
+                return <div>Error loading globe data: {locationsError.message}</div>;
     }
 
     return (

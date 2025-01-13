@@ -11,7 +11,8 @@ import LeftSidebar from "./LeftSidebar/LeftSidebar";
 import RightSidebar from "./RightSidebar";
 import MergedDropBoxes from "@/components/SampleGroupView/MergedDropboxes.tsx";
 import ErrorMessage from "./ErrorMessage";
-import GlobeComponent from "./GlobeComponent";
+import { Suspense, lazy } from 'react';
+const GlobeComponent = lazy(() => import('./GlobeComponent.tsx'));
 import ContextMenu from "./ContextMenu";
 import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
 import SampleGroupMetadataComponent from "@/components/SampleGroupView/SampleGroupMetadataComponent.tsx";
@@ -20,6 +21,7 @@ import MoveModal from "./LeftSidebar/Modals/MoveModal";
 import ContainerScreen from "@/components/Container/ContainerScreen";
 import ChatWidget from "@/components/Chatbot/ChatWidget";
 import CheckResourceFiles from "@/components/CheckResourceFiles.tsx";
+import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx";
 
 const MainApp: React.FC = () => {
   // ---- Hooks ----
@@ -53,15 +55,25 @@ const MainApp: React.FC = () => {
    * - Default => globe
    */
   const renderContent = (() => {
-    if (selectedLeftItem?.type === FileNodeType.SampleGroup) {
-      return(
-      <div>
-      <SampleGroupMetadataComponent />
-      <MergedDropBoxes onError={setErrorMessage} />
-      </div>);
-    }
-    if (selectedLeftItem?.type === FileNodeType.Container) {
-      return <ContainerScreen />;
+    switch (selectedLeftItem?.type){
+      case FileNodeType.SampleGroup:
+        return(
+            <div>
+              <SampleGroupMetadataComponent />
+              <MergedDropBoxes onError={setErrorMessage} />
+            </div>);
+        case FileNodeType.Container:
+          return <ContainerScreen />;
+      case FileNodeType.Folder:
+        return null;
+      default:
+        return(
+          <Suspense fallback={<DnaLoadingIcon/>}>
+            <div className={"w-screen"}>
+            <GlobeComponent/>
+            <RightSidebar />
+            </div>
+          </Suspense>)
     }
   })();
 
@@ -128,7 +140,7 @@ const MainApp: React.FC = () => {
 
   // ---- Render ----
   return (
-      <div className="flex h- w-full flex-col">
+      <div>
         {/* Filter menu, if open */}
         {isFilterMenuOpen && (
             <FilterMenu
@@ -139,19 +151,13 @@ const MainApp: React.FC = () => {
         )}
 
         {/* Main content area: left sidebar + center content + right sidebar */}
-        <div className="flex flex-1">
+        <div className="flex justify-center items-center h-screen w-screen">
           <LeftSidebar openFilterMenu={openFilterMenu} />
-
-          {/*
-          Wrap BOTH the SampleGroupMetadata and main body content
-          in a <div> that transitions margin-left with the sidebar.
-        */}
-          <div className="flex flex-col w-full">
+          <div className="flex flex-col grow h-screen">
             <div className={`transition-all duration-300`}>
               {renderContent}
             </div>
           </div>
-          {!selectedLeftItem && <GlobeComponent />}
           {/* If there's an error, show it */}
           {displayedError && (
               <ErrorMessage
@@ -161,7 +167,6 @@ const MainApp: React.FC = () => {
           )}
 
           {/* Right sidebar */}
-          <RightSidebar />
         </div>
 
         {/* Chat widget + account actions if needed */}

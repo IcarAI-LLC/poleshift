@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useRef } from "react";
 import { asc, eq, and, inArray, gte, lte, isNotNull } from "drizzle-orm";
 import { usePowerSync, useQuery } from "@powersync/react";
@@ -29,7 +28,8 @@ import {
     sample_group_metadata,
     sample_locations,
     TaxonomicRank,
-    taxdb_pr2, ProximityCategory,
+    taxdb_pr2,
+    ProximityCategory,
 } from "@/lib/powersync/DrizzleSchema";
 import { QueryBuilder } from "./QueryBuilder";
 import { ChartRenderer } from "./ChartRenderer";
@@ -39,16 +39,20 @@ import {
     buildChartData,
     getProximityGroup,
 } from "./taxonomicUtils";
-import {ProcessedKrakenUniqReport} from "src/types";
+import { ProcessedKrakenUniqReport } from "src/types";
+import {DateTime} from "luxon";
 
 interface ContainerVisualizationProps {
     open: boolean;
     onClose: () => void;
 }
+
 interface DataWithProximity extends ProcessedKrakenUniqReport {
     proximity_group: string;
     loc_id: string;
     proximity_category: ProximityCategory;
+    // NEW: we’ll store the raw date we fetch:
+    collection_date: string | null;
 }
 
 export default function ContainerVisualization({ open, onClose }: ContainerVisualizationProps) {
@@ -65,10 +69,10 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
     const [showAsIntraPercent, setShowAsIntraPercent] = useState(false);
     const [colorShadeRank, setColorShadeRank] = useState(TaxonomicRank.Genus);
 
-    // Instead of splitByProximity, define a grouping mode
-    const [grouping, setGrouping] = useState<"location" | "locationAndProximity" | "proximity">(
-        "location"
-    );
+    // EXTEND grouping STATE WITH A NEW OPTION
+    const [grouping, setGrouping] = useState<
+        "location" | "locationAndProximity" | "locationProximityAndDate" | "proximity"
+    >("location");
 
     // ---------------------------------------
     // 2) Queries
@@ -115,6 +119,7 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
 
     // (C) processed_kraken_uniq_report
     const processedDataQuery = useMemo(() => {
+        console.log(startDate);
         // Build a dynamic array of conditions
         const conditions = [
             // Only data that matches the rank we selected
@@ -156,14 +161,24 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
                 proximity_category: sample_group_metadata.proximity_category,
                 sample_id: processed_kraken_uniq_report.sample_id,
                 loc_id: sample_group_metadata.loc_id,
+                // FETCH THE COLLECTION DATE
+                collection_date: sample_group_metadata.collection_date,
             })
             .from(processed_kraken_uniq_report)
             .innerJoin(
                 sample_group_metadata,
                 eq(processed_kraken_uniq_report.sample_id, sample_group_metadata.id)
             )
-            .where(and(...conditions));
-    }, [drizzleDB, selectedRank, startDate, endDate, selectedLocations, minCoverage, minReadPercentage]);
+            .where(and(...conditions)).orderBy(asc(sample_group_metadata.collection_date));
+    }, [
+        drizzleDB,
+        selectedRank,
+        startDate,
+        endDate,
+        selectedLocations,
+        minCoverage,
+        minReadPercentage,
+    ]);
 
     // Fetch the data from Drizzle/PowerSync
     const { data: processedData = [] } = useQuery(toCompilableQuery(processedDataQuery));
@@ -175,15 +190,13 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
     const dataWithProximity = useMemo<DataWithProximity[]>(() => {
         return processedData
             .map((row) => {
-                // If row is invalid or group is null, return null
                 const group = getProximityGroup(row.proximity_category);
                 if (!group) return null;
-
-                // Return a new object that *definitely* has proximity_group
-                return { ...row, proximity_group: group };
+                return {
+                    ...row,
+                    proximity_group: group,
+                };
             })
-            // Use a type-guard to filter out null rows AND
-            // tell TS “everything left is definitely DataWithProximity”
             .filter((row): row is DataWithProximity => row !== null);
     }, [processedData]);
 
@@ -227,10 +240,38 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
         });
         // Sort purely for better labeling
         result.sort((a, b) => {
-            // "Lake A (Close)" vs "Lake A (Far1)"
             const [locA] = a.location.split(" (");
             const [locB] = b.location.split(" (");
             return locA.localeCompare(locB) || a.location.localeCompare(b.location);
+        });
+        return result;
+    }, [dataWithProximity, showAsIntraPercent, locations]);
+
+    const locationProximityAndDateData = useMemo(() => {
+        const merged = dataWithProximity.map((r) => {
+            const locLabel = locations.find((loc) => loc.id === r.loc_id)?.label ?? "Unknown";
+            const proxGroup = r.proximity_group ?? "UnknownProx";
+
+            // If r.collection_date is valid ISO (e.g. 2023-11-14T12:34:56Z),
+            // parse with Luxon, or fallback to a default date if missing.
+            const dateStr = r.collection_date ?? "1970-01-01T00:00:00Z";
+            const dt = DateTime.fromISO(dateStr);
+
+            // For the label, we’ll still display just YYYY-MM-DD
+            const dateOnly = dt.isValid ? dt.toFormat("yyyy-LL-dd") : "NoDate";
+
+            return {
+                ...r,
+                locProxDate: `${locLabel} (${proxGroup}) - ${dateOnly}`,
+                rawLocLabel: locLabel,
+                rawProximity: proxGroup,
+                numericDate: dt.isValid ? dt.toMillis() : 0, // store as a numeric timestamp
+            };
+        });
+
+        // Build chart data *after* sorting
+        const result = buildChartData(merged, showAsIntraPercent, locations, {
+            groupByKey: "locProxDate",
         });
         return result;
     }, [dataWithProximity, showAsIntraPercent, locations]);
@@ -363,7 +404,13 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
                             <Select
                                 value={grouping}
                                 onValueChange={(val) =>
-                                    setGrouping(val as "location" | "locationAndProximity" | "proximity")
+                                    setGrouping(
+                                        val as
+                                            | "location"
+                                            | "locationAndProximity"
+                                            | "proximity"
+                                            | "locationProximityAndDate"
+                                    )
                                 }
                             >
                                 <SelectTrigger id="grouping" className="w-[240px]">
@@ -375,6 +422,10 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
                                         Group by Location &amp; Proximity
                                     </SelectItem>
                                     <SelectItem value="proximity">Split by Proximity</SelectItem>
+                                    {/* NEW grouping option */}
+                                    <SelectItem value="locationProximityAndDate">
+                                        Group by Location + Proximity + Date
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -422,6 +473,18 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
                             <ChartRenderer
                                 chartData={locationAndProximityData}
                                 chartTitle="Location & Proximity"
+                                showAsIntraPercent={showAsIntraPercent}
+                                taxaColors={taxaColors}
+                            />
+                        </div>
+                    )}
+
+                    {/* NEW: Grouping by location + proximity + date */}
+                    {grouping === "locationProximityAndDate" && (
+                        <div ref={stackedChartsRef} className="flex gap-6">
+                            <ChartRenderer
+                                chartData={locationProximityAndDateData}
+                                chartTitle="Location + Proximity + Date"
                                 showAsIntraPercent={showAsIntraPercent}
                                 taxaColors={taxaColors}
                             />

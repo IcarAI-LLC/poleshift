@@ -6,12 +6,13 @@ import PreAuth from './components/PreAuth/PreAuth.tsx';
 import './App.css';
 import { db, setupPowerSync } from './lib/powersync/db';
 import { checkForAppUpdates } from './updater';
-
 // Import the TooltipProvider from shadcn/ui
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {ToastProvider} from "@/components/ui/toast.tsx";
 import {Toaster} from "@/components/ui/toaster.tsx";
 import {ResourceDownloadProvider} from "@/stores/ResourceDownloadContext.tsx";
+import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx";
+import {ThemeProvider} from "@/components/ThemeProvider.tsx";
 
 // Track initialization status outside the component scope
 let isPowerSyncInitialized = false;
@@ -34,11 +35,12 @@ function App() {
     }, []);
 
     if (!initialized) {
-        return <div>Initializing PowerSync...</div>;
+        return <div className={"flex justify-center items-center h-screen"}><DnaLoadingIcon width={100} height={100} text={"Initializing Poleshift"}/></div>;
     }
 
     return (
         <PowerSyncContext.Provider value={db}>
+            <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
             <ResourceDownloadProvider>
             <ToastProvider>
                     <TooltipProvider>
@@ -47,6 +49,7 @@ function App() {
                     </TooltipProvider>
             </ToastProvider>
             </ResourceDownloadProvider>
+            </ThemeProvider>
         </PowerSyncContext.Provider>
     );
 }

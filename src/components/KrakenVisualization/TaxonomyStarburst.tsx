@@ -336,6 +336,9 @@ export default function TaxonomyStarburst({
                 marker: {
                     colors: processedData.colors,
                     line: { color: "#ffffff", width: 0 },
+                    pattern: {
+                        solidity: 1
+                    }
                 },
                 branchvalues: "total",
                 textinfo: "label",

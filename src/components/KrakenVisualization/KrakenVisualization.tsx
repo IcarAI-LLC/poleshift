@@ -10,7 +10,8 @@ import SearchInput from "./SearchInput";
 import FilterSelect from "./FilterSelect";
 import HierarchyTree from "./HierarchyTree";
 import DistributionChart from "./DistributionChart";
-import TaxonomyStarburst from "./TaxonomyStarburst";
+import React, { Suspense, lazy } from 'react';
+const TaxonomyStarburst = lazy(() => import('./TaxonomyStarburst'));
 
 import type { ProcessedKrakenUniqReport } from "src/types";
 
@@ -22,7 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast"; // If you have this
+import { useToast } from "@/hooks/use-toast";
+import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx"; // If you have this
 // or from "@/lib/hooks/use-toast" depending on your setup
 
 enum SortDirection {
@@ -418,11 +420,13 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
             {activeTab === 3 && (
                 <div className="flex min-h-[calc(100vh-200px)] w-full items-center justify-center p-4">
                   <div className="w-full max-w-4xl aspect-square">
+                    <Suspense fallback={<DnaLoadingIcon width={50} height={50}/>}>
                     <TaxonomyStarburst
                         data={data.filter(
                             (node) => node.tax_name.toUpperCase() !== "UNCLASSIFIED"
                         )}
                     />
+                    </Suspense>
                   </div>
                 </div>
             )}

@@ -12,7 +12,6 @@ import {
 } from "recharts";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-
 import { save as tauriSave } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
@@ -26,7 +25,7 @@ import {
 } from "@/components/ui/card";
 
 export interface ChartRendererProps {
-    chartData: any[];
+    chartData: Record<string, any>[];
     chartTitle: string;
     showAsIntraPercent: boolean;
     taxaColors: Record<string, string>;
@@ -118,7 +117,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                 return (
                     <g transform={`translate(${x}, ${y})`}>
                         <text
-                            transform="rotate(-45)"
+                            transform="rotate(-60)"
                             textAnchor="end"
                             fill="#ffffff"
                             dy={16}
@@ -144,7 +143,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                 <g transform={`translate(${x}, ${y})`}>
                     {/* The axis label (rotated) */}
                     <text
-                        transform="rotate(-45)"
+                        transform="rotate(-90)"
                         textAnchor="end"
                         fill="#ffffff"
                         dy={16}
@@ -206,7 +205,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                 {/* We store the chart within this div so html2canvas can capture it. */}
                 <div ref={chartContainerRef} className="p-4">
                     <CardContent className="h-[800px]">
-                        <ResponsiveContainer width="100%" height="100%" minHeight={600}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={700}>
                             <BarChart
                                 data={chartData}
                                 stackOffset={showAsIntraPercent ? "expand" : undefined}
@@ -242,7 +241,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                                 <Legend
                                     wrapperStyle={{
                                         position: "relative",
-                                        marginTop: 40,
+                                        marginTop: 120,
                                         paddingRight: 20,
                                         color: "#ffffff",
                                     }}

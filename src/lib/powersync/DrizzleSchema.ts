@@ -371,7 +371,7 @@ export const raw_fastq_data = sqliteTable("raw_fastq_data", {
     user_id: text("user_id").notNull().references(() => user_profiles.id),
     org_id: text("org_id").notNull().references(() => organizations.id),
     sample_id: text("sample_id").notNull().references(()=> sample_group_metadata.id),
-    sync_flag: integer("sync_flag").$type<Boolean>(),
+    sync_flag: integer("sync_flag").$type<boolean>(),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -383,7 +383,7 @@ export const processed_kraken_uniq_stdout = sqliteTable("processed_kraken_uniq_s
     org_id: text("org_id").notNull().references(() => organizations.id),
     sample_id: text("sample_id").notNull().references(() => sample_group_metadata.id),
     processed_data_id: text("processed_data_id").notNull().references(() => processed_data_improved.id),
-    classified: integer("classified").notNull().$type<Boolean>(),
+    classified: integer("classified").notNull().$type<boolean>(),
     feature_id: integer("feature_id").notNull(),
     tax_id: integer("tax_id").notNull(),
     read_length: integer("read_length").notNull(),

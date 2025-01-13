@@ -425,12 +425,12 @@ export function LeftSidebar({ openFilterMenu: handleOpenFilters }: LeftSidebarPr
             >
                 <Sidebar
                     side="left"
-                    variant="floating"
+                    variant="sidebar"
                     collapsible="icon"
                 >
                     {/* Header with toggle button */}
                     <SidebarHeader className={"place-content-start"}>
-                        <Button onClick={toggleLeftSidebar} variant="ghost" className="p-2h-4 w-4 flex-start justify-start">
+                        <Button onClick={toggleLeftSidebar} variant="ghost" className="px-2 py-4 h-4 w-4 flex-start justify-start">
                             <Menu className="h-4 w-4 flex-start justify-start" />
                             {!isLeftSidebarCollapsed && <span>Poleshift</span>}
                         </Button>
@@ -443,7 +443,7 @@ export function LeftSidebar({ openFilterMenu: handleOpenFilters }: LeftSidebarPr
                             <SidebarGroupLabel>Settings</SidebarGroupLabel>
                             <SidebarGroupContent>
                                 <SyncProgressIndicator collapsed={isLeftSidebarCollapsed} />
-                                <NetworkIndicator />
+                                <NetworkIndicator showText={!isLeftSidebarCollapsed} />
                                 <SettingsAndSyncActions
                                     onOpenFilters={handleOpenFilters}
                                     onShowAccountActions={() => setShowAccountActions(true)}

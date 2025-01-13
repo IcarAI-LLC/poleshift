@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::{
-    AppHandle, LogicalSize, Manager, PhysicalSize, Size, WebviewUrl, WebviewWindowBuilder, Window,
-};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_http::reqwest::Client;
 use tauri_plugin_positioner::{Position, WindowExt};
 

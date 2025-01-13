@@ -41,9 +41,9 @@ function formatLabel(variableName: string): string {
       .join(" ");
 }
 
-function renameKeysInData(dataArray: ProcessedCtdRbrDataValues[]): any[] {
+function renameKeysInData(dataArray: ProcessedCtdRbrDataValues[]): Record<string, string | number | null>[] {
   return dataArray.map((record) => {
-    const newRecord: Record<string, any> = {};
+    const newRecord: Record<string, string | number | null> = {};
     Object.entries(record).forEach(([key, value]) => {
       if (key.endsWith("_unit")) {
         const mainKey = key.replace("_unit", "");
@@ -89,7 +89,7 @@ const DataChart: FC<DataChartProps> = ({ data }) => {
     const extractedUnits: Record<string, string> = {};
     options.forEach((field) => {
       const unitKey = `${field}_unit`;
-      extractedUnits[field] = firstRow[unitKey] || "N/A";
+      extractedUnits[field] = firstRow[unitKey] as string || "N/A";
     });
 
     return {
@@ -189,9 +189,9 @@ const DataChart: FC<DataChartProps> = ({ data }) => {
                             // Sort primarily by x (value), then y (depth)
                             .sort((a, b) => {
                               if (a.value === b.value) {
-                                return a.depth - b.depth;
+                                return (a?.depth as number - (b?.depth as number));
                               }
-                              return a.value - b.value;
+                              return (a?.value as number - (b.value as number));
                             });
 
                         return (

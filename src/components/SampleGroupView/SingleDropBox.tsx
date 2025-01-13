@@ -1,4 +1,3 @@
-
 import { useCallback, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Plus, CheckCircle2, Lock, Search } from "lucide-react";
@@ -35,8 +34,13 @@ import { usePowerSync, useQuery } from "@powersync/react";
 import { eq, desc, and } from "drizzle-orm";
 import { toCompilableQuery } from "@powersync/drizzle-driver";
 
-import {Organizations, ProcessedDataImproved, SampleGroupMetadata} from "src/types";
-import {DropboxConfigItem} from "@/config/dropboxConfig.ts";
+import {
+    Organizations,
+    ProcessedDataImproved,
+    SampleGroupMetadata,
+    DetailedData,
+} from "src/types";
+import { DropboxConfigItem } from "@/config/dropboxConfig.ts";
 
 export interface SingleDropBoxProps {
     configItem: DropboxConfigItem;
@@ -65,7 +69,7 @@ export default function SingleDropBox({
     // For data viewer
     const [dataDialogOpen, setDataDialogOpen] = useState(false);
     const [dataTitle, setDataTitle] = useState("");
-    const [detailedData, setDetailedData] = useState<any[]>([]);
+    const [detailedData, setDetailedData] = useState<DetailedData | null>(null);
 
     const sampleId = sampleGroup.id;
     const dataType = configItem.id;
@@ -116,45 +120,41 @@ export default function SingleDropBox({
             setAmmoniaDialogOpen(true);
             return;
         }
+        const selectedPaths = await open({
+            multiple: configItem.acceptsMultipleFiles ?? false,
+            directory: false,
+            filters: configItem.expectedFileTypes
+                ? Object.entries(configItem.expectedFileTypes).map(([mime, exts]) => ({
+                    name: mime,
+                    extensions: exts.map((ext) => ext.replace(".", "")),
+                }))
+                : undefined,
+        });
 
-        try {
-            const selectedPaths = await open({
-                multiple: configItem.acceptsMultipleFiles ?? false,
-                directory: false,
-                filters: configItem.expectedFileTypes
-                    ? Object.entries(configItem.expectedFileTypes).map(([mime, exts]) => ({
-                        name: mime,
-                        extensions: exts.map((ext) => ext.replace(".", "")),
-                    }))
-                    : undefined,
-            });
+        if (!selectedPaths) return;
+        const filePaths = Array.isArray(selectedPaths)
+            ? selectedPaths
+            : [selectedPaths];
+        if (filePaths.length === 0) {
+            onError("No files were selected.");
+            return;
+        }
+        if (!organization) {
+            onError("No organization found for user.");
+            return;
+        }
 
-            if (!selectedPaths) return;
-            const filePaths = Array.isArray(selectedPaths)
-                ? selectedPaths
-                : [selectedPaths];
-            if (filePaths.length === 0) {
-                onError("No files were selected.");
-                return;
+        switch (dataType) {
+            case DataType.CTD: {
+                await processCtdData(sampleId, filePaths);
+                break;
             }
-            if (!organization) {
-                onError("No organization found for user.");
-                return;
+            case DataType.Sequence: {
+                await processSequenceData(sampleId, filePaths);
+                break;
             }
-
-            switch (dataType) {
-                case DataType.CTD:
-                    await processCtdData(sampleId, filePaths);
-                    break;
-                case DataType.Sequence:
-                    await processSequenceData(sampleId, filePaths);
-                    break;
-                default:
-                    break;
-            }
-        } catch (error: any) {
-            console.error("File selection error:", error);
-            onError(error.message || "Failed to select files");
+            default:
+                break;
         }
     }, [
         isLocked,
@@ -192,48 +192,41 @@ export default function SingleDropBox({
 
         const fetchDetailedData = async () => {
             try {
-                let fetchedData: any[] = [];
+                let fetchedData: DetailedData | null = null;
                 switch (dataType) {
-                    case DataType.CTD:
-                        fetchedData = await drizzleDB
+                    case DataType.CTD: {
+                        const ctdData = await drizzleDB
                             .select()
                             .from(processed_ctd_rbr_data_values)
-                            .where(
-                                eq(
-                                    processed_ctd_rbr_data_values.processed_data_id,
-                                    processedMetadataItem.id
-                                )
-                            );
+                            .where(eq(processed_ctd_rbr_data_values.processed_data_id, processedMetadataItem.id));
+                        fetchedData = { dataType: DataType.CTD, data: ctdData };
                         break;
-                    case DataType.NutrientAmmonia:
-                        fetchedData = await drizzleDB
+                    }
+                    case DataType.NutrientAmmonia: {
+                        const ammoniaData = await drizzleDB
                             .select()
                             .from(processed_nutrient_ammonia_data)
-                            .where(
-                                eq(
-                                    processed_nutrient_ammonia_data.processed_data_id,
-                                    processedMetadataItem.id
-                                )
-                            );
+                            .where(eq(processed_nutrient_ammonia_data.processed_data_id, processedMetadataItem.id));
+                        fetchedData = { dataType: DataType.NutrientAmmonia, data: ammoniaData };
                         break;
-                    case DataType.Sequence:
-                        fetchedData = await drizzleDB
+                    }
+                    case DataType.Sequence: {
+                        const sequenceData = await drizzleDB
                             .select()
                             .from(processed_kraken_uniq_report)
-                            .where(
-                                eq(
-                                    processed_kraken_uniq_report.processed_data_id,
-                                    processedMetadataItem.id
-                                )
-                            );
+                            .where(eq(processed_kraken_uniq_report.processed_data_id, processedMetadataItem.id));
+                        fetchedData = { dataType: DataType.Sequence, data: sequenceData };
                         break;
+                    }
                     default:
                         break;
                 }
 
-                setDataTitle(`${configItem.label}`);
-                setDetailedData(fetchedData);
-                setDataDialogOpen(true);
+                if (fetchedData) {
+                    setDataTitle(`${configItem.label}`);
+                    setDetailedData(fetchedData);
+                    setDataDialogOpen(true);
+                }
             } catch (error) {
                 console.error("Failed to fetch data for display:", error);
                 onError("Failed to fetch data for display");
@@ -249,21 +242,23 @@ export default function SingleDropBox({
         onError,
     ]);
 
-    // Data viewer
+    // Data viewer with type narrowing
     function renderDataViewer() {
-        switch (dataType) {
+        if (!detailedData) return null;
+
+        switch (detailedData.dataType) {
             case DataType.CTD:
-                return <DataChart data={detailedData} />;
+                return <DataChart data={detailedData.data} />;
             case DataType.Sequence:
                 return (
                     <KrakenVisualization
-                        data={detailedData}
+                        data={detailedData.data}
                         open={dataDialogOpen}
                         onClose={() => setDataDialogOpen(false)}
                     />
                 );
             case DataType.NutrientAmmonia:
-                return <NutrientAmmoniaView data={detailedData} />;
+                return <NutrientAmmoniaView data={detailedData.data} />;
             default:
                 return null;
         }
@@ -304,20 +299,20 @@ export default function SingleDropBox({
             return (
                 <div className="flex items-center gap-2 mt-1">
                     <CheckCircle2 className="h-8 w-8 text-green-500" />
-                        <Tooltip>
-                            <TooltipTrigger
-                                asChild
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDataClick();
-                                }}
-                            >
-                                <Search className="h-5 w-5 cursor-pointer text-muted-foreground" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>View Data</p>
-                            </TooltipContent>
-                        </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger
+                            asChild
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDataClick();
+                            }}
+                        >
+                            <Search className="h-5 w-5 cursor-pointer text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>View Data</p>
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
             );
         }
@@ -327,59 +322,59 @@ export default function SingleDropBox({
 
     return (
         <>
-                <Tooltip>
-                    <TooltipTrigger
-                        onClick={handleFileSelect}
-                        disabled={isLocked && !hasData}
-                        className={`
-              grid
-              w-full
-              h-72
-              grid-cols-3
-              gap-3
-              place-items-center
-              border-2 border-dashed
-              transition-all
-              text-center
-              rounded
-              p-2
-              ${
-                            isLocked && !hasData
-                                ? "opacity-60 cursor-not-allowed"
-                                : "cursor-pointer"
-                        }
-            `}
+            <Tooltip>
+                <TooltipTrigger
+                    onClick={handleFileSelect}
+                    disabled={isLocked && !hasData}
+                    className={`
+                        grid
+                        w-full
+                        h-72
+                        grid-cols-3
+                        gap-3
+                        place-items-center
+                        border-2 border-dashed
+                        transition-all
+                        text-center
+                        rounded
+                        p-2
+                        ${
+                        isLocked && !hasData
+                            ? "opacity-60 cursor-not-allowed"
+                            : "cursor-pointer"
+                    }
+                    `}
+                >
+                    {/* Label: full width => col-span-3 */}
+                    <p
+                        className={`col-span-3 text-lg font-semibold mb-2 ${
+                            isLocked && !hasData ? "text-gray-500" : ""
+                        }`}
                     >
-                        {/* Label: full width => col-span-3 */}
-                        <p
-                            className={`col-span-3 text-lg font-semibold mb-2 ${
-                                isLocked && !hasData ? "text-gray-500" : ""
-                            }`}
-                        >
-                            {configItem.label}
+                        {configItem.label}
+                    </p>
+
+                    {/* Expected file types => full width => col-span-3 */}
+                    {configItem.expectedFileTypes && (
+                        <p className="col-span-3 text-sm text-muted-foreground mb-2">
+                            {Object.values(configItem.expectedFileTypes).flat().join(", ")}
                         </p>
+                    )}
 
-                        {/* Expected file types => full width => col-span-3 */}
-                        {configItem.expectedFileTypes && (
-                            <p className="col-span-3 text-sm text-muted-foreground mb-2">
-                                {Object.values(configItem.expectedFileTypes).flat().join(", ")}
-                            </p>
-                        )}
+                    {/* Main icon => col-span-3 */}
+                    <div className="col-span-3">{IconComponent}</div>
 
-                        {/* Main icon => col-span-3 */}
-                        <div className="col-span-3">{IconComponent}</div>
-
-                        {/* Additional tooltip => col-span-3 */}
-                        {configItem.tooltip && (
-                            <p className="col-span-3 mt-2 text-xs text-muted-foreground">
-                                {configItem.tooltip}
-                            </p>
-                        )}
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{tooltipTitle}</p>
-                    </TooltipContent>
-                </Tooltip>
+                    {/* Additional tooltip => col-span-3 */}
+                    {configItem.tooltip && (
+                        <p className="col-span-3 mt-2 text-xs text-muted-foreground">
+                            {configItem.tooltip}
+                        </p>
+                    )}
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>{tooltipTitle}</p>
+                </TooltipContent>
+            </Tooltip>
 
             {/* Nutrient Ammonia Input Dialog */}
             <NutrientAmmoniaInput
@@ -390,7 +385,7 @@ export default function SingleDropBox({
             />
 
             {/* If dataType !== Sequence, show a standard ShadCN Dialog */}
-            {dataDialogOpen && dataType !== DataType.Sequence && (
+            {dataDialogOpen && detailedData?.dataType !== DataType.Sequence && (
                 <Dialog open={dataDialogOpen} onOpenChange={setDataDialogOpen}>
                     <DialogContent className="sm:max-w-lg">
                         <DialogHeader>
@@ -401,14 +396,14 @@ export default function SingleDropBox({
                 </Dialog>
             )}
 
-            {/* If dataType === Sequence, we rely on KrakenVisualization's internal dialog logic */}
-            {dataDialogOpen && dataType === DataType.Sequence && (
+            {/* If dataType === Sequence, rely on KrakenVisualization's internal dialog logic */}
+            {dataDialogOpen && detailedData?.dataType === DataType.Sequence && (
                 <KrakenVisualization
-                    data={detailedData}
+                    data={detailedData.data}
                     open={dataDialogOpen}
                     onClose={() => setDataDialogOpen(false)}
                 />
             )}
         </>
-    );
+    )
 }

@@ -57,11 +57,6 @@ export const ContextMenu: FC<ContextMenuProps> = ({ deleteItem }) => {
       if (selectedLeftItem?.id === itemId) {
         setSelectedLeftItem(undefined)
       }
-    } catch (error: any) {
-      console.error("Error deleting item:", error)
-      setErrorMessage(
-          error instanceof Error ? error.message : "Failed to delete item"
-      )
     } finally {
       closeLeftSidebarContextMenu()
     }

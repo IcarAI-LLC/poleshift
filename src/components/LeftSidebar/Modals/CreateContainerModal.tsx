@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
-import type { Organizations } from "src/types";
+import type {FileNodes, Organizations} from "src/types";
 
 // ShadCN/UI components
 import {
@@ -19,7 +19,7 @@ interface CreateContainerModalProps {
     open: boolean;
     onClose: () => void;
     organization: Organizations | null;
-    addFileNode: (node: any) => Promise<void>;
+    addFileNode: (node: FileNodes) => Promise<void>;
     setErrorMessage: (msg: string) => void;
 }
 
@@ -63,8 +63,9 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
                 name: containerName.trim(),
                 type: "container" as const,
                 parent_id: null,
+                sample_group_id: null,
                 droppable: 0,
-                children: [],
+                children: null,
                 version: 1,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
@@ -73,10 +74,7 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
             await addFileNode(newContainer);
             setErrorMessage("");
             onClose();
-        } catch (error: any) {
-            console.error("Error creating container:", error);
-            setErrorMessage(error.message || "An unexpected error occurred.");
-        } finally {
+        }finally {
             setIsProcessing(false);
         }
     };

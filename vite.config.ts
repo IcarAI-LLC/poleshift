@@ -9,7 +9,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { visualizer } from "rollup-plugin-visualizer";
-import {imagetools} from "vite-imagetools";
+import {ViteImageOptimizer} from "vite-plugin-image-optimizer";
+import {nodePolyfills} from "vite-plugin-node-polyfills";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -26,7 +27,8 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
                         ReactCompilerConfig],
                     ],
             }
-            }), eslint(), visualizer(), imagetools()],
+            }), eslint(), visualizer(), nodePolyfills(),
+            ViteImageOptimizer({})],
         // PowerSync
         optimizeDeps: {
             // Don't optimize these packages as they contain web workers and WASM files.

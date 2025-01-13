@@ -240,7 +240,7 @@ export class SupabaseConnector {
             // 3. Complete the transaction on success
             await transaction.complete();
             console.debug('Data upload successful.');
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error uploading data in batch:', error, 'Last operation:', lastOp);
 
             // Retry logic: only retry up to `maxAttempts` times

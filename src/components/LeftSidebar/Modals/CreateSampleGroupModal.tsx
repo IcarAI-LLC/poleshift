@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { DateTime } from "luxon";
 
 import type {
+    FileNodes,
     Organizations,
     SampleGroupMetadata,
     SampleLocations,
@@ -40,7 +41,7 @@ interface CreateSampleGroupModalProps {
     organization: Organizations | null;
     sampleGroups: Record<string, SampleGroupMetadata>;
     locations: SampleLocations[];
-    createSampleGroup: (data: any, fileNode: any) => Promise<void>;
+    createSampleGroup: (data: SampleGroupMetadata, fileNode: FileNodes) => Promise<void>;
     setErrorMessage: (msg: string) => void;
 }
 
@@ -132,7 +133,6 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
                 type: "sampleGroup" as const,
                 parent_id: null,
                 droppable: 0,
-                children: [],
                 version: 1,
                 sample_group_id: id,
                 created_at: new Date().toISOString(),
@@ -150,7 +150,7 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
                 human_readable_sample_id: sampleGroupName,
                 loc_id: location.id,
                 collection_date: formattedDate,
-                collection_datetime_utc: collectionDateTimeUTC,
+                collection_datetime_utc: collectionDateTimeUTC || null,
                 user_id: userId,
                 org_id: organization.id,
                 latitude_recorded: null,
@@ -158,18 +158,16 @@ const CreateSampleGroupModal: React.FC<CreateSampleGroupModalProps> = ({
                 notes: null,
                 created_at: new Date().toISOString(),
                 updated_at: DateTime.now().toISO(),
-                excluded: 0,
+                excluded: false,
                 penguin_count: null,
                 penguin_present: 0,
+                proximity_category: null,
             };
 
             await createSampleGroup(sampleGroupData, newNode);
             setErrorMessage("");
             onClose();
-        } catch (error: any) {
-            console.error("Error creating sample group:", error);
-            setErrorMessage(error.message || "An unexpected error occurred.");
-        } finally {
+        }finally {
             setIsProcessing(false);
         }
     };

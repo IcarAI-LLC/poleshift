@@ -16,7 +16,7 @@ import {
     ProcessedNutrientAmmoniaData,
     HandleCtdDataResult,
     HandleSequenceDataResult,
-    ProgressPayload
+    ProgressPayload, RawFastqData, ProcessedKrakenUniqReport, ProcessedKrakenUniqStdout
 } from '@/types';
 
 import {
@@ -98,7 +98,7 @@ export function useTauriDataProcessor() {
     async function bulkInsertJSON1(
         tableName: string,
         columns: string[],
-        data: Array<Record<string, any>>
+        data: RawFastqData[] | ProcessedKrakenUniqReport[] | ProcessedKrakenUniqStdout[]
     ): Promise<void> {
         if (data.length === 0) {
             console.info(`bulkInsertJSON1: No data provided for table '${tableName}'. Skipping insertion.`);

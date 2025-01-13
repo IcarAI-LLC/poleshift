@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select.tsx"
 import { Label } from "@/components/ui/label.tsx"
 import LocationFields from "./LocationFields.tsx"
+import {AccordionHeader} from "@radix-ui/react-accordion";
 
 /**
  * Special string value for "no proximity category"
@@ -226,18 +227,18 @@ export default function SampleGroupMetadataComponent() {
         >
           <AccordionItem value="metadata">
             <AccordionTrigger className="flex items-center gap-2 px-4 py-2 text-sm font-medium">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-                <p className="text-base font-bold">
-                  {sampleGroup.human_readable_sample_id || "Unnamed Sample"}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Sample Group UUID: {sampleGroup.id || "Unknown id"}
-                </p>
-              </div>
+                <AccordionHeader>
+                    <p className="text-base font-bold">
+                        {sampleGroup.human_readable_sample_id || "Unnamed Sample"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                        Sample Group UUID: {sampleGroup.id || "Unknown id"}
+                    </p>
+                </AccordionHeader>
             </AccordionTrigger>
-            <AccordionContent className="p-0 max-h-96 overflow-auto">
-              <CardContent className="flex flex-col gap-2">
-                {/* Sample ID */}
+              <AccordionContent className="p-0 max-h-96 overflow-auto">
+                  <CardContent className="flex flex-col gap-2">
+                      {/* Sample ID */}
                 <div className="flex items-start py-1">
                   <Label className="w-36 text-gray-500 text-sm">Sample ID:</Label>
                   <div className="flex-1 text-sm">

@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@powersync/react';
 import { usePowerSync } from '@powersync/react';
-import {FileNodes, SampleGroupMetadata} from '../types';
+import {FileNodes, SampleGroupMetadata} from '@/types';
 
 import {toCompilableQuery, wrapPowerSyncWithDrizzle} from "@powersync/drizzle-driver";
 import {
@@ -26,6 +26,14 @@ export type FileNodeWithChildren = FileNodes & {
     proximity_category?: ProximityCategory | null;
 };
 
+// Helper function to omit specific properties
+const omit = <T extends object, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => {
+    const result = { ...obj };
+    keys.forEach(key => {
+        delete result[key];
+    });
+    return result;
+};
 
 // Helper to build a record by ID from an array of rows
 export function arrayToRecord<T extends { id: string | number }>(arr: T[]): Record<string, T> {
@@ -100,112 +108,88 @@ export const useData = () => {
         }else{
             canDrop = 0;
         }
-        try {
-            await drizzleDB.insert(file_nodes).values(
-                {
-                    id: node.id,
-                    org_id: node.org_id,
-                    parent_id: node.parent_id,
-                    name: node.name,
-                    type: node.type,
-                    created_at: node.created_at,
-                    updated_at: node.updated_at,
-                    version: node.version,
-                    sample_group_id: node.sample_group_id,
-                    droppable: canDrop,
-                }
-            );
-        } catch (err: any) {
-            setError(err.message || 'Failed to add file node');
-            throw err;
-        }
-    }, [setError]);
+        await drizzleDB.insert(file_nodes).values(
+            {
+                id: node.id,
+                org_id: node.org_id,
+                parent_id: node.parent_id,
+                name: node.name,
+                type: node.type,
+                created_at: node.created_at,
+                updated_at: node.updated_at,
+                version: node.version,
+                sample_group_id: node.sample_group_id,
+                droppable: canDrop,
+            }
+        );
+    }, [drizzleDB]);
 
+    // Usage within your component
     const updateFileNode = useCallback(async (id: string, updates: Partial<FileNodeWithChildren>) => {
-        try {
-            const { children, ...validUpdates } = updates;
-            await drizzleDB
-                .update(file_nodes)
-                .set(validUpdates)
-                .where(eq(file_nodes.id, id))
-                .run();
-        } catch (err: any) {
-            setError(err.message || 'Failed to update file node');
-            throw err;
-        }
+        const validUpdates = omit(updates, 'children');
+
+        await drizzleDB
+            .update(file_nodes)
+            .set(validUpdates)
+            .where(eq(file_nodes.id, id))
+            .run();
     }, [setError]);
 
 
     const deleteNode = useCallback(async (id: string) => {
-        try {
-            // 1. Fetch the node to see if it’s a folder and/or has a sample group
-            const [nodeResult] = await drizzleDB
-                .select({
-                    type: file_nodes.type,
-                    sampleGroupId: file_nodes.sample_group_id,
-                })
+        // 1. Fetch the node to see if it’s a folder and/or has a sample group
+        const [nodeResult] = await drizzleDB
+            .select({
+                type: file_nodes.type,
+                sampleGroupId: file_nodes.sample_group_id,
+            })
+            .from(file_nodes)
+            .where(eq(file_nodes.id, id));
+
+        // If the node doesn't exist, just return
+        if (!nodeResult) return;
+
+        // 2. If it's a folder, recursively delete its children first
+        if (nodeResult.type === FileNodeType.Folder && nodeResult.sampleGroupId === null) {
+            const childNodes = await drizzleDB
+                .select({ id: file_nodes.id })
                 .from(file_nodes)
-                .where(eq(file_nodes.id, id));
+                .where(eq(file_nodes.parent_id, (id)));
 
-            // If the node doesn't exist, just return
-            if (!nodeResult) return;
-
-            // 2. If it's a folder, recursively delete its children first
-            if (nodeResult.type === FileNodeType.Folder && nodeResult.sampleGroupId === null) {
-                const childNodes = await drizzleDB
-                    .select({ id: file_nodes.id })
-                    .from(file_nodes)
-                    .where(eq(file_nodes.parent_id, (id)));
-
-                for (const child of childNodes) {
-                    await deleteNode(child.id); // Recursively delete each child
-                }
+            for (const child of childNodes) {
+                await deleteNode(child.id); // Recursively delete each child
             }
-
-            // 3. If there's a sample group, delete it
-            if (nodeResult.sampleGroupId) {
-                console.debug('Deleting sample group', nodeResult.sampleGroupId);
-                await drizzleDB
-                    .delete(sample_group_metadata)
-                    .where(eq(sample_group_metadata.id, nodeResult.sampleGroupId))
-                    .run();
-            }
-
-            // 4. Finally, delete the node itself
-            await drizzleDB.delete(file_nodes).where(eq(file_nodes.id, id)).run();
-
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete node');
-            throw err;
         }
+
+        // 3. If there's a sample group, delete it
+        if (nodeResult.sampleGroupId) {
+            console.debug('Deleting sample group', nodeResult.sampleGroupId);
+            await drizzleDB
+                .delete(sample_group_metadata)
+                .where(eq(sample_group_metadata.id, nodeResult.sampleGroupId))
+                .run();
+        }
+
+        // 4. Finally, delete the node itself
+        await drizzleDB.delete(file_nodes).where(eq(file_nodes.id, id)).run();
     }, [setError]);
 
     const updateSampleGroup = useCallback(async (id: string, updates: Partial<SampleGroupMetadata>) => {
-        try {
-            await drizzleDB
-                .update(sample_group_metadata)
-                .set(updates)
-                .where(eq(sample_group_metadata.id, id))
-                .run();
-        } catch (err: any) {
-            setError(err.message || 'Failed to update sample group');
-            throw err;
-        }
+        await drizzleDB
+            .update(sample_group_metadata)
+            .set(updates)
+            .where(eq(sample_group_metadata.id, id))
+            .run();
     }, [setError]);
 
     const createSampleGroup = useCallback(
         async (sampleGroupData: SampleGroupMetadata, fileNodeData: FileNodes) => {
-            try {
-                await drizzleDB
-                    .insert(sample_group_metadata)
-                    .values(sampleGroupData).run();
-                await addFileNode(fileNodeData);
-            } catch (err: any) {
-                setError(err.message || 'Failed to create sample group');
-                throw err;
-            }
+        await drizzleDB
+            .insert(sample_group_metadata)
+            .values(sampleGroupData).run();
+        await addFileNode(fileNodeData);
         },
-        [addFileNode, setError]
+        [addFileNode]
     );
 
     const moveNode = useCallback(

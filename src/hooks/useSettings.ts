@@ -66,13 +66,8 @@ export const useSettings = () => {
             if (!userId) {
                 throw new Error('Cannot add settings: No current user ID');
             }
-            try {
-                setting.id = userId;
-                await drizzleDB.insert(user_settings).values(setting).run();
-            } catch (err: any) {
-                setError(err.message || 'Failed to add user setting');
-                throw err;
-            }
+            setting.id = userId;
+            await drizzleDB.insert(user_settings).values(setting).run();
         },
         [drizzleDB, userId, setError]
     );
@@ -85,16 +80,11 @@ export const useSettings = () => {
             if (!userId) {
                 throw new Error('Cannot update settings: No current user ID');
             }
-            try {
-                await drizzleDB
-                    .update(user_settings)
-                    .set(updates)
-                    .where(eq(user_settings.id, userId))
-                    .run();
-            } catch (err: any) {
-                setError(err.message || 'Failed to update user setting');
-                throw err;
-            }
+            await drizzleDB
+                .update(user_settings)
+                .set(updates)
+                .where(eq(user_settings.id, userId))
+                .run();
         },
         [drizzleDB, userId, setError]
     );
@@ -106,15 +96,10 @@ export const useSettings = () => {
         if (!userId) {
             throw new Error('Cannot delete settings: No current user ID');
         }
-        try {
-            await drizzleDB
-                .delete(user_settings)
-                .where(eq(user_settings.id, userId))
-                .run();
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete user setting');
-            throw err;
-        }
+        await drizzleDB
+            .delete(user_settings)
+            .where(eq(user_settings.id, userId))
+            .run();
     }, [drizzleDB, userId, setError]);
 
     // 9. Return the current user’s settings + CRUD

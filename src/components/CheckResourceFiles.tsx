@@ -118,7 +118,6 @@ export const CheckResourceFiles: React.FC = () => {
 
     useEffect(() => {
         checkAndDownloadFiles();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Renders nothing; purely used for effect

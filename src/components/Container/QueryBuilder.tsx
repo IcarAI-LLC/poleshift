@@ -100,7 +100,7 @@ export const QueryBuilder: React.FC<QueryBuilderProps> = ({
             setStartDate(null);
         } else {
             // convert from JS Date to ISO
-            setStartDate(DateTime.fromJSDate(date).toISO());
+            setStartDate(DateTime.fromJSDate(date).toISODate());
         }
     };
 

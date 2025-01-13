@@ -13,13 +13,13 @@ export function ChatWidget() {
     const email = user?.email;
     async function handleOpenChat() {
         setError(null)
-        try {
-            const API_KEY = import.meta.env.VITE_AYD_API_KEY
-            await invoke('create_chatbot_session', { api_key: API_KEY, email: email, user_id: userId, org_id: organizationId})
-        } catch (err: any) {
-            console.error('Error creating chatbot session:', err)
-            setError(err.toString())
-        }
+        const API_KEY = import.meta.env.VITE_AYD_API_KEY
+        invoke('create_chatbot_session', {
+            api_key: API_KEY,
+            email: email,
+            user_id: userId,
+            org_id: organizationId
+        }).catch((error) => setError(error.message));
     }
 
     return (

@@ -63,7 +63,7 @@ const initialFilters: Filters = {
     showExcluded: false,
 };
 
-export const useUIStore = create<UIState>((set, _get) => ({
+export const useUIStore = create<UIState>((set) => ({
     // Initial States
     isLeftSidebarCollapsed: false,
     isRightSidebarCollapsed: true,

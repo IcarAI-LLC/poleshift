@@ -1,4 +1,4 @@
-import { DrizzleSchema } from '../lib/powersync/DrizzleSchema.ts'
+import {DataType, DrizzleSchema} from '../lib/powersync/DrizzleSchema.ts'
 import { type InferSelectModel } from 'drizzle-orm'
 
 export type Organizations = InferSelectModel<typeof DrizzleSchema.organizations>
@@ -21,3 +21,7 @@ export type RawCtdRbrDataValues = InferSelectModel<typeof DrizzleSchema.raw_ctd_
 export type RawNutrientAmmoniaData = InferSelectModel<typeof DrizzleSchema.raw_nutrient_ammonia_data>
 export type RawFastqData = InferSelectModel<typeof DrizzleSchema.raw_fastq_data>
 export type ProcessedKrakenUniqStdout = InferSelectModel<typeof DrizzleSchema.processed_kraken_uniq_stdout>
+export type DetailedData =
+    | { dataType: DataType.CTD; data: ProcessedCtdRbrDataValues[] }
+    | { dataType: DataType.NutrientAmmonia; data: ProcessedNutrientAmmoniaData[] }
+    | { dataType: DataType.Sequence; data: ProcessedKrakenUniqReport[] };
