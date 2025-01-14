@@ -37,7 +37,6 @@ pub fn run() {
             process_sidebar_stats,
             create_chatbot_session
         ]).plugin(tauri_plugin_positioner::init())
-            .plugin(tauri_plugin_deep_link::init())
             .plugin(tauri_plugin_updater::Builder::new().build())
             .plugin(tauri_plugin_upload::init())
             .plugin(tauri_plugin_http::init())

@@ -38,7 +38,7 @@ export function ResourceDownloadProvider({ children }: { children: ReactNode }) 
     const isDownloading = downloads.some(
         (item) => item.progress < item.total && item.total > 0
     );
-    console.log("isDownloading", isDownloading);
+
     const value = useMemo(
         () => ({
             isDownloading,

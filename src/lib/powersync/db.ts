@@ -21,14 +21,15 @@ export class PowerSyncDB {
             this.instance = new PowerSyncDatabase({
                 schema: AppSchema,
                 database: new WASQLiteOpenFactory({
-                    dbFilename: 'powersync5.db',
+                    dbFilename: 'powersync018.db',
                     vfs: WASQLiteVFS.OPFSCoopSyncVFS,
                     flags: {
-                        enableMultiTabs: typeof SharedWorker !== 'undefined'
+                        enableMultiTabs: false
                     }
                 }),
                 flags: {
-                    enableMultiTabs: typeof SharedWorker !== 'undefined'
+                    enableMultiTabs: false,
+                    useWebWorker: false
                 }
             });
         }

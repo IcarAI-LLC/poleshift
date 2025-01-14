@@ -212,8 +212,8 @@ const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
                         selected={collectionDate}
                         onChange={(date) => setCollectionDate(date)}
                         placeholderText="Select date..."
-                        className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm
-              outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        className="w-full rounded-md border bg-transparent px-3 py-2 text-sm
+              outline-none"
                         // Optional: You can configure more datepicker props here
                     />
                 </div>
@@ -225,6 +225,7 @@ const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
                         id="collection-time"
                         type="time"
                         step="1"
+                        placeholder={"Select a time..."}
                         value={collectionTime}
                         onChange={(e) => setCollectionTime(e.target.value)}
                     />

@@ -65,6 +65,11 @@
         --sidebar-border: 240 3.7% 15.9%;
         --sidebar-ring: 217.2 91.2% 59.8%;
     }
+
+    .transparent {
+        /* Override the sidebar background variable to truly be transparent. */
+        --sidebar-background: transparent;
+    }
 }
 
 @layer base {

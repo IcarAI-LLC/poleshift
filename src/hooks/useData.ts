@@ -108,20 +108,26 @@ export const useData = () => {
         }else{
             canDrop = 0;
         }
-        await drizzleDB.insert(file_nodes).values(
-            {
-                id: node.id,
-                org_id: node.org_id,
-                parent_id: node.parent_id,
-                name: node.name,
-                type: node.type,
-                created_at: node.created_at,
-                updated_at: node.updated_at,
-                version: node.version,
-                sample_group_id: node.sample_group_id,
-                droppable: canDrop,
-            }
-        );
+        try {
+            await drizzleDB.insert(file_nodes).values(
+                {
+                    id: node.id,
+                    org_id: node.org_id,
+                    parent_id: node.parent_id,
+                    name: node.name,
+                    type: node.type,
+                    created_at: node.created_at,
+                    updated_at: node.updated_at,
+                    version: node.version,
+                    sample_group_id: node.sample_group_id,
+                    droppable: canDrop,
+                }
+            );
+        }
+        catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to add the node');
+            throw err;
+        }
     }, [drizzleDB]);
 
     // Usage within your component

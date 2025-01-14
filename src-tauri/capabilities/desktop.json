@@ -31,6 +31,10 @@
     "fs:allow-mkdir",
     "fs:allow-resource-write-recursive",
     "fs:allow-resource-read-recursive",
-    "positioner:default"
+    "positioner:default",
+    "http:allow-fetch",
+    "http:allow-fetch-cancel",
+    "http:allow-fetch-read-body",
+    "http:allow-fetch-send"
   ]
 }

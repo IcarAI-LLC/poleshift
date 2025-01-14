@@ -45,7 +45,7 @@ function LocationLegend({ data }: { data: Record<string, any>[] }) {
     // Build a map of { [char_id]: fullName }
     const locationMap = new Map<string, string>();
     data.forEach((row) => {
-        const charId = row.locationCharId;   // Or whatever you named the field
+        const charId = row.locationCharId; // Or whatever you named the field
         const fullName = row.locationName;
         if (charId && fullName && !locationMap.has(charId)) {
             locationMap.set(charId, fullName);
@@ -161,7 +161,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                         </CardTitle>
                     )}
                     <CardDescription>
-                        {showAsIntraPercent ? "Intra-sample percentages" : `Filtered reads`}
+                        {showAsIntraPercent ? "Intra-sample percentages" : "Filtered reads"}
                     </CardDescription>
                 </CardHeader>
 
@@ -175,7 +175,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                                 style={{ backgroundColor: "#333333" }}
                                 margin={{ top: 20, right: 20, bottom: 200, left: 60 }}
                             >
-                                {/* This is the built-in legend for the stacked bars (taxa) */}
+                                {/* Built-in legend for the stacked bars (taxa) */}
                                 <Legend
                                     verticalAlign={"top"}
                                     iconType={"wye"}
@@ -183,10 +183,11 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                                 />
                                 <CartesianGrid strokeDasharray="3 3" stroke="#999999" />
                                 <XAxis
-                                    dataKey={finalXAxisKey}  // <---- use locationCharId on the axis
+                                    dataKey={finalXAxisKey}
                                     stroke="#ffffff"
                                     interval={0}
-                                    angle={30}
+                                    angle={-60}
+                                    tickMargin={100}
                                 />
                                 <YAxis
                                     tickFormatter={yAxisTickFormatter}
@@ -208,7 +209,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                                     }
                                 />
 
-                                {/* Render a Bar for every taxon key */}
+                                {/* Render a Bar for each taxon key */}
                                 {Object.keys(taxaColors).map((taxon) =>
                                     taxon !== finalXAxisKey ? (
                                         <Bar

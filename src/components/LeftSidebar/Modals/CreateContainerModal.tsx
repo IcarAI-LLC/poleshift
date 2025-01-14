@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
 
 interface CreateContainerModalProps {
     open: boolean;
@@ -61,7 +62,7 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
                 id: uuidv4(),
                 org_id: organization.id,
                 name: containerName.trim(),
-                type: "container" as const,
+                type: FileNodeType.Container,
                 parent_id: null,
                 sample_group_id: null,
                 droppable: 0,
@@ -74,7 +75,10 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
             await addFileNode(newContainer);
             setErrorMessage("");
             onClose();
-        }finally {
+        }catch(e){
+            console.error(e);
+            setErrorMessage("Failed to create container.");
+        } finally {
             setIsProcessing(false);
         }
     };
@@ -100,7 +104,7 @@ const CreateContainerModal: React.FC<CreateContainerModalProps> = ({
                         <Button variant="outline" type="button" onClick={onClose} disabled={isProcessing}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isProcessing}>
+                        <Button type="submit" disabled={isProcessing} onClick={handleSubmit}>
                             {isProcessing ? "Creating..." : "Create"}
                         </Button>
                     </DialogFooter>

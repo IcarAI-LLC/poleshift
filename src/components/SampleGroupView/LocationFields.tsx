@@ -139,8 +139,8 @@ export const LocationFields: FC<LocationFieldsProps> = ({
             const { value, error } = coordinates[type]
 
             return (
-                <div key={type} className="flex items-start  py-2 ">
-                    <Label className="w-[180px] text-muted-foreground text-sm">{config.label}</Label>
+                <div key={type} className="flex items-start  py-1 ">
+                    <Label className="w-36 text-sm font-medium leading-7 text-muted-foreground">{config.label}</Label>
                     <div className="flex-1">
                         <Input
                             type="number"

@@ -1,6 +1,5 @@
 import React, {
   Suspense,
-  useCallback,
   useEffect,
 } from "react";
 import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
@@ -14,8 +13,6 @@ import SampleGroupMetadataComponent from "@/components/SampleGroupView/SampleGro
 import ContainerScreen from "@/components/Container/ContainerScreen";
 import GlobeComponent from "@/components/GlobeComponent.tsx";
 
-import ContextMenu from "./ContextMenu";
-import MoveModal from "./LeftSidebar/Modals/MoveModal";
 import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
 
 import ErrorMessage from "./ErrorMessage";
@@ -31,14 +28,12 @@ const MainApp: React.FC = () => {
   CheckResourceFiles({});
 
   const { error: authError, setError: setAuthError } = auth;
-  const { deleteNode, error: dataError } = data;
+  const { error: dataError } = data;
   const {
     selectedLeftItem,
     showAccountActions,
     errorMessage,
     setErrorMessage,
-    leftSidebarContextMenu,
-    closeLeftSidebarContextMenu,
   } = ui;
   const displayedError = authError || dataError || errorMessage;
 
@@ -53,29 +48,6 @@ const MainApp: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [displayedError, setErrorMessage, setAuthError]);
-
-  // ---- Callbacks ----
-  const handleDeleteSample = useCallback(async () => {
-    if (!leftSidebarContextMenu.itemId) {
-      setErrorMessage("Could not determine which item to delete.");
-      return;
-    }
-    try {
-      await deleteNode(leftSidebarContextMenu.itemId);
-      closeLeftSidebarContextMenu();
-    } catch (error) {
-      setErrorMessage(
-          error instanceof Error
-              ? error.message
-              : "An error occurred while deleting the item."
-      );
-    }
-  }, [
-    leftSidebarContextMenu.itemId,
-    deleteNode,
-    closeLeftSidebarContextMenu,
-    setErrorMessage,
-  ]);
 
   // ---- Determine which content to show (Globe vs. Non-Globe) ----
   const isGlobe =
@@ -158,8 +130,6 @@ const MainApp: React.FC = () => {
 
         {/* (6) ACCOUNT MODAL / CONTEXT MENU / MOVE MODAL */}
         {showAccountActions && <AccountModal />}
-        <ContextMenu deleteItem={handleDeleteSample} />
-        <MoveModal />
       </div>
   );
 };

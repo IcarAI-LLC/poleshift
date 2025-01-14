@@ -1,4 +1,8 @@
-import React, { useCallback, useState } from "react";
+// components/LeftSidebar/LeftSidebar.tsx
+import { SetStateAction, useCallback, useState} from "react";
+import {Button} from "@/components/ui/button";
+import {Menu} from "lucide-react";
+
 import {
     SidebarProvider,
     Sidebar,
@@ -11,353 +15,33 @@ import {
     SidebarMenu,
     SidebarMenuItem,
     SidebarMenuButton,
-    SidebarMenuSub,
-    SidebarMenuSubItem,
-    SidebarMenuSubButton,
+    // etc.
 } from "@/components/ui/sidebar";
 
-import { Button } from "@/components/ui/button";
-import {
-    PlusCircle,
-    FolderPlus,
-    Globe2,
-    DatabaseIcon,
-    FlaskConical,
-    Ban,
-    Menu,
-    Folder as FolderClosedIcon,
-    FolderOpen as FolderOpenIcon,
-    FilterIcon,
-    UserIcon,
-    Settings,
-} from "lucide-react";
+import {useUI, useData, useAuth} from "@/hooks";
+import {useAuthStore} from "@/stores/authStore";
+import {PoleshiftPermissions} from "@/types";
 
-import PenguinIcon from "../../assets/icons/penguin.svg";
+// Our new smaller components
+import {SettingsAndSyncActions} from "./SettingsAndSyncActions";
+import {ApplicationActions} from "./ApplicationActions";
+import {SidebarTree} from "./SidebarTree";
 
-import { useUI, useData, useAuth } from "@/hooks";
-import { useAuthStore } from "@/stores/authStore";
-import { PoleshiftPermissions } from "@/types";
-import { FileNodeWithChildren } from "@/hooks/useData.ts";
-import { FileNodeType, ProximityCategory } from "@/lib/powersync/DrizzleSchema";
+// Indicators
+import {SyncProgressIndicator} from "./Indicators/SyncIndicator";
+import {ResourceDownloadIndicator} from "./Indicators/ResourceDownloadIndicator";
+import {NetworkIndicator} from "./Indicators/NetworkIndicator";
 
+// Modals
 import CreateSampleGroupModal from "./Modals/CreateSampleGroupModal";
-import CreateFolderModal from "./Modals/CreateFolderModal.tsx";
-import CreateContainerModal from "./Modals/CreateContainerModal.tsx";
-import { SettingsModal } from "./Modals/SettingsModal.tsx";
-import { SyncProgressIndicator } from "./Indicators/SyncIndicator.tsx";
-import { ResourceDownloadIndicator } from "./Indicators/ResourceDownloadIndicator.tsx";
-import { NetworkIndicator } from "./Indicators/NetworkIndicator.tsx";
-import {FilterModal} from "@/components/LeftSidebar/Modals/FilterModal.tsx";
-import {ModeToggle} from "@/components/LeftSidebar/Toggles/ModeToggle.tsx";
+import CreateFolderModal from "./Modals/CreateFolderModal";
+import CreateContainerModal from "./Modals/CreateContainerModal";
+import {FilterModal} from "./Modals/FilterModal";
+import MoveModal from "./Modals/MoveModal";
 
-/* -------------------------------------------------------------------------
-   1. Settings & Sync
-------------------------------------------------------------------------- */
-function SettingsAndSyncActions({
-                                    onOpenFilters,
-                                    onShowAccountActions,
-                                    onOpenSettings,
-                                    onCloseSettings,
-                                    isSettingsOpen,
-                                }: {
-    onOpenFilters: () => void
-    onShowAccountActions: () => void
-    onOpenSettings: () => void
-    onCloseSettings: () => void
-    isSettingsOpen: boolean
-}) {
-    return (
-        <>
-            <SidebarMenu>
-                <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
-                        <button
-                            onClick={onOpenFilters}
-                            className="flex items-center gap-2 px-2 py-1"
-                        >
-                            <FilterIcon className="h-4 w-4" />
-                            <span>Filters</span>
-                        </button>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-
-                <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
-                        <button
-                            onClick={onShowAccountActions}
-                            className="flex items-center gap-2 px-2 py-1"
-                        >
-                            <UserIcon className="h-4 w-4" />
-                            <span>Account</span>
-                        </button>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-
-                <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
-                        <button
-                            onClick={onOpenSettings}
-                            className="flex items-center gap-2 px-2 py-1"
-                        >
-                            <Settings className="h-4 w-4" />
-                            <span>Settings</span>
-                        </button>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-            </SidebarMenu>
-
-            {/*
-        -- ADD THE THEME TOGGLE HERE --
-        You could wrap it in its own SidebarMenu or
-        just display the ModeToggle button by itself.
-      */}
-            <SidebarMenu className="mt-2">
-                <SidebarMenuItem>
-                    <ModeToggle />
-                </SidebarMenuItem>
-            </SidebarMenu>
-
-            {/* Keep your existing Settings Modal outside */}
-            <SettingsModal isOpen={isSettingsOpen} onClose={onCloseSettings} />
-        </>
-    );
-}
-
-/* -------------------------------------------------------------------------
-   2. Helpers for icons & labels
-------------------------------------------------------------------------- */
-function getNodeIcon(node: FileNodeWithChildren, expanded: boolean) {
-    if (node.type === FileNodeType.Folder) {
-        return expanded ? (
-            <FolderOpenIcon className="h-4 w-4" />
-        ) : (
-            <FolderClosedIcon className="h-4 w-4" />
-        );
-    }
-    if (node.type === FileNodeType.Container) {
-        return <DatabaseIcon className="h-4 w-4" />;
-    }
-    if (node.type === FileNodeType.SampleGroup) {
-        if (node.excluded) {
-            return <Ban className="h-4 w-4 stroke-red-500" />;
-        }
-        if (node.penguin_present) {
-            return <img src={PenguinIcon} alt="Penguin" className="h-4 w-4" />;
-        }
-        return <FlaskConical className="h-4 w-4 stroke-cyan-500" />;
-    }
-    return null;
-}
-
-function getProximityLabel(cat?: ProximityCategory | null) {
-    switch (cat) {
-        case ProximityCategory.Close:
-            return "Close";
-        case ProximityCategory.Far1:
-            return "Far1";
-        case ProximityCategory.Far2:
-            return "Far2";
-        default:
-            return null;
-    }
-}
-
-/* -------------------------------------------------------------------------
-   3. Recursively render the file tree
-------------------------------------------------------------------------- */
-function renderTree(
-    nodes: FileNodeWithChildren[],
-    expandedIds: string[],
-    onToggleExpand: (id: string) => void,
-    selectedId: string | undefined,
-    onSelect: (node: FileNodeWithChildren) => void
-): React.ReactNode {
-    return nodes.map((node) => {
-        const hasChildren = node.children && node.children.length > 0;
-        const isActive = node.id === selectedId;
-        const isExpanded = expandedIds.includes(node.id);
-        const proximityLabel = getProximityLabel(node.proximity_category);
-
-        if (hasChildren) {
-            return (
-                <SidebarMenuItem key={node.id}>
-                    <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        onClick={() => {
-                            onSelect(node);
-                            onToggleExpand(node.id);
-                        }}
-                    >
-                        <button className="items-center gap-2 px-2 py-1">
-                            {getNodeIcon(node, isExpanded)}
-                            <span className="truncate">{node.name}</span>
-                            {proximityLabel && (
-                                <span className="ml-2 text-xs text-muted-foreground">
-                  {proximityLabel}
-                </span>
-                            )}
-                        </button>
-                    </SidebarMenuButton>
-
-                    {/* Conditionally render child subtree if expanded */}
-                    {isExpanded && (
-                        <SidebarMenuSub>
-                            {node.children.map((child) => {
-                                const childActive = child.id === selectedId;
-                                const childHasKids = child.children && child.children.length > 0;
-                                const childIsExpanded = expandedIds.includes(child.id);
-                                const childProximity = getProximityLabel(
-                                    child.proximity_category
-                                );
-
-                                if (childHasKids) {
-                                    return (
-                                        <SidebarMenuSubItem key={child.id}>
-                                            <SidebarMenuSubButton
-                                                asChild
-                                                isActive={childActive}
-                                                onClick={() => {
-                                                    onSelect(child);
-                                                    onToggleExpand(child.id);
-                                                }}
-                                            >
-                                                <button className="items-center gap-2 px-2 py-1">
-                                                    {getNodeIcon(child, childIsExpanded)}
-                                                    <span className="truncate">{child.name}</span>
-                                                    {childProximity && (
-                                                        <span className="ml-2 text-xs text-muted-foreground">
-                              {childProximity}
-                            </span>
-                                                    )}
-                                                </button>
-                                            </SidebarMenuSubButton>
-                                            {childIsExpanded && (
-                                                <SidebarMenuSub>
-                                                    {renderTree(
-                                                        child.children,
-                                                        expandedIds,
-                                                        onToggleExpand,
-                                                        selectedId,
-                                                        onSelect
-                                                    )}
-                                                </SidebarMenuSub>
-                                            )}
-                                        </SidebarMenuSubItem>
-                                    );
-                                }
-
-                                // Child is a leaf
-                                return (
-                                    <SidebarMenuSubItem key={child.id}>
-                                        <SidebarMenuSubButton
-                                            asChild
-                                            isActive={childActive}
-                                            onClick={() => onSelect(child)}
-                                        >
-                                            <button className="flex items-center gap-2 px-2 py-1">
-                                                {getNodeIcon(child, false)}
-                                                <span className="truncate">{child.name}</span>
-                                                {childProximity && (
-                                                    <span className="ml-2 text-xs text-muted-foreground">
-                            {childProximity}
-                          </span>
-                                                )}
-                                            </button>
-                                        </SidebarMenuSubButton>
-                                    </SidebarMenuSubItem>
-                                );
-                            })}
-                        </SidebarMenuSub>
-                    )}
-                </SidebarMenuItem>
-            );
-        }
-
-        // Leaf node
-        return (
-            <SidebarMenuItem key={node.id}>
-                <SidebarMenuButton
-                    asChild
-                    isActive={isActive}
-                    onClick={() => onSelect(node)}
-                >
-                    <button className="flex items-center gap-2 px-2 py-1">
-                        {getNodeIcon(node, false)}
-                        <span className="truncate">{node.name}</span>
-                        {proximityLabel && (
-                            <span className="ml-2 text-xs text-muted-foreground">
-                {proximityLabel}
-              </span>
-                        )}
-                    </button>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-        );
-    });
-}
-
-/* -------------------------------------------------------------------------
-   4. "Application" actions for new folders, containers, etc.
-------------------------------------------------------------------------- */
-function ApplicationActions({
-                                onNewSampleGroup,
-                                onNewFolder,
-                                onNewContainer,
-                                onReset,
-                                canCreate,
-                            }: {
-    onNewSampleGroup: () => void;
-    onNewFolder: () => void;
-    onNewContainer: () => void;
-    onReset: () => void;
-    canCreate: boolean;
-}) {
-    return (
-        <SidebarMenu>
-            <SidebarMenuItem>
-                <SidebarMenuButton onClick={onNewSampleGroup} disabled={!canCreate}>
-                    <PlusCircle className="mr-2 h-5 w-5" />
-                    <span>New Sampling Event</span>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            <SidebarMenuItem>
-                <SidebarMenuButton onClick={onNewFolder} disabled={!canCreate}>
-                    <FolderPlus className="mr-2 h-5 w-5" />
-                    <span>New Folder</span>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            <SidebarMenuItem>
-                <SidebarMenuButton onClick={onNewContainer} disabled={!canCreate}>
-                    <DatabaseIcon className="mr-2 h-5 w-5" />
-                    <span>New Container</span>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            <SidebarMenuItem>
-                <SidebarMenuButton onClick={onReset}>
-                    <Globe2 className="mr-2 h-5 w-5" />
-                    <span>Reset Selection</span>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-        </SidebarMenu>
-    );
-}
-
-/* -------------------------------------------------------------------------
-   5. The main LeftSidebar
-------------------------------------------------------------------------- */
 export function LeftSidebar() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-    const handleApplyFilters = useCallback(() => {
-        setIsFilterMenuOpen(false);
-    }, []);
-    const handleResetFilters = useCallback(() => {
-        setIsFilterMenuOpen(false);
-    }, []);
 
     // UI & data hooks
     const {
@@ -368,32 +52,101 @@ export function LeftSidebar() {
         selectedLeftItem,
         setShowAccountActions,
     } = useUI();
-    const { organization } = useAuth();
-    const { fileTree, sampleGroups, locations, createSampleGroup, addFileNode } =
+    const {organization} = useAuth();
+    const {fileTree, sampleGroups, locations, createSampleGroup, addFileNode, deleteNode} =
         useData();
-    const { userPermissions } = useAuthStore.getState();
+    const {userPermissions} = useAuthStore.getState();
 
-    // Permission check
+    const canDeleteSampleGroup =
+        userPermissions?.includes(PoleshiftPermissions.DeleteSampleGroup) ?? false;
+    const canModifySampleGroup =
+        userPermissions?.includes(PoleshiftPermissions.ModifySampleGroup) ?? false;
     const hasCreatePermission = userPermissions?.includes(
         PoleshiftPermissions.CreateSampleGroup
     );
 
-    // Local modals
+    // (A) Local modals for creation
     const [isSampleGroupModalOpen, setIsSampleGroupModalOpen] = useState(false);
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [isContainerModalOpen, setIsContainerModalOpen] = useState(false);
 
-    // Track expanded IDs for the tree
-    const [expandedIds, setExpandedIds] = useState<string[]>([]);
+    // (B) State for “move” action
+    const [moveModalItemId, setMoveModalItemId] = useState<string | null>(null);
 
-    // Toggle folder expand/collapse
+    // (C) Tree expand/collapse
+    const [expandedIds, setExpandedIds] = useState<string[]>([]);
     const handleToggleExpand = useCallback((id: string) => {
         setExpandedIds((prev) =>
             prev.includes(id) ? prev.filter((cur) => cur !== id) : [...prev, id]
         );
     }, []);
 
-    // Modal open callbacks
+    // (D) Tree selection
+    const handleSelectNode = useCallback(
+        (node: {
+            id: string;
+            name: string;
+            created_at: string;
+            org_id: string;
+            updated_at: string;
+            parent_id: string | null;
+            type: string;
+            version: number;
+            sample_group_id: string | null;
+            droppable: number;
+        } | undefined) => {
+            setSelectedLeftItem(node);
+        },
+        [setSelectedLeftItem]
+    );
+
+    // (E) Actions from the tree: move/delete
+    const handleMove = useCallback(
+        (node: { id: SetStateAction<string | null>; }) => {
+            if (!canModifySampleGroup) {
+                setErrorMessage("You do not have permission to modify this sample group.");
+                return;
+            }
+            setMoveModalItemId(node.id);
+        },
+        [canModifySampleGroup, setErrorMessage]
+    );
+
+    const handleDelete = useCallback(
+        async (node: { id: string | undefined; }) => {
+            if (!canDeleteSampleGroup || !node.id) {
+                setErrorMessage("You do not have permission to delete this sample group.");
+                return;
+            }
+            try {
+                // Optionally show a "ConfirmDeleteModal" first. For brevity, we do direct:
+                await deleteNode(node.id);
+                // If user deleted the currently selected item, reset selection
+                if (selectedLeftItem?.id === node.id) {
+                    setSelectedLeftItem(undefined);
+                }
+            } catch (err) {
+                setErrorMessage(String(err));
+            }
+        },
+        [
+            canDeleteSampleGroup,
+            deleteNode,
+            selectedLeftItem,
+            setSelectedLeftItem,
+            setErrorMessage,
+        ]
+    );
+
+    // Filter callbacks
+    const handleApplyFilters = useCallback(() => {
+        setIsFilterMenuOpen(false);
+    }, []);
+    const handleResetFilters = useCallback(() => {
+        setIsFilterMenuOpen(false);
+    }, []);
+
+    // Create callbacks
     const openSampleGroupModal = useCallback(() => {
         if (!hasCreatePermission) {
             setErrorMessage("You do not have permission to create a new sampling event.");
@@ -421,143 +174,148 @@ export function LeftSidebar() {
     // Reset selection
     const handleResetSelection = useCallback(() => {
         setSelectedLeftItem(undefined);
-        // If you want everything collapsed on reset:
+        // Optionally collapse all
         // setExpandedIds([]);
     }, [setSelectedLeftItem]);
 
-    // Tree node selection
-    const handleSelectNode = useCallback(
-        (node: FileNodeWithChildren) => {
-            setSelectedLeftItem(node);
-        },
-        [setSelectedLeftItem]
-    );
-
     return (
-            <SidebarProvider
-                open={!isLeftSidebarCollapsed}
-                onOpenChange={toggleLeftSidebar}
-                style={{
-                    //@ts-expect-error: Not my component
-                    "--sidebar-width": "24rem",
-                    "--sidebar-width-mobile": "24rem",
-                }}
-            >
-                <Sidebar
-                    side="left"
-                    variant="floating"
-                    collapsible="icon"
-                >
-                    {/* Header with toggle button */}
-                    <SidebarHeader className={"place-content-start"}>
-                        <Button onClick={toggleLeftSidebar} variant="ghost" className="pr-4 pl-2 flex-start justify-start">
-                            <Menu className="h-4 w-4 flex-start justify-start" />
-                            {!isLeftSidebarCollapsed && <span>Poleshift</span>}
-                        </Button>
-                    </SidebarHeader>
+        <SidebarProvider
+            open={!isLeftSidebarCollapsed}
+            onOpenChange={toggleLeftSidebar}
+            style={{
+                //@ts-expect-error custom CSS var
+                "--sidebar-width": "24rem",
+                "--sidebar-width-mobile": "24rem",
+            }}
+        >
+            <Sidebar side="left" variant="floating" collapsible="icon">
+                <SidebarHeader className="place-content-start">
+                    <Button
+                        onClick={toggleLeftSidebar}
+                        variant="ghost"
+                        className="pr-4 pl-2 flex-start justify-start"
+                    >
+                        <Menu className="h-4 w-4" />
+                        {!isLeftSidebarCollapsed && <span>Poleshift</span>}
+                    </Button>
+                </SidebarHeader>
 
-                    {/* Main content */}
-                    <SidebarContent>
-                        {/* 1) Settings & Sync */}
-                        <SidebarGroup>
-                            <SidebarGroupLabel>Settings</SidebarGroupLabel>
-                            <SidebarGroupContent>
-                                <SyncProgressIndicator collapsed={isLeftSidebarCollapsed} />
-                                <NetworkIndicator showText={!isLeftSidebarCollapsed} />
-                                <SettingsAndSyncActions
-                                    onOpenFilters={() => setIsFilterMenuOpen(true)}
-                                    onShowAccountActions={() => setShowAccountActions(true)}
-                                    onOpenSettings={() => setIsSettingsOpen(true)}
-                                    onCloseSettings={() => setIsSettingsOpen(false)}
-                                    isSettingsOpen={isSettingsOpen}
-                                />
-                            </SidebarGroupContent>
-                        </SidebarGroup>
+                <SidebarContent>
+                    {/* 1) Settings & Sync */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Meta</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SyncProgressIndicator collapsed={isLeftSidebarCollapsed} />
+                            <NetworkIndicator showText={!isLeftSidebarCollapsed} />
+                            <SettingsAndSyncActions
+                                onOpenFilters={() => setIsFilterMenuOpen(true)}
+                                onShowAccountActions={() => setShowAccountActions(true)}
+                                onOpenSettings={() => setIsSettingsOpen(true)}
+                                onCloseSettings={() => setIsSettingsOpen(false)}
+                                isSettingsOpen={isSettingsOpen}
+                            />
+                        </SidebarGroupContent>
+                    </SidebarGroup>
 
-                        {/* 2) Create actions */}
-                        <SidebarGroup>
-                            <SidebarGroupLabel>Create</SidebarGroupLabel>
-                            <SidebarGroupContent>
-                                <ApplicationActions
-                                    onNewSampleGroup={openSampleGroupModal}
-                                    onNewFolder={openFolderModal}
-                                    onNewContainer={openContainerModal}
-                                    onReset={handleResetSelection}
-                                    canCreate={hasCreatePermission ?? false}
-                                />
-                            </SidebarGroupContent>
-                        </SidebarGroup>
+                    {/* 2) Create actions */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Actions</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <ApplicationActions
+                                onNewSampleGroup={openSampleGroupModal}
+                                onNewFolder={openFolderModal}
+                                onNewContainer={openContainerModal}
+                                onReset={handleResetSelection}
+                                canCreate={hasCreatePermission ?? false}
+                            />
+                        </SidebarGroupContent>
+                    </SidebarGroup>
 
-                        {/* 3) Samples tree */}
-                        <SidebarGroup>
-                            <SidebarGroupLabel>Samples</SidebarGroupLabel>
-                            <SidebarGroupContent>
-                                <SidebarMenu>
-                                    {fileTree && fileTree.length > 0 ? (
-                                        renderTree(
-                                            fileTree,
-                                            expandedIds,
-                                            handleToggleExpand,
-                                            selectedLeftItem?.id,
-                                            handleSelectNode
-                                        )
-                                    ) : (
-                                        <SidebarMenuItem>
-                                            <SidebarMenuButton asChild>
-                                                <Button variant="ghost">No items to display</Button>
-                                            </SidebarMenuButton>
-                                        </SidebarMenuItem>
-                                    )}
-                                </SidebarMenu>
-                            </SidebarGroupContent>
-                        </SidebarGroup>
-                    </SidebarContent>
+                    {/* 3) Samples tree */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Samples</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {!fileTree?.length && (
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton asChild>
+                                            <Button variant="ghost">No items to display</Button>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                )}
 
-                    {/* Optional download indicator & “rail” */}
-                    <ResourceDownloadIndicator />
-                    <SidebarRail />
-                </Sidebar>
-                {/* Modals */}
-                {isSampleGroupModalOpen && (
-                    <CreateSampleGroupModal
-                        open={isSampleGroupModalOpen}
-                        onClose={() => setIsSampleGroupModalOpen(false)}
-                        organization={organization}
-                        sampleGroups={sampleGroups}
-                        locations={locations}
-                        createSampleGroup={createSampleGroup}
-                        setErrorMessage={setErrorMessage}
-                    />
-                )}
+                                {fileTree?.length > 0 && (
+                                    <SidebarTree
+                                        fileTree={fileTree}
+                                        expandedIds={expandedIds}
+                                        selectedId={selectedLeftItem?.id}
+                                        onToggleExpand={handleToggleExpand}
+                                        onSelect={handleSelectNode}
+                                        // Pass the new callbacks here
+                                        onMove={handleMove}
+                                        onDelete={handleDelete}
+                                    />
+                                )}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                </SidebarContent>
 
-                {isFolderModalOpen && (
-                    <CreateFolderModal
-                        open={isFolderModalOpen}
-                        onClose={() => setIsFolderModalOpen(false)}
-                        organization={organization}
-                        addFileNode={addFileNode}
-                        setErrorMessage={setErrorMessage}
-                    />
-                )}
+                <ResourceDownloadIndicator />
+                <SidebarRail />
+            </Sidebar>
 
-                {isContainerModalOpen && (
-                    <CreateContainerModal
-                        open={isContainerModalOpen}
-                        onClose={() => setIsContainerModalOpen(false)}
-                        organization={organization}
-                        addFileNode={addFileNode}
-                        setErrorMessage={setErrorMessage}
-                    />
-                )}
-                {/* (3) FILTER MENU MODAL */}
-                {isFilterMenuOpen && (
-                    <FilterModal
-                        open={isFilterMenuOpen}
-                        onOpenChange={isOpen => setIsFilterMenuOpen(isOpen)}
-                        onApply={handleApplyFilters}
-                        onReset={handleResetFilters}/>
-                    )}
-            </SidebarProvider>
+            {/* (A) Create modals */}
+            {isSampleGroupModalOpen && (
+                <CreateSampleGroupModal
+                    open={isSampleGroupModalOpen}
+                    onClose={() => setIsSampleGroupModalOpen(false)}
+                    organization={organization}
+                    sampleGroups={sampleGroups}
+                    locations={locations}
+                    createSampleGroup={createSampleGroup}
+                    setErrorMessage={setErrorMessage}
+                />
+            )}
+
+            {isFolderModalOpen && (
+                <CreateFolderModal
+                    open={isFolderModalOpen}
+                    onClose={() => setIsFolderModalOpen(false)}
+                    organization={organization}
+                    addFileNode={addFileNode}
+                    setErrorMessage={setErrorMessage}
+                />
+            )}
+
+            {isContainerModalOpen && (
+                <CreateContainerModal
+                    open={isContainerModalOpen}
+                    onClose={() => setIsContainerModalOpen(false)}
+                    organization={organization}
+                    addFileNode={addFileNode}
+                    setErrorMessage={setErrorMessage}
+                />
+            )}
+
+            {/* (B) Move modal */}
+            {moveModalItemId && (
+                <MoveModal
+                    itemId={moveModalItemId}
+                    onClose={() => setMoveModalItemId(null)}
+                 />
+            )}
+
+            {/* (C) Filter Modal */}
+            {isFilterMenuOpen && (
+                <FilterModal
+                    open={isFilterMenuOpen}
+                    onOpenChange={(isOpen) => setIsFilterMenuOpen(isOpen)}
+                    onApply={handleApplyFilters}
+                    onReset={handleResetFilters}
+                />
+            )}
+        </SidebarProvider>
     );
 }
 

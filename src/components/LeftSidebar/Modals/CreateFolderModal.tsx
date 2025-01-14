@@ -53,7 +53,7 @@ const CreateFolderModal: FC<CreateFolderModalProps> = ({
             setErrorMessage("No organization info found.");
             return;
         }
-
+        console.log("Submitting!");
         try {
             setIsProcessing(true);
 
@@ -99,7 +99,7 @@ const CreateFolderModal: FC<CreateFolderModalProps> = ({
                         <Button variant="outline" type="button" onClick={onClose} disabled={isProcessing}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isProcessing}>
+                        <Button type="submit" disabled={isProcessing} onClick={handleSubmit}>
                             {isProcessing ? "Creating..." : "Create"}
                         </Button>
                     </DialogFooter>

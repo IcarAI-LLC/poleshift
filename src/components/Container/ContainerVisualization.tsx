@@ -447,12 +447,14 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
                                 chartTitle="Close Samples"
                                 showAsIntraPercent={showAsIntraPercent}
                                 taxaColors={taxaColors}
+                                xAxisKey="location"
                             />
                             <ChartRenderer
                                 chartData={farData}
                                 chartTitle="Non-Close Samples"
                                 showAsIntraPercent={showAsIntraPercent}
                                 taxaColors={taxaColors}
+                                xAxisKey="location"
                             />
                         </div>
                     )}
@@ -464,6 +466,7 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
                                 chartTitle="All Samples (Close + Far...)"
                                 showAsIntraPercent={showAsIntraPercent}
                                 taxaColors={taxaColors}
+                                xAxisKey="location" // or "locLabel"
                             />
                         </div>
                     )}
@@ -475,6 +478,7 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
                                 chartTitle="Location & Proximity"
                                 showAsIntraPercent={showAsIntraPercent}
                                 taxaColors={taxaColors}
+                                xAxisKey={"location"}
                             />
                         </div>
                     )}
@@ -487,6 +491,7 @@ export default function ContainerVisualization({ open, onClose }: ContainerVisua
                                 chartTitle="Location + Proximity + Date"
                                 showAsIntraPercent={showAsIntraPercent}
                                 taxaColors={taxaColors}
+                                xAxisKey={"location"}
                             />
                         </div>
                     )}
