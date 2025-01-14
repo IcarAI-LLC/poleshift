@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
     SidebarProvider,
     Sidebar,
@@ -47,6 +47,8 @@ import { SettingsModal } from "./Modals/SettingsModal.tsx";
 import { SyncProgressIndicator } from "./Indicators/SyncIndicator.tsx";
 import { ResourceDownloadIndicator } from "./Indicators/ResourceDownloadIndicator.tsx";
 import { NetworkIndicator } from "./Indicators/NetworkIndicator.tsx";
+import {FilterModal} from "@/components/LeftSidebar/Modals/FilterModal.tsx";
+import {ModeToggle} from "@/components/LeftSidebar/Toggles/ModeToggle.tsx";
 
 /* -------------------------------------------------------------------------
    1. Settings & Sync
@@ -58,11 +60,11 @@ function SettingsAndSyncActions({
                                     onCloseSettings,
                                     isSettingsOpen,
                                 }: {
-    onOpenFilters: () => void;
-    onShowAccountActions: () => void;
-    onOpenSettings: () => void;
-    onCloseSettings: () => void;
-    isSettingsOpen: boolean;
+    onOpenFilters: () => void
+    onShowAccountActions: () => void
+    onOpenSettings: () => void
+    onCloseSettings: () => void
+    isSettingsOpen: boolean
 }) {
     return (
         <>
@@ -71,7 +73,7 @@ function SettingsAndSyncActions({
                     <SidebarMenuButton asChild>
                         <button
                             onClick={onOpenFilters}
-                            className="flex w-full items-center gap-2 px-2 py-1"
+                            className="flex items-center gap-2 px-2 py-1"
                         >
                             <FilterIcon className="h-4 w-4" />
                             <span>Filters</span>
@@ -83,7 +85,7 @@ function SettingsAndSyncActions({
                     <SidebarMenuButton asChild>
                         <button
                             onClick={onShowAccountActions}
-                            className="flex w-full items-center gap-2 px-2 py-1"
+                            className="flex items-center gap-2 px-2 py-1"
                         >
                             <UserIcon className="h-4 w-4" />
                             <span>Account</span>
@@ -95,7 +97,7 @@ function SettingsAndSyncActions({
                     <SidebarMenuButton asChild>
                         <button
                             onClick={onOpenSettings}
-                            className="flex w-full items-center gap-2 px-2 py-1"
+                            className="flex items-center gap-2 px-2 py-1"
                         >
                             <Settings className="h-4 w-4" />
                             <span>Settings</span>
@@ -104,7 +106,18 @@ function SettingsAndSyncActions({
                 </SidebarMenuItem>
             </SidebarMenu>
 
-            {/* Modal kept outside the menu */}
+            {/*
+        -- ADD THE THEME TOGGLE HERE --
+        You could wrap it in its own SidebarMenu or
+        just display the ModeToggle button by itself.
+      */}
+            <SidebarMenu className="mt-2">
+                <SidebarMenuItem>
+                    <ModeToggle />
+                </SidebarMenuItem>
+            </SidebarMenu>
+
+            {/* Keep your existing Settings Modal outside */}
             <SettingsModal isOpen={isSettingsOpen} onClose={onCloseSettings} />
         </>
     );
@@ -176,7 +189,7 @@ function renderTree(
                             onToggleExpand(node.id);
                         }}
                     >
-                        <button className="flex w-full items-center gap-2 px-2 py-1">
+                        <button className="items-center gap-2 px-2 py-1">
                             {getNodeIcon(node, isExpanded)}
                             <span className="truncate">{node.name}</span>
                             {proximityLabel && (
@@ -209,7 +222,7 @@ function renderTree(
                                                     onToggleExpand(child.id);
                                                 }}
                                             >
-                                                <button className="flex w-full items-center gap-2 px-2 py-1">
+                                                <button className="items-center gap-2 px-2 py-1">
                                                     {getNodeIcon(child, childIsExpanded)}
                                                     <span className="truncate">{child.name}</span>
                                                     {childProximity && (
@@ -269,7 +282,7 @@ function renderTree(
                     isActive={isActive}
                     onClick={() => onSelect(node)}
                 >
-                    <button className="flex w-full items-center gap-2 px-2 py-1">
+                    <button className="flex items-center gap-2 px-2 py-1">
                         {getNodeIcon(node, false)}
                         <span className="truncate">{node.name}</span>
                         {proximityLabel && (
@@ -333,15 +346,18 @@ function ApplicationActions({
     );
 }
 
-interface LeftSidebarProps {
-    openFilterMenu: () => void;
-}
-
 /* -------------------------------------------------------------------------
    5. The main LeftSidebar
 ------------------------------------------------------------------------- */
-export function LeftSidebar({ openFilterMenu: handleOpenFilters }: LeftSidebarProps) {
+export function LeftSidebar() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+    const handleApplyFilters = useCallback(() => {
+        setIsFilterMenuOpen(false);
+    }, []);
+    const handleResetFilters = useCallback(() => {
+        setIsFilterMenuOpen(false);
+    }, []);
 
     // UI & data hooks
     const {
@@ -418,19 +434,23 @@ export function LeftSidebar({ openFilterMenu: handleOpenFilters }: LeftSidebarPr
     );
 
     return (
-        <div className="overflow-y-auto bg-background-primary">
             <SidebarProvider
                 open={!isLeftSidebarCollapsed}
                 onOpenChange={toggleLeftSidebar}
+                style={{
+                    //@ts-expect-error: Not my component
+                    "--sidebar-width": "24rem",
+                    "--sidebar-width-mobile": "24rem",
+                }}
             >
                 <Sidebar
                     side="left"
-                    variant="sidebar"
+                    variant="floating"
                     collapsible="icon"
                 >
                     {/* Header with toggle button */}
                     <SidebarHeader className={"place-content-start"}>
-                        <Button onClick={toggleLeftSidebar} variant="ghost" className="px-2 py-4 h-4 w-4 flex-start justify-start">
+                        <Button onClick={toggleLeftSidebar} variant="ghost" className="pr-4 pl-2 flex-start justify-start">
                             <Menu className="h-4 w-4 flex-start justify-start" />
                             {!isLeftSidebarCollapsed && <span>Poleshift</span>}
                         </Button>
@@ -445,7 +465,7 @@ export function LeftSidebar({ openFilterMenu: handleOpenFilters }: LeftSidebarPr
                                 <SyncProgressIndicator collapsed={isLeftSidebarCollapsed} />
                                 <NetworkIndicator showText={!isLeftSidebarCollapsed} />
                                 <SettingsAndSyncActions
-                                    onOpenFilters={handleOpenFilters}
+                                    onOpenFilters={() => setIsFilterMenuOpen(true)}
                                     onShowAccountActions={() => setShowAccountActions(true)}
                                     onOpenSettings={() => setIsSettingsOpen(true)}
                                     onCloseSettings={() => setIsSettingsOpen(false)}
@@ -497,41 +517,47 @@ export function LeftSidebar({ openFilterMenu: handleOpenFilters }: LeftSidebarPr
                     <ResourceDownloadIndicator />
                     <SidebarRail />
                 </Sidebar>
+                {/* Modals */}
+                {isSampleGroupModalOpen && (
+                    <CreateSampleGroupModal
+                        open={isSampleGroupModalOpen}
+                        onClose={() => setIsSampleGroupModalOpen(false)}
+                        organization={organization}
+                        sampleGroups={sampleGroups}
+                        locations={locations}
+                        createSampleGroup={createSampleGroup}
+                        setErrorMessage={setErrorMessage}
+                    />
+                )}
+
+                {isFolderModalOpen && (
+                    <CreateFolderModal
+                        open={isFolderModalOpen}
+                        onClose={() => setIsFolderModalOpen(false)}
+                        organization={organization}
+                        addFileNode={addFileNode}
+                        setErrorMessage={setErrorMessage}
+                    />
+                )}
+
+                {isContainerModalOpen && (
+                    <CreateContainerModal
+                        open={isContainerModalOpen}
+                        onClose={() => setIsContainerModalOpen(false)}
+                        organization={organization}
+                        addFileNode={addFileNode}
+                        setErrorMessage={setErrorMessage}
+                    />
+                )}
+                {/* (3) FILTER MENU MODAL */}
+                {isFilterMenuOpen && (
+                    <FilterModal
+                        open={isFilterMenuOpen}
+                        onOpenChange={isOpen => setIsFilterMenuOpen(isOpen)}
+                        onApply={handleApplyFilters}
+                        onReset={handleResetFilters}/>
+                    )}
             </SidebarProvider>
-
-            {/* Modals */}
-            {isSampleGroupModalOpen && (
-                <CreateSampleGroupModal
-                    open={isSampleGroupModalOpen}
-                    onClose={() => setIsSampleGroupModalOpen(false)}
-                    organization={organization}
-                    sampleGroups={sampleGroups}
-                    locations={locations}
-                    createSampleGroup={createSampleGroup}
-                    setErrorMessage={setErrorMessage}
-                />
-            )}
-
-            {isFolderModalOpen && (
-                <CreateFolderModal
-                    open={isFolderModalOpen}
-                    onClose={() => setIsFolderModalOpen(false)}
-                    organization={organization}
-                    addFileNode={addFileNode}
-                    setErrorMessage={setErrorMessage}
-                />
-            )}
-
-            {isContainerModalOpen && (
-                <CreateContainerModal
-                    open={isContainerModalOpen}
-                    onClose={() => setIsContainerModalOpen(false)}
-                    organization={organization}
-                    addFileNode={addFileNode}
-                    setErrorMessage={setErrorMessage}
-                />
-            )}
-        </div>
     );
 }
 

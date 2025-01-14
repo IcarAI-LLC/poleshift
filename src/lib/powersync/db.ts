@@ -1,6 +1,6 @@
 // src/lib/powersync/db.ts
 
-import {PowerSyncDatabase} from '@powersync/web';
+import {PowerSyncDatabase, WASQLiteOpenFactory, WASQLiteVFS} from '@powersync/web';
 import {supabaseConnector} from './SupabaseConnector';
 import {AppSchema} from './Schema';
 
@@ -20,14 +20,17 @@ export class PowerSyncDB {
         if (!this.instance) {
             this.instance = new PowerSyncDatabase({
                 schema: AppSchema,
-                database: {
-                    dbFilename: 'powersync.db',
-                },
+                database: new WASQLiteOpenFactory({
+                    dbFilename: 'powersync5.db',
+                    vfs: WASQLiteVFS.OPFSCoopSyncVFS,
+                    flags: {
+                        enableMultiTabs: typeof SharedWorker !== 'undefined'
+                    }
+                }),
                 flags: {
-                    useWebWorker: false
+                    enableMultiTabs: typeof SharedWorker !== 'undefined'
                 }
             });
-            this.instance.execute("PRAGMA cache_size=2000000");
         }
         return this.instance;
     }

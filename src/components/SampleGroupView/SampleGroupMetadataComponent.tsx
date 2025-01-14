@@ -214,13 +214,12 @@ export default function SampleGroupMetadataComponent() {
             : localState.proximityCategory
 
     return (
-        <Card className="m-2 flex flex-col overflow-hidden">
+        <Card className="m-2 flex flex-col overflow-auto">
             <Accordion
                 type="single"
                 collapsible
                 value={isExpanded ? "metadata" : ""}
                 onValueChange={(val) => setIsExpanded(val === "metadata")}
-                className="flex flex-col flex-1 overflow-hidden"
             >
                 <AccordionItem value="metadata">
                     <AccordionTrigger

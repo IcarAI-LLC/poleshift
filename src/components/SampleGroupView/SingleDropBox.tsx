@@ -31,7 +31,7 @@ import {
 import { useTauriDataProcessor } from "@/hooks/useTauriDataProcessor.ts";
 import { wrapPowerSyncWithDrizzle } from "@powersync/drizzle-driver";
 import { usePowerSync, useQuery } from "@powersync/react";
-import { eq, desc, and } from "drizzle-orm";
+import {eq, desc, and} from "drizzle-orm";
 import { toCompilableQuery } from "@powersync/drizzle-driver";
 
 import {
@@ -321,7 +321,7 @@ export default function SingleDropBox({
     }, [isLocked, hasData, isProcessing, progressMessage, progressPercentage, handleDataClick]);
 
     return (
-        <>
+        <div>
             <Tooltip>
                 <TooltipTrigger
                     onClick={handleFileSelect}
@@ -387,7 +387,7 @@ export default function SingleDropBox({
             {/* If dataType !== Sequence, show a standard ShadCN Dialog */}
             {dataDialogOpen && detailedData?.dataType !== DataType.Sequence && (
                 <Dialog open={dataDialogOpen} onOpenChange={setDataDialogOpen}>
-                    <DialogContent className="sm:max-w-lg">
+                    <DialogContent className="md:max-w-fit md:max-h-fit">
                         <DialogHeader>
                             <DialogTitle>{dataTitle}</DialogTitle>
                         </DialogHeader>
@@ -404,6 +404,6 @@ export default function SingleDropBox({
                     onClose={() => setDataDialogOpen(false)}
                 />
             )}
-        </>
+        </div>
     )
 }

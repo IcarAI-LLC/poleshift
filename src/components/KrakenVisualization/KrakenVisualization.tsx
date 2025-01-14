@@ -1,6 +1,6 @@
 
 import { useState, useMemo, useCallback } from "react";
-import { Download } from "lucide-react"; // lucide icons
+import {Download, Loader2} from "lucide-react"; // lucide icons
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 
@@ -24,8 +24,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx"; // If you have this
-// or from "@/lib/hooks/use-toast" depending on your setup
 
 enum SortDirection {
   ASC = "asc",
@@ -295,7 +293,7 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="max-w-full p-0 flex flex-col h-full">
           {/* Header (replaces MUI AppBar) */}
-          <DialogHeader className="bg-primary p-3 text-primary-foreground">
+          <DialogHeader className="bg-background p-3 text-primary">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl">
                 Taxonomic Classification Analysis
@@ -420,12 +418,17 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
             {activeTab === 3 && (
                 <div className="flex min-h-[calc(100vh-200px)] w-full items-center justify-center p-4">
                   <div className="w-full max-w-4xl aspect-square">
-                    <Suspense fallback={<DnaLoadingIcon width={50} height={50}/>}>
-                    <TaxonomyStarburst
-                        data={data.filter(
-                            (node) => node.tax_name.toUpperCase() !== "UNCLASSIFIED"
-                        )}
-                    />
+                    <Suspense fallback={
+                      <div style={{marginBottom: "1rem", alignItems: "center", justifyContent: "center", display: "flex", height: "100%"}}>
+                      <Loader2
+                          className="animate-spin"
+                      />
+                    </div>}>
+                      <TaxonomyStarburst
+                          data={data.filter(
+                              (node) => node.tax_name.toUpperCase() !== "UNCLASSIFIED"
+                          )}
+                      />
                     </Suspense>
                   </div>
                 </div>

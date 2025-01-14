@@ -27,7 +27,7 @@ const LoadingScreen: FC<LoadingScreenProps> = ({
     };
 
     return (
-        <div>
+        <div className={"flex flex-col justify-center align-middle"}>
             {/* Spinner */}
             <div style={{ marginBottom: "1rem" }}>
                 <Loader2

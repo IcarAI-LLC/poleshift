@@ -184,6 +184,7 @@ export const useData = () => {
 
     const createSampleGroup = useCallback(
         async (sampleGroupData: SampleGroupMetadata, fileNodeData: FileNodes) => {
+            console.log(sampleGroupData);
         await drizzleDB
             .insert(sample_group_metadata)
             .values(sampleGroupData).run();

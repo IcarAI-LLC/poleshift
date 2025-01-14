@@ -60,7 +60,7 @@ export default function MergedDropBoxes({ onError }: DropboxesProps) {
          *  - 2 columns on small screens
          *  - 3 columns on medium+
          */
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10">
             {dropboxConfig
                 .filter((configItem) => configItem.isEnabled)
                 .map((configItem) => {

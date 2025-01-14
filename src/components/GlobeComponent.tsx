@@ -1,13 +1,13 @@
 //src/components/GlobeComponent.tsx
-import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
+import React, {useRef, useMemo, useCallback, useState, useEffect} from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
-import Image from '../assets/combined.png';
+import Image from '../assets/globe-small.jpg';
 import { useData } from '../hooks/useData.ts';
 import { useUI } from '../hooks/useUI.ts';
 import { useQuery } from '@powersync/react';
 import useSettings from "../hooks/useSettings.ts";
-import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx";
+import {Loader2} from "lucide-react";
 
 interface GlobePoint {
     lat: number;
@@ -162,8 +162,9 @@ export const GlobeComponent: React.FC = () => {
     }, []);
 
     if (locationsLoading) {
-        return <div className={"flex justify-center items-center h-screen w-screen"}><DnaLoadingIcon width={100} height={100}
-                                                                                            text={"Loading Globe Locations..."}/></div>;
+        return <div className={"flex justify-center items-center h-screen w-screen"}>
+                <Loader2 className="animate-spin"/>
+                </div>;
             }
             if (locationsError) {
                 return <div>Error loading globe data: {locationsError.message}</div>;

@@ -1,14 +1,8 @@
-import {useEffect, useState, useMemo, FormEvent, FC} from "react";
-import { v4 as uuidv4 } from "uuid";
-import { DateTime } from "luxon";
-
-import type {
-    FileNodes,
-    Organizations,
-    SampleGroupMetadata,
-    SampleLocations,
-} from "src/types";
-import { useAuthStore } from "@/stores/authStore";
+import { useEffect, useState, useMemo, FormEvent, FC } from "react"
+import { v4 as uuidv4 } from "uuid"
+import { DateTime } from "luxon"
+import ReactDatePicker from "react-datepicker"
+import "react-datepicker/dist/react-datepicker.css"
 
 // shadcn/ui components
 import {
@@ -17,15 +11,15 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/ui/popover"
 import {
     Command,
     CommandInput,
@@ -33,71 +27,78 @@ import {
     CommandItem,
     CommandGroup,
     CommandEmpty,
-} from "@/components/ui/command";
+} from "@/components/ui/command"
+
+import type {
+    FileNodes,
+    Organizations,
+    SampleGroupMetadata,
+    SampleLocations,
+} from "src/types"
+import { useAuthStore } from "@/stores/authStore"
 
 interface CreateSampleGroupModalProps {
-    open: boolean;
-    onClose: () => void;
-    organization: Organizations | null;
-    sampleGroups: Record<string, SampleGroupMetadata>;
-    locations: SampleLocations[];
-    createSampleGroup: (data: SampleGroupMetadata, fileNode: FileNodes) => Promise<void>;
-    setErrorMessage: (msg: string) => void;
+    open: boolean
+    onClose: () => void
+    organization: Organizations | null
+    sampleGroups: Record<string, SampleGroupMetadata>
+    locations: SampleLocations[]
+    createSampleGroup: (data: SampleGroupMetadata, fileNode: FileNodes) => Promise<void>
+    setErrorMessage: (msg: string) => void
 }
 
 const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
-                                                                           open,
-                                                                           onClose,
-                                                                           organization,
-                                                                           sampleGroups,
-                                                                           locations,
-                                                                           createSampleGroup,
-                                                                           setErrorMessage,
-                                                                       }) => {
-    // Form state
-    const [collectionDate, setCollectionDate] = useState("");
+                                                                     open,
+                                                                     onClose,
+                                                                     organization,
+                                                                     sampleGroups,
+                                                                     locations,
+                                                                     createSampleGroup,
+                                                                     setErrorMessage,
+                                                                 }) => {
+    // Store the date as a Date object or null
+    const [collectionDate, setCollectionDate] = useState<Date | null>(null)
     // Store time in "HH:mm:ss" format
-    const [collectionTime, setCollectionTime] = useState("");
-    const [locCharId, setLocCharId] = useState("");
-    const [searchTerm, setSearchTerm] = useState("");
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [collectionTime, setCollectionTime] = useState("")
+    const [locCharId, setLocCharId] = useState("")
+    const [searchTerm, setSearchTerm] = useState("")
+    const [isProcessing, setIsProcessing] = useState(false)
 
-    const { userId } = useAuthStore.getState();
+    const { userId } = useAuthStore.getState()
 
-    // Reset fields each time modal is closed
+    // Reset fields each time the modal is closed
     useEffect(() => {
         if (!open) {
-            setCollectionDate("");
-            setCollectionTime("");
-            setLocCharId("");
-            setSearchTerm("");
-            setIsProcessing(false);
+            setCollectionDate(null)
+            setCollectionTime("")
+            setLocCharId("")
+            setSearchTerm("")
+            setIsProcessing(false)
         }
-    }, [open]);
+    }, [open])
 
     const handleSubmit = async (e: FormEvent) => {
-        console.log("Creating sample group.");
-
-        e.preventDefault();
+        e.preventDefault()
+        console.log("Creating sample group.")
 
         if (!organization?.id || !organization.org_short_id) {
-            setErrorMessage("No organization info found.");
-            return;
+            setErrorMessage("No organization info found.")
+            return
         }
 
         if (!collectionDate || !locCharId) {
-            setErrorMessage("Collection date and location are required.");
-            return;
+            setErrorMessage("Collection date and location are required.")
+            return
         }
 
         try {
-            setIsProcessing(true);
+            setIsProcessing(true)
 
-            // Convert date to YYYY-MM-DD for base name
-            const formattedDate = new Date(collectionDate)
-                .toISOString()
-                .split("T")[0];
-            const baseName = `${formattedDate}-${locCharId}`;
+            // Convert the selected Date to YYYY-MM-DD
+            const formattedDate = DateTime.fromJSDate(collectionDate).toISODate() // e.g. "2025-01-14"
+
+            // Build the base name (YYYY-MM-DD-locCharId)
+            const baseName = `${formattedDate}-${locCharId}`
 
             // Figure out the next sample number
             const existingNumbers = Object.values(sampleGroups)
@@ -105,54 +106,58 @@ const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
                 .map((group) => {
                     const regex = new RegExp(
                         `^${baseName}-(\\d{2})-${organization.org_short_id}$`
-                    );
-                    const match = group.human_readable_sample_id.match(regex);
-                    return match ? parseInt(match[1], 10) : null;
+                    )
+                    const match = group.human_readable_sample_id.match(regex)
+                    return match ? parseInt(match[1], 10) : null
                 })
-                .filter((num): num is number => num !== null);
+                .filter((num): num is number => num !== null)
 
-            let nextNumber = 0;
+            let nextNumber = 0
             while (existingNumbers.includes(nextNumber)) {
-                nextNumber += 1;
+                nextNumber += 1
             }
 
-            const formattedNumber = String(nextNumber).padStart(2, "0");
-            const sampleGroupName = `${baseName}-${formattedNumber}-${organization.org_short_id}`;
+            const formattedNumber = String(nextNumber).padStart(2, "0")
+            const sampleGroupName = `${baseName}-${formattedNumber}-${organization.org_short_id}`
 
             // Find the location by its char_id
-            const location = locations.find((loc) => loc.char_id === locCharId);
+            const location = locations.find((loc) => loc.char_id === locCharId)
             if (!location) {
-                throw new Error(`Location with char_id ${locCharId} not found.`);
+                throw new Error(`Location with char_id ${locCharId} not found.`)
             }
 
-            const id: string = uuidv4();
+            // Generate a UUID for the new sample group
+            const id: string = uuidv4()
 
             // The new file node
-            const newNode = {
+            const newNode: FileNodes = {
                 id,
                 org_id: organization.id,
                 name: sampleGroupName,
-                type: "sampleGroup" as const,
+                type: "sampleGroup",
                 parent_id: null,
                 droppable: 0,
                 version: 1,
                 sample_group_id: id,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-            };
+            }
 
             // If user set a time, we combine date + time into a single UTC datetime
+            // Note: For simplicity, this example just appends "Z" to treat it as UTC
             const collectionDateTimeUTC = collectionTime
-                ? `${collectionDate}T${collectionTime}Z`
-                : undefined;
-
+                ? `${DateTime.fromJSDate(collectionDate).toISODate()}T${collectionTime}Z`
+                : null
+            if (!formattedDate){
+                setErrorMessage("Sample date is required");
+            }
             // The sample group record
-            const sampleGroupData = {
+            const sampleGroupData: SampleGroupMetadata = {
                 id,
                 human_readable_sample_id: sampleGroupName,
                 loc_id: location.id,
-                collection_date: formattedDate,
-                collection_datetime_utc: collectionDateTimeUTC || null,
+                collection_date: formattedDate || "", // or store as is
+                collection_datetime_utc: collectionDateTimeUTC,
                 user_id: userId,
                 org_id: organization.id,
                 latitude_recorded: null,
@@ -164,127 +169,138 @@ const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
                 penguin_count: null,
                 penguin_present: 0,
                 proximity_category: null,
-            };
+            }
 
-            await createSampleGroup(sampleGroupData, newNode);
-            setErrorMessage("");
-            onClose();
-        }catch(e){console.error(e); // @ts-expect-error: Error message no type
-            setErrorMessage(e.message);}
-        finally {
-            setIsProcessing(false);
+            await createSampleGroup(sampleGroupData, newNode)
+            setErrorMessage("")
+            onClose()
+
+        } catch (err) {
+            console.error(err)
+            //@ts-expect-error: Any error
+            setErrorMessage(err.message)
+        } finally {
+            setIsProcessing(false)
         }
-    };
+    }
 
     // Filter location list based on searchTerm
     const filteredLocations = useMemo(() => {
-        const lower = searchTerm.toLowerCase();
+        const lower = searchTerm.toLowerCase()
         return locations.filter(
             (loc) =>
                 loc.label.toLowerCase().includes(lower) ||
                 loc.char_id.toLowerCase().includes(lower)
-        );
-    }, [locations, searchTerm]);
+        )
+    }, [locations, searchTerm])
 
     // Manage whether the location popover is open
-    const [popoverOpen, setPopoverOpen] = useState(false);
+    const [popoverOpen, setPopoverOpen] = useState(false)
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Create New Sampling Event</DialogTitle>
-                    </DialogHeader>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Create New Sampling Event</DialogTitle>
+                </DialogHeader>
 
-                    {/* Collection Date */}
-                    <div className="mt-2 space-y-1">
-                        <Label htmlFor="collection-date">Collection Date</Label>
-                        <Input
-                            id="collection-date"
-                            type="date"
-                            value={collectionDate}
-                            onChange={(e) => setCollectionDate(e.target.value)}
-                            required
-                        />
-                    </div>
+                {/* Collection Date (ReactDatePicker) */}
+                <div className="mt-2 space-y-1">
+                    <Label htmlFor="collection-date">Collection Date</Label>
+                    <ReactDatePicker
+                        id="collection-date"
+                        selected={collectionDate}
+                        onChange={(date) => setCollectionDate(date)}
+                        placeholderText="Select date..."
+                        className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm
+              outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        // Optional: You can configure more datepicker props here
+                    />
+                </div>
 
-                    {/* Collection Time (UTC) */}
-                    <div className="mt-4 space-y-1">
-                        <Label htmlFor="collection-time">Collection Time (UTC)</Label>
-                        <Input
-                            id="collection-time"
-                            type="time"
-                            step="1"
-                            value={collectionTime}
-                            onChange={(e) => setCollectionTime(e.target.value)}
-                        />
-                    </div>
+                {/* Collection Time (UTC) */}
+                <div className="mt-4 space-y-1">
+                    <Label htmlFor="collection-time">Collection Time (UTC)</Label>
+                    <Input
+                        id="collection-time"
+                        type="time"
+                        step="1"
+                        value={collectionTime}
+                        onChange={(e) => setCollectionTime(e.target.value)}
+                    />
+                </div>
 
-                    {/* Location Selection (Popover + Command) */}
-                    <div className="mt-4 space-y-1">
-                        <Label>Location</Label>
-                        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-between"
-                                    // If user has chosen a location, show it
-                                >
-                                    {locCharId
-                                        ? `${locCharId} selected`
-                                        : "Select a location..."}
-                                </Button>
-                            </PopoverTrigger>
+                {/* Location Selection (Popover + Command) */}
+                <div className="mt-4 space-y-1">
+                    <Label>Location</Label>
+                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className="w-full justify-between"
+                            >
+                                {locCharId
+                                    ? `${locCharId} selected`
+                                    : "Select a location..."}
+                            </Button>
+                        </PopoverTrigger>
 
-                            <PopoverContent   side="bottom"
-                                              align="start"
-                                              sideOffset={8}
-                                              updatePositionStrategy={"optimized"}
-                                              avoidCollisions={false}
-                                              className="p-0 w-[250px]">
-                                <Command>
-                                    <CommandInput
-                                        placeholder="Search location..."
-                                        value={searchTerm}
-                                        onValueChange={setSearchTerm}
-                                    />
-                                    <CommandList>
-                                        <CommandEmpty>No results found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredLocations.map((loc) => (
-                                                <CommandItem
-                                                    key={loc.char_id}
-                                                    onSelect={() => {
-                                                        setLocCharId(loc.char_id);
-                                                        setSearchTerm(`${loc.label} (${loc.char_id})`);
-                                                        setPopoverOpen(false);
-                                                    }}
-                                                >
-                                                    {loc.label} ({loc.char_id})
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onClose}
-                            disabled={isProcessing}
+                        <PopoverContent
+                            side="bottom"
+                            align="start"
+                            sideOffset={8}
+                            updatePositionStrategy={"optimized"}
+                            avoidCollisions={false}
+                            className="p-0 w-[250px]"
                         >
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={isProcessing} onClick={handleSubmit}>
-                            {isProcessing ? "Creating..." : "Create"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-        </Dialog>
-    );
-};
+                            <Command>
+                                <CommandInput
+                                    placeholder="Search location..."
+                                    value={searchTerm}
+                                    onValueChange={setSearchTerm}
+                                />
+                                <CommandList>
+                                    <CommandEmpty>No results found.</CommandEmpty>
+                                    <CommandGroup>
+                                        {filteredLocations.map((loc) => (
+                                            <CommandItem
+                                                key={loc.char_id}
+                                                onSelect={() => {
+                                                    setLocCharId(loc.char_id)
+                                                    setSearchTerm(`${loc.label} (${loc.char_id})`)
+                                                    setPopoverOpen(false)
+                                                }}
+                                            >
+                                                {loc.label} ({loc.char_id})
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                </div>
 
-export default CreateSampleGroupModal;
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
+                        disabled={isProcessing}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={isProcessing}
+                        onClick={handleSubmit}
+                    >
+                        {isProcessing ? "Creating..." : "Create"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+export default CreateSampleGroupModal

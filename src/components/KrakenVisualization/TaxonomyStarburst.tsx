@@ -1,23 +1,12 @@
-
-import {
-    useEffect,
-    useRef,
-    useMemo,
-    useState,
-    useCallback,
-} from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import Plotly from "plotly.js-dist";
 
 // ShadCN UI
 import { Button } from "@/components/ui/button"; // Adjust path as needed
 
-// Tailwind classes for containers instead of Box
-// For text, just use <p> or <span> with tailwind classes
-// Instead of MUI’s `Typography`:
-
 import useSettings from "@/hooks/useSettings.ts";
 import { ProcessedKrakenUniqReport } from "src/types";
-import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema"; // Adjust path if needed
+import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema";
 
 interface TaxonomyStarburstProps {
     data: ProcessedKrakenUniqReport[];
@@ -25,10 +14,8 @@ interface TaxonomyStarburstProps {
     height?: number;
 }
 
-// A neutral color for top-level nodes
 const topLevelBeige = "#f5f5dc";
 
-// Base colors for second-level nodes
 const baseColors = [
     "#ff6d55",
     "#ffec4d",
@@ -114,6 +101,7 @@ function hslToHex(h: number, s: number, l: number) {
 function getColorForDepth(baseColor: string, depth: number) {
     const { h, s, l } = hexToHsl(baseColor);
     if (depth > 1) {
+        // tweak multiplier as needed
         const reduceSteps = depth - 1;
         const newS = Math.max(s - reduceSteps * 0.015, 0);
         return hslToHex(h, newS, l);
@@ -124,7 +112,7 @@ function getColorForDepth(baseColor: string, depth: number) {
 interface NodeInfo {
     node: ProcessedKrakenUniqReport;
     depth: number;
-    path: string[];
+    parentId?: string;
 }
 
 export default function TaxonomyStarburst({
@@ -133,9 +121,7 @@ export default function TaxonomyStarburst({
                                               height = 800,
                                           }: TaxonomyStarburstProps) {
     const plotRef = useRef<HTMLDivElement | null>(null);
-    const [currentRootId, setCurrentRootId] = useState<string | undefined>(
-        undefined
-    );
+    const [currentRootId, setCurrentRootId] = useState<string | undefined>();
     const [parentMap, setParentMap] = useState<Record<string, string>>({});
 
     // User settings for max rank
@@ -144,17 +130,6 @@ export default function TaxonomyStarburst({
     const maxRankSetting = userSetting?.taxonomic_starburst_max_rank as
         | TaxonomicRank
         | undefined;
-
-    // Build parent map
-    useEffect(() => {
-        const map: Record<string, string> = {};
-        data.forEach((node) => {
-            if (node.parent_id) {
-                map[node.id] = node.parent_id;
-            }
-        });
-        setParentMap(map);
-    }, [data]);
 
     // Quick rank order map
     const rankOrderMap: Record<TaxonomicRank, number> = {
@@ -172,139 +147,181 @@ export default function TaxonomyStarburst({
         [TaxonomicRank.Sequence]: 11,
     };
 
-    // Gather hierarchical info
-    const getNodeHierarchyInfo = useCallback(
-        (nodes: ProcessedKrakenUniqReport[]): NodeInfo[] => {
-            const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+    /**
+     * Build a parent -> children map for quick lookups.
+     * Also build the parentMap for upward traversal.
+     */
+    const [childrenMap, setChildrenMap] = useState<
+        Record<string, ProcessedKrakenUniqReport[]>
+    >({});
+
+    useEffect(() => {
+        if (!data || data.length === 0) return;
+
+        const tmpParentMap: Record<string, string> = {};
+        const tmpChildrenMap: Record<string, ProcessedKrakenUniqReport[]> = {};
+
+        // Initialize arrays for all possible ids so you don't need checks
+        data.forEach((node) => {
+            if (node.parent_id) {
+                tmpParentMap[node.id] = node.parent_id;
+            }
+            tmpChildrenMap[node.id] = [];
+        });
+
+        // Fill children
+        data.forEach((node) => {
+            if (node.parent_id && tmpChildrenMap[node.parent_id]) {
+                tmpChildrenMap[node.parent_id].push(node);
+            }
+        });
+
+        setParentMap(tmpParentMap);
+        setChildrenMap(tmpChildrenMap);
+    }, [data]);
+
+    /**
+     * Build a NodeInfo array from a root node down via DFS or BFS
+     */
+    const buildHierarchyFromRoot = useCallback(
+        (root: ProcessedKrakenUniqReport): NodeInfo[] => {
             const result: NodeInfo[] = [];
+            const stack: Array<{ node: ProcessedKrakenUniqReport; depth: number }> = [
+                { node: root, depth: 0 },
+            ];
 
-            const processNode = (
-                node: ProcessedKrakenUniqReport,
-                currentDepth: number,
-                currentPath: string[]
-            ) => {
-                result.push({
-                    node,
-                    depth: currentDepth,
-                    path: [...currentPath, node.id],
-                });
+            while (stack.length > 0) {
+                const { node, depth } = stack.pop()!;
+                result.push({ node, depth, parentId: node.parent_id || undefined });
 
-                // Find all children
-                nodes.forEach((potentialChild) => {
-                    if (potentialChild.parent_id === node.id) {
-                        processNode(potentialChild, currentDepth + 1, [
-                            ...currentPath,
-                            node.id,
-                        ]);
+                // push children to stack
+                if (childrenMap[node.id]) {
+                    for (const child of childrenMap[node.id]) {
+                        stack.push({ node: child, depth: depth + 1 });
                     }
-                });
-            };
-
-            // Root nodes
-            const rootNodes = nodes.filter(
-                (n) => !n.parent_id || !nodeMap.has(n.parent_id)
-            );
-            rootNodes.forEach((root) => processNode(root, 0, []));
+                }
+            }
             return result;
         },
-        []
+        [childrenMap]
     );
 
-    // Core data processing for Plotly
-    const processDataForPlotly = useCallback(
-        (nodes: ProcessedKrakenUniqReport[]) => {
-            // 1) Filter out nodes not in the TaxonomicRank enum
-            let filteredNodes = nodes.filter((node) =>
-                Object.values(TaxonomicRank).includes(node.rank as TaxonomicRank)
-            );
+    /**
+     * Filter nodes by rank and build NodeInfo for the entire forest (all roots),
+     * or for a particular subtree if `currentRootId` is defined.
+     */
+    const buildFilteredHierarchy = useCallback((): NodeInfo[] => {
+        // 1) Keep only nodes whose rank is in the enum
+        let filtered = data.filter((n) =>
+            Object.values(TaxonomicRank).includes(n.rank as TaxonomicRank)
+        );
 
-            // 2) If user sets a max rank, filter out deeper ranks
-            if (maxRankSetting) {
-                filteredNodes = filteredNodes.filter((node) => {
-                    const nodeRankEnum = node.rank as TaxonomicRank;
-                    const nodeVal = rankOrderMap[nodeRankEnum];
-                    const maxVal = rankOrderMap[maxRankSetting];
-                    return nodeVal <= maxVal;
-                });
+        // 2) If user sets a max rank, filter deeper ranks
+        if (maxRankSetting) {
+            filtered = filtered.filter((n) => {
+                const nodeRankEnum = n.rank as TaxonomicRank;
+                return rankOrderMap[nodeRankEnum] <= rankOrderMap[maxRankSetting];
+            });
+        }
+
+        // Create a quick map so we can find the root node(s)
+        const nodeMap: Record<string, ProcessedKrakenUniqReport> = {};
+        filtered.forEach((node) => {
+            nodeMap[node.id] = node;
+        });
+
+        // If we have a currentRootId, just build the subtree from that root
+        if (currentRootId && nodeMap[currentRootId]) {
+            return buildHierarchyFromRoot(nodeMap[currentRootId]);
+        }
+
+        // Otherwise, build from all "forest" roots (i.e. no valid parent)
+        const forestRoots: ProcessedKrakenUniqReport[] = [];
+        filtered.forEach((node) => {
+            // If it has no parent OR its parent is not in the nodeMap => root
+            if (!node.parent_id || !nodeMap[node.parent_id]) {
+                forestRoots.push(node);
+            }
+        });
+
+        const allNodes: NodeInfo[] = [];
+        forestRoots.forEach((root) => {
+            allNodes.push(...buildHierarchyFromRoot(root));
+        });
+
+        return allNodes;
+    }, [
+        data,
+        maxRankSetting,
+        currentRootId,
+        rankOrderMap,
+        buildHierarchyFromRoot,
+    ]);
+
+    /**
+     * Take NodeInfo array and transform into Plotly sunburst data
+     */
+    const processDataForPlotly = useCallback((nodeInfos: NodeInfo[]) => {
+        const labels: string[] = [];
+        const parents: string[] = [];
+        const values: number[] = [];
+        const ids: string[] = [];
+        const customdata: Array<[number, string, number, number, number, number]> =
+            [];
+        const colors: string[] = [];
+
+        // Keep track of color assigned to each node’s index
+        let secondLevelColorIndex = 0;
+
+        // A helper to find an index quickly by ID
+        const idToIndex: Record<string, number> = {};
+
+        nodeInfos.forEach((info, i) => {
+            const { node, parentId } = info;
+            labels.push(node.tax_name);
+            parents.push(parentId || "");
+            values.push(node.reads);
+            ids.push(node.id);
+            customdata.push([
+                node.tax_id,
+                node.rank,
+                node.percentage,
+                node.reads,
+                node.coverage,
+                node.e_score,
+            ]);
+            idToIndex[node.id] = i;
+        });
+
+        // Now assign colors with a second pass to be sure parentIndex is known
+        nodeInfos.forEach((info) => {
+            const { depth, parentId } = info;
+            let nodeColor = topLevelBeige;
+
+            if (depth === 1) {
+                // second-level child
+                nodeColor = baseColors[secondLevelColorIndex % baseColors.length];
+                secondLevelColorIndex += 1;
+            } else if (depth > 1) {
+                const parentIndex = idToIndex[parentId ?? ""];
+                const parentColor = parentIndex >= 0 ? colors[parentIndex] : topLevelBeige;
+                nodeColor = getColorForDepth(parentColor, depth);
             }
 
-            const hierarchyInfo = getNodeHierarchyInfo(filteredNodes);
+            colors.push(nodeColor);
+        });
 
-            const labels: string[] = [];
-            const parents: string[] = [];
-            const values: number[] = [];
-            const ids: string[] = [];
-            const customdata: Array<[number, string, number, number, number, number]> =
-                [];
-            const colors: string[] = [];
+        return { labels, parents, values, ids, customdata, colors };
+    }, []);
 
-            let secondLevelColorIndex = 0;
-
-            hierarchyInfo.forEach(({ node, depth }) => {
-                labels.push(node.tax_name);
-                parents.push(node.parent_id || "");
-                values.push(node.reads);
-                ids.push(node.id);
-
-                customdata.push([
-                    node.tax_id,
-                    node.rank,
-                    node.percentage,
-                    node.reads,
-                    node.coverage,
-                    node.e_score,
-                ]);
-
-                // Color logic
-                let nodeColor: string;
-                if (depth === 0) {
-                    nodeColor = topLevelBeige;
-                } else if (depth === 1) {
-                    nodeColor = baseColors[secondLevelColorIndex % baseColors.length];
-                    secondLevelColorIndex++;
-                } else {
-                    const parentIndex = hierarchyInfo.findIndex(
-                        (info) => info.node.id === node.parent_id
-                    );
-                    const parentColor = parentIndex >= 0 ? colors[parentIndex] : topLevelBeige;
-                    nodeColor = getColorForDepth(parentColor, depth);
-                }
-                colors.push(nodeColor);
-            });
-
-            return { labels, parents, values, ids, customdata, colors };
-        },
-        [maxRankSetting, rankOrderMap, getNodeHierarchyInfo]
-    );
-
-    // Possibly filter to a subtree if user clicks to re-root
+    // Build the final Plotly data
     const processedData = useMemo(() => {
         if (!data || data.length === 0) return null;
+        const nodeInfos = buildFilteredHierarchy();
+        return processDataForPlotly(nodeInfos);
+    }, [data, buildFilteredHierarchy, processDataForPlotly]);
 
-        let dataToProcess = data;
-        if (currentRootId) {
-            // Collect only the subtree
-            const getSubtreeNodes = (rootId: string): Set<string> => {
-                const subtree = new Set([rootId]);
-                let found = true;
-                while (found) {
-                    found = false;
-                    data.forEach((node) => {
-                        if (node.parent_id && subtree.has(node.parent_id) && !subtree.has(node.id)) {
-                            subtree.add(node.id);
-                            found = true;
-                        }
-                    });
-                }
-                return subtree;
-            };
-            const subtreeSet = getSubtreeNodes(currentRootId);
-            dataToProcess = data.filter((node) => subtreeSet.has(node.id));
-        }
-        return processDataForPlotly(dataToProcess);
-    }, [data, currentRootId, processDataForPlotly]);
-
-    // Is the root itself clickable to bubble up?
+    // Check if the root is clickable (i.e. can bubble up)
     const isRootClickable = useCallback(
         (rootId: string | undefined) => {
             return !!rootId && !!parentMap[rootId];
@@ -312,7 +329,7 @@ export default function TaxonomyStarburst({
         [parentMap]
     );
 
-    // Plot the chart
+    // Plotly draw
     async function drawPlot() {
         if (!plotRef.current || !processedData) return;
 
@@ -325,20 +342,20 @@ export default function TaxonomyStarburst({
                 values: processedData.values,
                 customdata: processedData.customdata,
                 hovertemplate: `
-        <b>%{label}</b><br>
-        Tax ID: %{customdata[0]}<br>
-        Rank: %{customdata[1]}<br>
-        Percentage: %{customdata[2]}%<br>
-        Reads: %{customdata[3]}<br>
-        Coverage: %{customdata[4]}<br>
-        E-score: %{customdata[5]}<br>
-        <extra></extra>`,
+          <b>%{label}</b><br>
+          Tax ID: %{customdata[0]}<br>
+          Rank: %{customdata[1]}<br>
+          Percentage: %{customdata[2]}%<br>
+          Reads: %{customdata[3]}<br>
+          Coverage: %{customdata[4]}<br>
+          E-score: %{customdata[5]}<br>
+          <extra></extra>`,
                 marker: {
                     colors: processedData.colors,
-                    line: { color: "#ffffff", width: 0 },
+                    line: { width: 0 },
                     pattern: {
-                        solidity: 1
-                    }
+                        solidity: 1,
+                    },
                 },
                 branchvalues: "total",
                 textinfo: "label",
@@ -349,7 +366,7 @@ export default function TaxonomyStarburst({
             margin: { l: 0, r: 0, b: 0, t: 0 },
             width,
             height,
-            showlegend: false,
+            paper_bgcolor: "rgba(0,0,0,0)",
         };
 
         const config: Partial<Plotly.Config> = {
@@ -370,7 +387,7 @@ export default function TaxonomyStarburst({
 
             const clickedId = point.id;
             if (clickedId === currentRootId && isRootClickable(currentRootId)) {
-                // Bubble up
+                // bubble up
                 if (currentRootId && parentMap[currentRootId]) {
                     setCurrentRootId(parentMap[currentRootId]);
                 }
@@ -403,14 +420,12 @@ export default function TaxonomyStarburst({
 
     useEffect(() => {
         drawPlot();
-    }, [processedData, width, height]); // re-draw if data or size changes
+    }, [processedData, width, height]);
 
-    // Reset the re-root to the global root
     function handleReset() {
         setCurrentRootId(undefined);
     }
 
-    // If no data
     if (!data || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-[80vh]">
@@ -422,10 +437,7 @@ export default function TaxonomyStarburst({
     return (
         <div className="flex items-center justify-center h-[80vh]">
             <div className="relative" style={{ width, height }}>
-                <div
-                    ref={plotRef}
-                    className="w-full h-full"
-                />
+                <div ref={plotRef} className="w-full h-full" />
                 <Button
                     onClick={handleReset}
                     className="absolute top-4 right-4 bg-primary text-primary-foreground hover:bg-primary/90"

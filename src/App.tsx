@@ -12,7 +12,7 @@ import {ToastProvider} from "@/components/ui/toast.tsx";
 import {Toaster} from "@/components/ui/toaster.tsx";
 import {ResourceDownloadProvider} from "@/stores/ResourceDownloadContext.tsx";
 import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx";
-import {ThemeProvider} from "@/components/ThemeProvider.tsx";
+import {ThemeProvider} from "@/components/ui/theme-provider.tsx";
 
 // Track initialization status outside the component scope
 let isPowerSyncInitialized = false;
@@ -35,12 +35,12 @@ function App() {
     }, []);
 
     if (!initialized) {
-        return <div className={"flex justify-center items-center h-screen"}><DnaLoadingIcon width={100} height={100} text={"Initializing Poleshift"}/></div>;
+        return <div className={"@container flex justify-center items-center h-screen"}><DnaLoadingIcon width={100} height={100} text={"Initializing Poleshift"}/></div>;
     }
 
     return (
         <PowerSyncContext.Provider value={db}>
-            <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+            <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
             <ResourceDownloadProvider>
             <ToastProvider>
                     <TooltipProvider>

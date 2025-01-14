@@ -1,4 +1,4 @@
-import {useState, useMemo, FC} from "react";
+import { useState, useMemo, FC } from "react";
 import {
   ScatterChart,
   Scatter,
@@ -7,11 +7,11 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Alert } from "@/components/ui/alert";
 import { ProcessedCtdRbrDataValues } from "src/types";
 
 interface DataChartProps {
@@ -41,7 +41,9 @@ function formatLabel(variableName: string): string {
       .join(" ");
 }
 
-function renameKeysInData(dataArray: ProcessedCtdRbrDataValues[]): Record<string, string | number | null>[] {
+function renameKeysInData(
+    dataArray: ProcessedCtdRbrDataValues[]
+): Record<string, string | number | null>[] {
   return dataArray.map((record) => {
     const newRecord: Record<string, string | number | null> = {};
     Object.entries(record).forEach(([key, value]) => {
@@ -73,8 +75,6 @@ const DataChart: FC<DataChartProps> = ({ data }) => {
     "Specific Conductivity",
   ];
 
-  console.debug("DataChart transformedData", transformedData);
-
   const [selectedVariables, setSelectedVariables] = useState<string[]>([]);
 
   // Extract variable options and their units from the first row of data
@@ -89,7 +89,7 @@ const DataChart: FC<DataChartProps> = ({ data }) => {
     const extractedUnits: Record<string, string> = {};
     options.forEach((field) => {
       const unitKey = `${field}_unit`;
-      extractedUnits[field] = firstRow[unitKey] as string || "N/A";
+      extractedUnits[field] = (firstRow[unitKey] as string) || "N/A";
     });
 
     return {
@@ -106,107 +106,93 @@ const DataChart: FC<DataChartProps> = ({ data }) => {
             : [...prev, variableName]
     );
   };
-
+  console.log(transformedData)
   return (
       <Card>
-        <CardContent className={"m-1"}>
-          {/* Check if there's no data */}
-          {transformedData.length === 0 ? (
-                <p>No data available to display, it's likely that no data was recorded with a depth {">"} 0.</p>
-          ) : (
-              <>
-                {/* Variable Selection Section */}
-                <div className="flex flex-wrap m-4">
-                  {variableOptions.map((variableName) => (
-                      <div key={variableName} className="mr-4 mb-2">
-                        <Label>
-                          <Checkbox
-                              checked={selectedVariables.includes(variableName)}
-                              onCheckedChange={() => handleToggle(variableName)}
-                          />
-                          {`${variableName} (${units[variableName] || "N/A"})`}
-                        </Label>
-                      </div>
-                  ))}
+        <CardContent className="m-1">
+          {/* Variable Selection Section */}
+          <div className="flex flex-wrap m-4">
+            {variableOptions.map((variableName) => (
+                <div key={variableName} className="mr-4 mb-2">
+                  <Label>
+                    <Checkbox
+                        checked={selectedVariables.includes(variableName)}
+                        onCheckedChange={() => handleToggle(variableName)}
+                    />
+                    {`${variableName} (${units[variableName] || "N/A"})`}
+                  </Label>
                 </div>
+            ))}
+          </div>
 
-                {/* Alert when no variables are selected */}
-                {selectedVariables.length === 0 ? (
-                    <Alert className="mb-4">
-                      Please select at least one variable to display the chart.
-                    </Alert>
-                ) : (
-                    /* Scatter Chart Rendering */
-                    <ScatterChart
-                        width={600}
-                        height={400}
-                        margin={{ top: 40, right: 40, bottom: 40, left: 40 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
+          {/* Wrap the chart or fallback content in a ResponsiveContainer */}
+          <div className={"flex flex-1 align-top justify-center h-[500px]"}>
+            <ResponsiveContainer>
+                  <ScatterChart>
+                    <Legend className="p-4 pb-4" verticalAlign="top" align="center" iconType={"line"}/>
+                    <CartesianGrid strokeDasharray="3 3" className={"pt-4"} />
+                    <XAxis
+                        type="number"
+                        dataKey="value"
+                        domain={["auto", "dataMax"]}
+                        name="Variable Value"
+                        label={{
+                          value:
+                              selectedVariables.length === 1
+                                  ? `${selectedVariables[0]} (${units[selectedVariables[0]]})`
+                                  : "Variable Value",
+                          position: "bottom",
+                          align: "center",
+                          offset: -10,
+                          margin:{top: 50}
+                        }}
+                    />
+                    <YAxis
+                        type="number"
+                        dataKey="depth"
+                        name="Depth"
+                        reversed
+                        label={{
+                          value: `Depth (${units["Depth"] || "m"})`,
+                          angle: -90,
+                          position: "insideLeft",
+                        }}
+                    />
+                    <Tooltip />
 
-                      <XAxis
-                          type="number"
-                          dataKey="value"
-                          name="Variable Value"
-                          domain={["dataMin", "dataMax"]}
-                          label={{
-                            value:
-                                selectedVariables.length === 1
-                                    ? `${selectedVariables[0]} (${units[selectedVariables[0]]})`
-                                    : "Variable Value",
-                            position: "insideBottom",
-                            offset: -10,
-                          }}
-                      />
+                    {selectedVariables.map((variableName, index) => {
+                      const scatterData = transformedData
+                          .filter(
+                              (item) =>
+                                  item[variableName] != null && item["Depth"] != null
+                          )
+                          .map((item) => ({
+                            variable: variableName,
+                            value: item[variableName],
+                            depth: item["Depth"],
+                          }))
+                          // Sort primarily by x (value), then y (depth)
+                          .sort((a, b) => {
+                            if (a.value === b.value) {
+                              return (a?.depth as number) - (b?.depth as number);
+                            }
+                            return (a?.value as number) - (b.value as number);
+                          });
 
-                      <YAxis
-                          type="number"
-                          dataKey="depth"
-                          name="Depth"
-                          domain={["dataMin", "dataMax"]}
-                          reversed
-                          label={{
-                            value: `Depth (${units["Depth"] || "m"})`,
-                            angle: -90,
-                            position: "insideLeft",
-                          }}
-                      />
-
-                      <Tooltip />
-                      <Legend className="p-4" />
-
-                      {selectedVariables.map((variableName, index) => {
-                        const scatterData = transformedData
-                            .filter(
-                                (item) =>
-                                    item[variableName] != null && item["Depth"] != null
-                            )
-                            .map((item) => ({
-                              variable: variableName,
-                              value: item[variableName],
-                              depth: item["Depth"],
-                            }))
-                            // Sort primarily by x (value), then y (depth)
-                            .sort((a, b) => {
-                              if (a.value === b.value) {
-                                return (a?.depth as number - (b?.depth as number));
-                              }
-                              return (a?.value as number - (b.value as number));
-                            });
-
-                        return (
-                            <Scatter
-                                key={variableName}
-                                name={`${variableName} (${units[variableName] || "N/A"})`}
-                                data={scatterData}
-                                fill={colorArray[index % colorArray.length]}
-                            />
-                        );
-                      })}
-                    </ScatterChart>
-                )}
-              </>
-          )}
+                      return (
+                          <Scatter
+                              key={variableName}
+                              name={`${variableName} (${
+                                  units[variableName] || "N/A"
+                              })`}
+                              data={scatterData}
+                              fill={colorArray[index % colorArray.length]}
+                          />
+                      );
+                    })}
+                  </ScatterChart>
+            </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
   );

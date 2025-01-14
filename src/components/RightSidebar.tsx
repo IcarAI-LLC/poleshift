@@ -316,6 +316,11 @@ const RightSidebar: React.FC = () => {
       <SidebarProvider
           open={!isRightSidebarCollapsed}
           onOpenChange={toggleRightSidebar}
+          style={{
+            //@ts-expect-error: Not my component
+            "--sidebar-width": "20rem",
+            "--sidebar-width-mobile": "20rem",
+          }}
       >
         <Sidebar side="right" variant="sidebar">
           {/* Header with close button */}

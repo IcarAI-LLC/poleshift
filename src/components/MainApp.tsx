@@ -1,36 +1,35 @@
 import React, {
+  Suspense,
   useCallback,
   useEffect,
-  useRef,
-  useState,
 } from "react";
 import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
 import { useAuth, useData, useUI } from "@/hooks";
 
 import LeftSidebar from "./LeftSidebar/LeftSidebar";
 import RightSidebar from "./RightSidebar";
+
 import MergedDropBoxes from "@/components/SampleGroupView/MergedDropboxes.tsx";
-import ErrorMessage from "./ErrorMessage";
-import { Suspense, lazy } from 'react';
-const GlobeComponent = lazy(() => import('./GlobeComponent.tsx'));
-import ContextMenu from "./ContextMenu";
-import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
 import SampleGroupMetadataComponent from "@/components/SampleGroupView/SampleGroupMetadataComponent.tsx";
-import FilterMenu from "./FilterMenu";
-import MoveModal from "./LeftSidebar/Modals/MoveModal";
 import ContainerScreen from "@/components/Container/ContainerScreen";
+import GlobeComponent from "@/components/GlobeComponent.tsx";
+
+import ContextMenu from "./ContextMenu";
+import MoveModal from "./LeftSidebar/Modals/MoveModal";
+import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
+
+import ErrorMessage from "./ErrorMessage";
 import ChatWidget from "@/components/Chatbot/ChatWidget";
 import CheckResourceFiles from "@/components/CheckResourceFiles.tsx";
-import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx";
+import {Loader2} from "lucide-react";
 
 const MainApp: React.FC = () => {
-  // ---- Hooks ----
+  // ---- Hooks & Setup ----
   const auth = useAuth();
   const data = useData();
   const ui = useUI();
   CheckResourceFiles({});
 
-  // ---- Destructure values from hooks ----
   const { error: authError, setError: setAuthError } = auth;
   const { deleteNode, error: dataError } = data;
   const {
@@ -41,41 +40,19 @@ const MainApp: React.FC = () => {
     leftSidebarContextMenu,
     closeLeftSidebarContextMenu,
   } = ui;
-  // ---- Local state ----
-  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-
-  // ---- Refs ----
-  const openButtonRef = useRef<HTMLButtonElement>(null);
   const displayedError = authError || dataError || errorMessage;
 
-  /**
-   * Render main content depending on what is selected:
-   * - SampleGroup => show dropboxes
-   * - Container => show container screen
-   * - Default => globe
-   */
-  const renderContent = (() => {
-    switch (selectedLeftItem?.type){
-      case FileNodeType.SampleGroup:
-        return(
-            <div>
-              <SampleGroupMetadataComponent />
-              <MergedDropBoxes onError={setErrorMessage} />
-            </div>);
-        case FileNodeType.Container:
-          return <ContainerScreen />;
-      case FileNodeType.Folder:
-        return null;
-      default:
-        return(
-          <Suspense fallback={<DnaLoadingIcon/>}>
-            <div className={"w-screen"}>
-            <GlobeComponent/>
-            <RightSidebar />
-            </div>
-          </Suspense>)
+  // ---- Effects ----
+  // Auto-dismiss errors
+  useEffect(() => {
+    if (displayedError) {
+      const timer = setTimeout(() => {
+        setErrorMessage(null);
+        setAuthError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  })();
+  }, [displayedError, setErrorMessage, setAuthError]);
 
   // ---- Callbacks ----
   const handleDeleteSample = useCallback(async () => {
@@ -83,7 +60,6 @@ const MainApp: React.FC = () => {
       setErrorMessage("Could not determine which item to delete.");
       return;
     }
-
     try {
       await deleteNode(leftSidebarContextMenu.itemId);
       closeLeftSidebarContextMenu();
@@ -101,79 +77,87 @@ const MainApp: React.FC = () => {
     setErrorMessage,
   ]);
 
-  const handleApplyFilters = useCallback(() => {
-    setIsFilterMenuOpen(false);
-  }, []);
+  // ---- Determine which content to show (Globe vs. Non-Globe) ----
+  const isGlobe =
+      !selectedLeftItem ||
+      (selectedLeftItem.type !== FileNodeType.SampleGroup &&
+          selectedLeftItem.type !== FileNodeType.Container);
 
-  const handleResetFilters = useCallback(() => {
-    setIsFilterMenuOpen(false);
-  }, []);
-
-  const openFilterMenu = useCallback(() => {
-    setIsFilterMenuOpen(true);
-  }, []);
-
-  const closeFilterMenu = useCallback(() => {
-    setIsFilterMenuOpen(false);
-    openButtonRef.current?.focus();
-  }, []);
-
-  // ---- Effects ----
-  // Auto-dismiss errors after 5s
-  useEffect(() => {
-    if (displayedError) {
-      const timer = setTimeout(() => {
-        setErrorMessage(null);
-        setAuthError(null);
-      }, 5000);
-      return () => clearTimeout(timer);
+  /**
+   * For non-globe content (SampleGroup or Container),
+   * no extra padding around the content.
+   */
+  function renderNonGlobeContent() {
+    switch (selectedLeftItem?.type) {
+      case FileNodeType.SampleGroup:
+        return (
+            <div className="w-full h-full overflow-auto">
+              <SampleGroupMetadataComponent />
+              <MergedDropBoxes onError={setErrorMessage} />
+            </div>
+        );
+      case FileNodeType.Container:
+        return (
+            <div className="w-full h-full overflow-auto">
+              <ContainerScreen />
+            </div>
+        );
+      default:
+        return null;
     }
-  }, [displayedError, setErrorMessage, setAuthError]);
-
-  // Prevent scrolling behind filter menu
-  useEffect(() => {
-    document.body.style.overflow = isFilterMenuOpen ? "hidden" : "auto";
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, [isFilterMenuOpen]);
+  }
 
   // ---- Render ----
   return (
-      <div>
-        {/* Filter menu, if open */}
-        {isFilterMenuOpen && (
-            <FilterMenu
-                onApply={handleApplyFilters}
-                onReset={handleResetFilters}
-                onClose={closeFilterMenu}
+      <div className="w-screen h-screen">
+        {/* (1) GLOBE: absolutely positioned to fill the screen, pointer-events on */}
+        {isGlobe && (
+            <div className="absolute">
+                <Suspense fallback={
+                <div style={{marginBottom: "1rem"}}>
+                  <Loader2
+                      className="animate-spin"
+                  />
+                </div>}>
+                <GlobeComponent />
+              </Suspense>
+            </div>
+        )}
+
+        {/* (2) FOREGROUND LAYOUT: sidebars + content over the globe */}
+        <div className="z-10 w-full h-full flex">
+          {/* Left Sidebar: pointer-events-auto so it’s clickable */}
+          <div className="overflow-auto pointer-events-auto">
+            <LeftSidebar/>
+          </div>
+
+          {/* Main content area */}
+          {isGlobe ? (
+                <div className={"pointer-events-auto"}>
+                  <RightSidebar/>
+                </div>
+          ) : (
+              /* (B) Non-Globe content (SampleGroup or Container).
+                 * This content can fully intercept clicks.
+                 */
+              <div className="flex-1 pointer-events-auto">
+                {renderNonGlobeContent()}
+              </div>
+          )}
+        </div>
+        {/* (4) ERROR MESSAGE TOAST */}
+        {displayedError && (
+            <ErrorMessage
+                message={String(displayedError)}
+                onClose={() => setErrorMessage(null)}
             />
         )}
 
-        {/* Main content area: left sidebar + center content + right sidebar */}
-        <div className="flex justify-center items-center h-screen w-screen">
-          <LeftSidebar openFilterMenu={openFilterMenu} />
-          <div className="flex flex-col grow h-screen">
-            <div className={`transition-all duration-300`}>
-              {renderContent}
-            </div>
-          </div>
-          {/* If there's an error, show it */}
-          {displayedError && (
-              <ErrorMessage
-                  message={String(displayedError)}
-                  onClose={() => setErrorMessage(null)}
-              />
-          )}
-
-          {/* Right sidebar */}
-        </div>
-
-        {/* Chat widget + account actions if needed */}
+        {/* (5) CHAT WIDGET */}
         <ChatWidget />
-        {showAccountActions && <AccountModal />}
 
-        {/* Context menu + Move modal */}
+        {/* (6) ACCOUNT MODAL / CONTEXT MENU / MOVE MODAL */}
+        {showAccountActions && <AccountModal />}
         <ContextMenu deleteItem={handleDeleteSample} />
         <MoveModal />
       </div>
