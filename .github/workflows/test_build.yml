@@ -41,10 +41,15 @@ jobs:
           git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
           git lfs checkout
 
-      - name: Setup Node
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          run_install: true
+
+      - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 23
           cache: 'pnpm'
 
       - name: Install Rust Stable
@@ -62,26 +67,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
-          npm install --global pnpm
 
       - name: Add Rust Targets for macOS
         if: matrix.os == 'macos-latest'
         run: |
           rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
-      - name: Install Node Modules
-        run: pnpm install
-
       - name: Build Tauri Application
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            pnpm tauri build --target x86_64-apple-darwin
-            pnpm tauri build --target aarch64-apple-darwin
+            pnpm run tauri build --target x86_64-apple-darwin
+            pnpm run tauri build --target aarch64-apple-darwin
           elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-            pnpm tauri build --verbose
+            pnpm run tauri build --verbose
           else
-            pnpm tauri build --verbose --bundles appimage deb updater
+            pnpm run tauri build --verbose --bundles appimage deb updater
           fi
 
         env:
