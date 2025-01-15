@@ -41,6 +41,9 @@ jobs:
           git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
           git lfs checkout
 
+      - name: Install pnpm
+        run: curl -fsSL https://get.pnpm.io/install.sh | sh -
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
