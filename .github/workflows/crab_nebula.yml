@@ -101,12 +101,12 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            pnpm tauri build --target x86_64-apple-darwin
-            pnpm tauri build --target aarch64-apple-darwin
+            pnpm run tauri build --target x86_64-apple-darwin
+            pnpm run tauri build --target aarch64-apple-darwin
           elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-            pnpm tauri build --verbose
+            pnpm run tauri build --verbose
           else
-            pnpm tauri build --verbose --bundles appimage deb updater
+            pnpm run tauri build --verbose --bundles appimage deb updater
           fi
 
       - name: Upload Assets
