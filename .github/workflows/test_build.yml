@@ -42,7 +42,9 @@ jobs:
           git lfs checkout
 
       - name: Install pnpm
-        run: curl -fsSL https://get.pnpm.io/install.sh | sh -
+        run: |
+          export SHELL=$(which bash)
+          curl -fsSL https://get.pnpm.io/install.sh | sh -
 
       - name: Setup Node
         uses: actions/setup-node@v4
