@@ -17,23 +17,34 @@ export class PowerSyncDB {
      * If it doesn't exist, it is created here.
      */
     public static getInstance(): PowerSyncDatabase {
-        if (!this.instance) {
-            this.instance = new PowerSyncDatabase({
-                schema: AppSchema,
-                database: new WASQLiteOpenFactory({
-                    dbFilename: 'powersync018.db',
-                    vfs: WASQLiteVFS.OPFSCoopSyncVFS,
+        try {
+            if (!this.instance) {
+                this.instance = new PowerSyncDatabase({
+                    schema: AppSchema,
+                    database: new WASQLiteOpenFactory({
+                        dbFilename: 'powersync',
+                        vfs: WASQLiteVFS.AccessHandlePoolVFS,
+                        dbLocation: './powersync',
+                        flags: {
+                            enableMultiTabs: false
+                        }
+                    }),
                     flags: {
-                        enableMultiTabs: false
+                        enableMultiTabs: false,
+                        useWebWorker: false
                     }
-                }),
-                flags: {
-                    enableMultiTabs: false,
-                    useWebWorker: false
-                }
-            });
+                });
+            }
         }
-        return this.instance;
+        catch(e){
+            console.error("Powersync error: ", e);
+        }
+        if (this.instance) {
+            return this.instance;
+        }
+        else {
+            throw new Error('Failed to create PowerSyncDatabase instance.');
+        }
     }
 }
 
@@ -44,13 +55,13 @@ export const setupPowerSync = async () => {
     console.log('Setup Power Sync called');
     const db = PowerSyncDB.getInstance();
     // Always reference the singleton DB instance through the static getter
-    if (db.connected) {
+    if (db?.connected) {
         console.debug('PowerSync is already connected.');
         return;
     }
     console.log('PowerSync is not yet connected');
     try {
-        await db.connect(supabaseConnector);
+        await db?.connect(supabaseConnector);
         console.log('Connector created');
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);
@@ -58,7 +69,7 @@ export const setupPowerSync = async () => {
     }
 
     // Register event listeners
-    db.registerListener({
+    db?.registerListener({
         onConfigure: () => {
             console.log('PowerSync configured');
         },

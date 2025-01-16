@@ -27,7 +27,9 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
                         ReactCompilerConfig],
                     ],
             }
-            }), eslint(), visualizer(), nodePolyfills(),
+            }), eslint(),
+            visualizer(),
+            nodePolyfills(),
             ViteImageOptimizer({})],
         // PowerSync
         optimizeDeps: {
@@ -37,7 +39,7 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
 
             // But include js-logger from @powersync/web, otherwise app breaks.
             // https://github.com/powersync-ja/powersync-js/pull/267
-            include: ['@powersync/web > js-logger']
+            include: ['@powersync/web > js-logger'],
         },
         clearScreen: false,
         server: {
