@@ -1,6 +1,5 @@
 import { check } from "@tauri-apps/plugin-updater";
-//@ts-ignore
-import { ask, message } from "@tauri-apps/plugin-dialog";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 
 export async function checkForAppUpdates() {

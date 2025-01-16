@@ -1,12 +1,25 @@
-// src/components/PostAuth/ActivateLicense.tsx
+import {FC, useState} from "react";
+import { useAuth } from "@/hooks";
 
-import React, { useState } from 'react';
-import { Box, TextField, Button, Typography, CircularProgress, Alert } from '@mui/material';
-import { useAuth } from '../../lib/hooks';
+// shadcn/ui components
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardContent,
+    CardFooter,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
-const ActivateLicense: React.FC = () => {
+// lucide-react icon
+import { Loader2 } from "lucide-react";
+
+const ActivateLicense: FC = () => {
     const { activateLicense, loading, error } = useAuth();
-    const [licenseKey, setLicenseKey] = useState('');
+    const [licenseKey, setLicenseKey] = useState("");
     const [localError, setLocalError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -16,87 +29,69 @@ const ActivateLicense: React.FC = () => {
         setMessage(null);
 
         if (!licenseKey) {
-            setLocalError('Please enter a license key');
+            setLocalError("Please enter a license key");
             return;
         }
 
         try {
             await activateLicense(licenseKey);
-            setMessage('License activated successfully! Loading your profile...');
+            setMessage("License activated successfully! Loading your profile...");
         } catch (err) {
-            setLocalError(err instanceof Error ? err.message : 'License activation failed');
+            setLocalError(
+                err instanceof Error ? err.message : "License activation failed"
+            );
         }
     };
 
     const displayError = localError || error;
 
     return (
-        (<Box
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            minHeight="100vh"
-            bgcolor="background.default"
-            color="text.primary"
-            p={2}
-        >
-            <Box
-                component="form"
-                onSubmit={handleSubmit}
-                sx={{
-                    width: '100%',
-                    maxWidth: 400,
-                    p: 4,
-                    bgcolor: 'background.paper',
-                    borderRadius: 2,
-                    boxShadow: 3,
-                }}
-            >
-                <Typography variant="h5" component="h1" gutterBottom align="center">
-                    Activate Your License
-                </Typography>
+        <div className="flex min-h-screen items-center justify-center p-4">
+            <Card className="w-full max-w-md">
+                <form onSubmit={handleSubmit}>
+                    <CardHeader>
+                        <CardTitle>Activate Your License</CardTitle>
+                    </CardHeader>
 
-                {displayError && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                        {displayError}
-                    </Alert>
-                )}
+                    <CardContent>
+                        {displayError && (
+                            <Alert variant="destructive">
+                                <AlertTitle>Error</AlertTitle>
+                                <AlertDescription>{displayError}</AlertDescription>
+                            </Alert>
+                        )}
 
-                {message && (
-                    <Alert severity="success" sx={{ mb: 2 }}>
-                        {message}
-                    </Alert>
-                )}
+                        {message && (
+                            <Alert variant="default">
+                                <AlertTitle>Success</AlertTitle>
+                                <AlertDescription>{message}</AlertDescription>
+                            </Alert>
+                        )}
 
-                <TextField
-                    label="License Key"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={licenseKey}
-                    onChange={(e) => setLicenseKey(e.target.value)}
-                    required
-                    disabled={loading || !!message}
-                    slotProps={{
-                        htmlInput: {
-                            'aria-label': 'License Key',
-                        }
-                    }}
-                />
+                        <div>
+                            <Label htmlFor="licenseKey">License Key</Label>
+                            <Input
+                                id="licenseKey"
+                                value={licenseKey}
+                                onChange={(e) => setLicenseKey(e.target.value)}
+                                required
+                                disabled={loading || !!message}
+                                aria-label="License Key"
+                            />
+                        </div>
+                    </CardContent>
 
-                <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    fullWidth
-                    sx={{ mt: 2, mb: 1 }}
-                    disabled={loading || !!message}
-                    startIcon={loading ? <CircularProgress size={20} /> : null}
-                >
-                    {loading ? 'Activating...' : 'Activate'}
-                </Button>
-            </Box>
-        </Box>)
+                    <CardFooter className="flex flex-col gap-2">
+                        <Button type="submit" disabled={loading || !!message}>
+                            {loading && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            {loading ? "Activating..." : "Activate"}
+                        </Button>
+                    </CardFooter>
+                </form>
+            </Card>
+        </div>
     );
 };
 

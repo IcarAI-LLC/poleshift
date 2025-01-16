@@ -1,225 +1,321 @@
-// src/components/LeftSidebar.tsx
+// components/LeftSidebar/LeftSidebar.tsx
+import { SetStateAction, useCallback, useState} from "react";
+import {Button} from "@/components/ui/button";
+import {Menu} from "lucide-react";
 
-import React, { useCallback, useState, useMemo } from 'react';
-import { Box, Button } from '@mui/material';
 import {
-  AddCircle as AddCircleIcon,
-  CreateNewFolder as CreateNewFolderIcon,
-  Public as PublicIcon,
-} from '@mui/icons-material';
-import { useTheme } from '@mui/material/styles';
-import { useUI, useData, useAuth } from '../../lib/hooks';
-import { useAuthStore } from '../../lib/stores/authStore';
-import { PoleshiftPermissions } from '../../lib/types';
+    SidebarProvider,
+    Sidebar,
+    SidebarRail,
+    SidebarHeader,
+    SidebarContent,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarGroupContent,
+    SidebarMenu,
+    SidebarMenuItem,
+    SidebarMenuButton,
+    // etc.
+} from "@/components/ui/sidebar";
 
-import LeftSidebarTree from './LeftSidebarTree';
-import CreateSampleGroupModal from './CreateSampleGroupModal';
-import CreateFolderModal from './CreateFolderModal';
-import ContainerIcon from '../../assets/container.svg'
-import CreateContainerModal from "./CreateContainerModal.tsx";
+import {useUI, useData, useAuth} from "@/hooks";
+import {useAuthStore} from "@/stores/authStore";
+import {PoleshiftPermissions} from "@/types";
 
-const LeftSidebar: React.FC = () => {
-  const theme = useTheme();
-  const { setSelectedLeftItem, isLeftSidebarCollapsed, setErrorMessage } = useUI();
-  const { userPermissions } = useAuthStore.getState();
-  const { organization } = useAuth();
-  const { sampleGroups, createSampleGroup, addFileNode, locations } = useData();
+// Our new smaller components
+import {SettingsAndSyncActions} from "./SettingsAndSyncActions";
+import {ApplicationActions} from "./ApplicationActions";
+import {SidebarTree} from "./SidebarTree";
 
-  // Permissions
-  const hasCreatePermission = userPermissions?.includes(PoleshiftPermissions.CreateSampleGroup);
+// Indicators
+import {SyncProgressIndicator} from "./Indicators/SyncIndicator";
+import {ResourceDownloadIndicator} from "./Indicators/ResourceDownloadIndicator";
+import {NetworkIndicator} from "./Indicators/NetworkIndicator";
 
-  // Disentangled modals
-  const [isSampleGroupModalOpen, setIsSampleGroupModalOpen] = useState(false);
-  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
-  const [isContainerModalOpen, setIsContainerModalOpen] = useState(false);
+// Modals
+import CreateSampleGroupModal from "./Modals/CreateSampleGroupModal";
+import CreateFolderModal from "./Modals/CreateFolderModal";
+import CreateContainerModal from "./Modals/CreateContainerModal";
+import {FilterModal} from "./Modals/FilterModal";
+import MoveModal from "./Modals/MoveModal";
 
-  // Click handlers to open each modal
-  const openSampleGroupModal = useCallback(() => {
-    if (!hasCreatePermission) {
-      setErrorMessage('You do not have permission to create a new sampling event.');
-      return;
-    }
-    setIsSampleGroupModalOpen(true);
-  }, [hasCreatePermission, setErrorMessage]);
+export function LeftSidebar() {
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
-  const openFolderModal = useCallback(() => {
-    if (!hasCreatePermission) {
-      setErrorMessage('You do not have permission to create a new folder.');
-      return;
-    }
-    setIsFolderModalOpen(true);
-  }, [hasCreatePermission, setErrorMessage]);
+    // UI & data hooks
+    const {
+        toggleLeftSidebar,
+        isLeftSidebarCollapsed,
+        setSelectedLeftItem,
+        setErrorMessage,
+        selectedLeftItem,
+        setShowAccountActions,
+    } = useUI();
+    const {organization} = useAuth();
+    const {fileTree, sampleGroups, locations, createSampleGroup, addFileNode, deleteNode} =
+        useData();
+    const userPermissions = useAuthStore((state) => state.userPermissions);
+    const canDeleteSampleGroup =
+        userPermissions?.includes(PoleshiftPermissions.DeleteSampleGroup) ?? false;
+    const canModifySampleGroup =
+        userPermissions?.includes(PoleshiftPermissions.ModifySampleGroup) ?? false;
+    const hasCreatePermission = userPermissions?.includes(
+        PoleshiftPermissions.CreateSampleGroup
+    );
 
-  const openContainerModal = useCallback(() => {
-    if (!hasCreatePermission) {
-      setErrorMessage('You do not have permission to create a new container.');
-      return;
-    }
-    setIsContainerModalOpen(true);
-  }, [hasCreatePermission, setErrorMessage]);
+    // (A) Local modals for creation
+    const [isSampleGroupModalOpen, setIsSampleGroupModalOpen] = useState(false);
+    const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+    const [isContainerModalOpen, setIsContainerModalOpen] = useState(false);
 
-  // Reset selection
-  const handleResetSelection = useCallback(() => {
-    setSelectedLeftItem(undefined);
-  }, [setSelectedLeftItem]);
+    // (B) State for “move” action
+    const [moveModalItemId, setMoveModalItemId] = useState<string | null>(null);
 
-  // Styles
-  const styles = useMemo(() => ({
-    sidebar: {
-      width: 'var(--sidebar-width)',
-      height: '100vh',
-      backgroundColor: 'var(--color-sidebar)',
-      display: 'flex',
-      flexDirection: 'column',
-      transition: theme.transitions.create('width', {
-        duration: theme.transitions.duration.standard,
-      }),
-      overflow: 'auto',
-      position: 'absolute',
-      zIndex: 1000,
-    } as const,
-    contentContainer: {
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      marginTop: 'var(--header-height)',
-    } as const,
-    buttonContainer: {
-      padding: theme.spacing(2),
-      display: 'flex',
-      flexDirection: 'column',
-      gap: theme.spacing(1),
-      borderBottom: '1px solid var(--color-border)',
-    } as const,
-    sidebarButton: {
-      width: '100%',
-      justifyContent: 'flex-start',
-      backgroundColor: 'var(--color-background)',
-      color: 'var(--color-text)',
-    } as const,
-    resetButton: {
-      width: '100%',
-      justifyContent: 'flex-start',
-      backgroundColor: 'var(--color-background)',
-      color: 'var(--color-text)',
-    } as const,
-  }), [theme]);
+    // (C) Tree expand/collapse
+    const [expandedIds, setExpandedIds] = useState<string[]>([]);
+    const handleToggleExpand = useCallback((id: string) => {
+        setExpandedIds((prev) =>
+            prev.includes(id) ? prev.filter((cur) => cur !== id) : [...prev, id]
+        );
+    }, []);
 
-  return (
-      <Box
-          className={`left-sidebar ${isLeftSidebarCollapsed ? 'collapsed' : ''}`}
-          sx={styles.sidebar}
-      >
-        <Box sx={styles.contentContainer}>
-          <Box sx={styles.buttonContainer}>
+    // (D) Tree selection
+    const handleSelectNode = useCallback(
+        (node: {
+            id: string;
+            name: string;
+            created_at: string;
+            org_id: string;
+            updated_at: string;
+            parent_id: string | null;
+            type: string;
+            version: number;
+            sample_group_id: string | null;
+            droppable: number;
+        } | undefined) => {
+            setSelectedLeftItem(node);
+        },
+        [setSelectedLeftItem]
+    );
 
-            {/* New Sampling Event Button */}
-            <Button
-                variant="contained"
-                onClick={openSampleGroupModal}
-                aria-label="Create New Sampling Event"
-                sx={styles.sidebarButton}
-                disableElevation
-                disabled={!hasCreatePermission}
-            >
-              <AddCircleIcon />
-              {!isLeftSidebarCollapsed && (
-                  <span style={{ marginLeft: theme.spacing(1) }}>
-                New Sampling Event
-              </span>
-              )}
-            </Button>
+    // (E) Actions from the tree: move/delete
+    const handleMove = useCallback(
+        (node: { id: SetStateAction<string | null>; }) => {
+            if (!canModifySampleGroup) {
+                setErrorMessage("You do not have permission to modify this sample group.");
+                return;
+            }
+            setMoveModalItemId(node.id);
+        },
+        [canModifySampleGroup, setErrorMessage]
+    );
 
-            {/* New Folder Button */}
-            <Button
-                variant="contained"
-                onClick={openFolderModal}
-                aria-label="Create New Folder"
-                sx={styles.sidebarButton}
-                disableElevation
-                disabled={!hasCreatePermission}
-            >
-              <CreateNewFolderIcon />
-              {!isLeftSidebarCollapsed && (
-                  <span style={{ marginLeft: theme.spacing(1) }}>New Folder</span>
-              )}
-            </Button>
+    const handleDelete = useCallback(
+        async (node: { id: string | undefined; }) => {
+            if (!canDeleteSampleGroup || !node.id) {
+                setErrorMessage("You do not have permission to delete this sample group.");
+                return;
+            }
+            try {
+                // Optionally show a "ConfirmDeleteModal" first. For brevity, we do direct:
+                await deleteNode(node.id);
+                // If user deleted the currently selected item, reset selection
+                if (selectedLeftItem?.id === node.id) {
+                    setSelectedLeftItem(undefined);
+                }
+            } catch (err) {
+                setErrorMessage(String(err));
+            }
+        },
+        [
+            canDeleteSampleGroup,
+            deleteNode,
+            selectedLeftItem,
+            setSelectedLeftItem,
+            setErrorMessage,
+        ]
+    );
 
-            {/* Create New Container Button */}
-            <Button
-                variant="contained"
-                onClick={openContainerModal}
-                aria-label="Create New Container"
-                sx={styles.sidebarButton}
-                disableElevation
-                disabled={!hasCreatePermission}
-            >
-              <img
-                  src={ContainerIcon}
-                  alt="Container Icon"
-                  style={{width: 24, height: 24}}
-              />
-              {!isLeftSidebarCollapsed && (
-                  <span style={{marginLeft: theme.spacing(1)}}>New Container</span>
-              )}
-            </Button>
+    // Filter callbacks
+    const handleApplyFilters = useCallback(() => {
+        setIsFilterMenuOpen(false);
+    }, []);
+    const handleResetFilters = useCallback(() => {
+        setIsFilterMenuOpen(false);
+    }, []);
 
-            {/* Reset Selection Button */}
-            <Button
-                variant="contained"
-                onClick={handleResetSelection}
-                aria-label="Reset Selection"
-                sx={styles.resetButton}
-                disableElevation
-            >
-              <PublicIcon />
-              {!isLeftSidebarCollapsed && (
-                  <span style={{ marginLeft: theme.spacing(1) }}>
-                Reset Selection
-              </span>
-              )}
-            </Button>
-          </Box>
+    // Create callbacks
+    const openSampleGroupModal = useCallback(() => {
+        if (!hasCreatePermission) {
+            setErrorMessage("You do not have permission to create a new sampling event.");
+            return;
+        }
+        setIsSampleGroupModalOpen(true);
+    }, [hasCreatePermission, setErrorMessage]);
 
-          <LeftSidebarTree />
-        </Box>
+    const openFolderModal = useCallback(() => {
+        if (!hasCreatePermission) {
+            setErrorMessage("You do not have permission to create a new folder.");
+            return;
+        }
+        setIsFolderModalOpen(true);
+    }, [hasCreatePermission, setErrorMessage]);
 
-        {/* 1) Create Sample Group Modal */}
-        {isSampleGroupModalOpen && (
-            <CreateSampleGroupModal
-                open={isSampleGroupModalOpen}
-                onClose={() => setIsSampleGroupModalOpen(false)}
-                organization={organization}
-                sampleGroups={sampleGroups}
-                locations={locations}
-                createSampleGroup={createSampleGroup}
-                setErrorMessage={setErrorMessage}
-            />
-        )}
+    const openContainerModal = useCallback(() => {
+        if (!hasCreatePermission) {
+            setErrorMessage("You do not have permission to create a new container.");
+            return;
+        }
+        setIsContainerModalOpen(true);
+    }, [hasCreatePermission, setErrorMessage]);
 
-        {/* 2) Create Folder Modal */}
-        {isFolderModalOpen && (
-            <CreateFolderModal
-                open={isFolderModalOpen}
-                onClose={() => setIsFolderModalOpen(false)}
-                organization={organization}
-                addFileNode={addFileNode}
-                setErrorMessage={setErrorMessage}
-            />
-        )}
+    // Reset selection
+    const handleResetSelection = useCallback(() => {
+        setSelectedLeftItem(undefined);
+        // Optionally collapse all
+        // setExpandedIds([]);
+    }, [setSelectedLeftItem]);
 
-        {/* 3) Create Container Modal */}
-        {isContainerModalOpen && (
-            <CreateContainerModal
-                open={isContainerModalOpen}
-                onClose={() => setIsContainerModalOpen(false)}
-                organization={organization}
-                addFileNode={addFileNode}
-                setErrorMessage={setErrorMessage}
-            />
-        )}
-      </Box>
-  );
-};
+    return (
+        <SidebarProvider
+            open={!isLeftSidebarCollapsed}
+            onOpenChange={toggleLeftSidebar}
+            style={{
+                //@ts-expect-error custom CSS var
+                "--sidebar-width": "24rem",
+                "--sidebar-width-mobile": "24rem",
+            }}
+        >
+            <Sidebar side="left" variant="floating" collapsible="icon">
+                <SidebarHeader className="place-content-start">
+                    <Button
+                        onClick={toggleLeftSidebar}
+                        variant="ghost"
+                        className="pr-4 pl-2 flex-start justify-start"
+                    >
+                        <Menu className="h-4 w-4" />
+                        {!isLeftSidebarCollapsed && <span>Poleshift</span>}
+                    </Button>
+                </SidebarHeader>
+
+                <SidebarContent>
+                    {/* 1) Settings & Sync */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Meta</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SyncProgressIndicator collapsed={isLeftSidebarCollapsed} />
+                            <NetworkIndicator showText={!isLeftSidebarCollapsed} />
+                            <SettingsAndSyncActions
+                                onOpenFilters={() => setIsFilterMenuOpen(true)}
+                                onShowAccountActions={() => setShowAccountActions(true)}
+                                onOpenSettings={() => setIsSettingsOpen(true)}
+                                onCloseSettings={() => setIsSettingsOpen(false)}
+                                isSettingsOpen={isSettingsOpen}
+                            />
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+
+                    {/* 2) Create actions */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Actions</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <ApplicationActions
+                                onNewSampleGroup={openSampleGroupModal}
+                                onNewFolder={openFolderModal}
+                                onNewContainer={openContainerModal}
+                                onReset={handleResetSelection}
+                                canCreate={hasCreatePermission ?? false}
+                            />
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+
+                    {/* 3) Samples tree */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Samples</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {!fileTree?.length && (
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton asChild>
+                                            <Button variant="ghost">No items to display</Button>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                )}
+
+                                {fileTree?.length > 0 && (
+                                    <SidebarTree
+                                        fileTree={fileTree}
+                                        expandedIds={expandedIds}
+                                        selectedId={selectedLeftItem?.id}
+                                        onToggleExpand={handleToggleExpand}
+                                        onSelect={handleSelectNode}
+                                        // Pass the new callbacks here
+                                        onMove={handleMove}
+                                        onDelete={handleDelete}
+                                    />
+                                )}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                </SidebarContent>
+
+                <ResourceDownloadIndicator />
+                <SidebarRail />
+            </Sidebar>
+
+            {/* (A) Create modals */}
+            {isSampleGroupModalOpen && (
+                <CreateSampleGroupModal
+                    open={isSampleGroupModalOpen}
+                    onClose={() => setIsSampleGroupModalOpen(false)}
+                    organization={organization}
+                    sampleGroups={sampleGroups}
+                    locations={locations}
+                    createSampleGroup={createSampleGroup}
+                    setErrorMessage={setErrorMessage}
+                />
+            )}
+
+            {isFolderModalOpen && (
+                <CreateFolderModal
+                    open={isFolderModalOpen}
+                    onClose={() => setIsFolderModalOpen(false)}
+                    organization={organization}
+                    addFileNode={addFileNode}
+                    setErrorMessage={setErrorMessage}
+                />
+            )}
+
+            {isContainerModalOpen && (
+                <CreateContainerModal
+                    open={isContainerModalOpen}
+                    onClose={() => setIsContainerModalOpen(false)}
+                    organization={organization}
+                    addFileNode={addFileNode}
+                    setErrorMessage={setErrorMessage}
+                />
+            )}
+
+            {/* (B) Move modal */}
+            {moveModalItemId && (
+                <MoveModal
+                    itemId={moveModalItemId}
+                    onClose={() => setMoveModalItemId(null)}
+                 />
+            )}
+
+            {/* (C) Filter Modal */}
+            {isFilterMenuOpen && (
+                <FilterModal
+                    open={isFilterMenuOpen}
+                    onOpenChange={(isOpen) => setIsFilterMenuOpen(isOpen)}
+                    onApply={handleApplyFilters}
+                    onReset={handleResetFilters}
+                />
+            )}
+        </SidebarProvider>
+    );
+}
 
 export default LeftSidebar;

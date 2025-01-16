@@ -1,38 +1,57 @@
 // src/lib/powersync/db.ts
 
-import {PowerSyncDatabase} from '@powersync/web';
-import {SupabaseConnector} from './SupabaseConnector';
+import {PowerSyncDatabase, WASQLiteOpenFactory, WASQLiteVFS} from '@powersync/web';
+import {supabaseConnector} from './SupabaseConnector';
 import {AppSchema} from './Schema';
 
-// By default, we export the current instance. The first import of this file
-// will cause the first instance to be created (no web worker).
-export const db  = new PowerSyncDatabase({
-    schema: AppSchema,
-    database: {
-        dbFilename: 'powersync.db'
-    },
-    flags: {
-        useWebWorker: false
+/**
+ * A singleton wrapper class for the PowerSyncDatabase.
+ */
+export class PowerSyncDB {
+
+    // The single instance will be stored in this static property.
+    private static instance: PowerSyncDatabase | null = null;
+
+    /**
+     * Returns the singleton PowerSyncDatabase instance.
+     * If it doesn't exist, it is created here.
+     */
+    public static getInstance(): PowerSyncDatabase {
+        if (!this.instance) {
+            this.instance = new PowerSyncDatabase({
+                schema: AppSchema,
+                database: new WASQLiteOpenFactory({
+                    dbFilename: 'powersync018.db',
+                    vfs: WASQLiteVFS.OPFSCoopSyncVFS,
+                    flags: {
+                        enableMultiTabs: false
+                    }
+                }),
+                flags: {
+                    enableMultiTabs: false,
+                    useWebWorker: false
+                }
+            });
+        }
+        return this.instance;
     }
-});
+}
 
 /**
- * Sets up PowerSync with event listeners.
+ * Sets up PowerSync with event listeners using the singleton DB instance.
  */
 export const setupPowerSync = async () => {
-    console.log("Setup Power Sync called");
-    // Always reference `db`, which will be the currently active instance.
+    console.log('Setup Power Sync called');
+    const db = PowerSyncDB.getInstance();
+    // Always reference the singleton DB instance through the static getter
     if (db.connected) {
         console.debug('PowerSync is already connected.');
         return;
     }
     console.log('PowerSync is not yet connected');
-
-    const connector = new SupabaseConnector();
-    console.log('Connector created');
-
     try {
-        await db.connect(connector);
+        await db.connect(supabaseConnector);
+        console.log('Connector created');
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);
         return;
@@ -59,3 +78,5 @@ export const setupPowerSync = async () => {
 
     console.log('PowerSync initialized successfully.');
 };
+
+export const db = PowerSyncDB.getInstance();

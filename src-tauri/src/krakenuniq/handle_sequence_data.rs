@@ -1,19 +1,16 @@
 // src/lib/hooks/useTauriDataProcessor.rs
 
+use serde_json;
 use std::collections::HashMap;
 use std::fs::{remove_file, File};
 use std::io::copy;
-use std::path::PathBuf;
-use serde_json; // Needed to serialize Vec<String> -> JSON array string
+use std::path::PathBuf; // Needed to serialize Vec<String> -> JSON array string
 
 use flate2::read::GzDecoder;
 use tauri::{AppHandle, Manager, Runtime};
 use uuid::Uuid; // <-- ADD THIS
 
-use crate::poleshift_common::types::{
-    KrakenConfig, PoleshiftError,
-    StandardResponseNoFiles,
-};
+use crate::poleshift_common::types::{KrakenConfig, PoleshiftError, StandardResponseNoFiles};
 use crate::poleshift_common::utils::emit_progress;
 
 // Pull in these items from your own modules:
@@ -24,10 +21,7 @@ use crate::krakenuniq::{
 use krakenuniq_rs::{classify_reads, ClassificationResults};
 
 impl KrakenConfig {
-    pub fn hardcoded(
-        resource_dir: PathBuf,
-        input_files: Vec<String>,
-    ) -> Self {
+    pub fn hardcoded(resource_dir: PathBuf, input_files: Vec<String>) -> Self {
         Self {
             db_file: resource_dir
                 .join("database.kdb")
@@ -113,14 +107,6 @@ pub async fn handle_sequence_data<R: Runtime>(
     org_id: String,
     sample_id: String,
 ) -> Result<StandardResponseNoFiles<KrakenUniqResult>, PoleshiftError> {
-    // 1) OS checks & basic setup
-    let platform = tauri_plugin_os::platform();
-    if platform.eq_ignore_ascii_case("WINDOWS") {
-        return Err(PoleshiftError::UnsupportedOS(
-            "Windows OS is not supported yet.".into(),
-        ));
-    }
-
     if file_paths.is_empty() {
         return Err(PoleshiftError::NoFiles);
     }
@@ -147,10 +133,7 @@ pub async fn handle_sequence_data<R: Runtime>(
     )?;
 
     // 3) Build a local `KrakenConfig`
-    let config = KrakenConfig::hardcoded(
-        resource_dir,
-        file_paths.clone(),
-    );
+    let config = KrakenConfig::hardcoded(resource_dir, file_paths.clone());
 
     // 4) Attempt to decompress the DB files if they are gzipped
     maybe_decompress_config_files(&config)?;
@@ -269,22 +252,29 @@ pub async fn handle_sequence_data<R: Runtime>(
         .collect();
 
     // 8) Transform classification output lines -> ProcessedKrakenUniqStdout
+    // 8) Transform classification output lines -> ProcessedKrakenUniqStdout
     let processed_kraken_uniq_stdout = classification_results
         .kraken_output_lines
         .iter()
         .map(|line| ProcessedKrakenUniqStdout {
-            id: String::from(Uuid::new_v4()),
-            classified: false,
+            id: Uuid::new_v4().to_string(),
+            classified: line.status == 'C',
             tax_id: line.tax_id as i32,
             read_length: line.length as i32,
             hit_data: line.hitlist.to_string(),
-            user_id: String::from(Uuid::parse_str(&user_id).expect("Invalid user_id UUID")),
-            org_id: String::from(Uuid::parse_str(&org_id).expect("Invalid org_id UUID")),
-            sample_id: String::from(Uuid::parse_str(&sample_id).expect("Invalid sample_id UUID")),
+            user_id: Uuid::parse_str(&user_id)
+                .expect("Invalid user_id UUID")
+                .to_string(),
+            org_id: Uuid::parse_str(&org_id)
+                .expect("Invalid org_id UUID")
+                .to_string(),
+            sample_id: Uuid::parse_str(&sample_id)
+                .expect("Invalid sample_id UUID")
+                .to_string(),
             feature_id: line.read_id.to_string(),
-            processed_data_id: String::from(
-                Uuid::parse_str(&processed_data_id).expect("Invalid processed_data_id UUID"),
-            ),
+            processed_data_id: Uuid::parse_str(&processed_data_id)
+                .expect("Invalid processed_data_id UUID")
+                .to_string(),
         })
         .collect::<Vec<_>>();
 

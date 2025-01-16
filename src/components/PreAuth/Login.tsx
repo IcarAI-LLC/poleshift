@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import {FC, useState} from "react";
+import { useAuth } from "@/hooks";
+import type { PreAuthView } from "src/types";
+
+// shadcn/ui components
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
-  Box,
-  TextField,
-  Button,
-  Typography,
-  CircularProgress,
-  Alert,
-} from '@mui/material';
-import { useAuth } from '@/lib/hooks';
-import type { PreAuthView } from '@/lib/types';
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+
+// lucide icon
+import { Loader2 } from "lucide-react";
 
 interface LoginProps {
   onNavigate: (view: PreAuthView) => void;
@@ -16,128 +24,112 @@ interface LoginProps {
   message?: string;
 }
 
-const Login: React.FC<LoginProps> = ({ onNavigate, prefillEmail = '', message }) => {
+const Login: FC<LoginProps> = ({
+                                       onNavigate,
+                                       prefillEmail = "",
+                                       message,
+                                     }) => {
   const [email, setEmail] = useState(prefillEmail);
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+
   const { loading, error: authError, login } = useAuth();
+  const displayError = localError || authError;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLocalError(null);
 
     if (!email || !password) {
-      setLocalError('Please enter both email and password');
+      setLocalError("Please enter both email and password");
       return;
     }
 
     try {
       await login(email, password);
     } catch (error) {
-      setLocalError(error instanceof Error ? error.message : 'Login failed');
+      setLocalError(error instanceof Error ? error.message : "Login failed");
     }
   };
 
-  const displayError = localError || authError;
-
   return (
-      <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          minHeight="100vh"
-          bgcolor="background.default"
-          color="text.primary"
-          padding={2}
-      >
-        <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{
-              width: '100%',
-              maxWidth: 400,
-              p: 4,
-              bgcolor: 'background.paper',
-              borderRadius: 2,
-              boxShadow: 3,
-            }}
-        >
-          <Typography variant="h5" component="h1" gutterBottom align="center">
-            Login
-          </Typography>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <form onSubmit={handleSubmit}>
+            <CardHeader>
+              <CardTitle>Login</CardTitle>
+            </CardHeader>
 
-          {message && (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                {message}
-              </Alert>
-          )}
+            <CardContent>
+              {message && (
+                  <Alert variant="default">
+                    <AlertTitle>Info</AlertTitle>
+                    <AlertDescription>{message}</AlertDescription>
+                  </Alert>
+              )}
 
-          {displayError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {displayError}
-              </Alert>
-          )}
+              {displayError && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{displayError}</AlertDescription>
+                  </Alert>
+              )}
 
-          <TextField
-              label="Email"
-              variant="outlined"
-              type="email"
-              fullWidth
-              margin="normal"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-              autoComplete="email"
-              aria-label={"email"}
-          />
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                    autoComplete="email"
+                    aria-label="email"
+                />
+              </div>
 
-          <TextField
-              label="Password"
-              variant="outlined"
-              type="password"
-              fullWidth
-              margin="normal"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-              autoComplete="current-password"
-              aria-label={'password'}
-          />
+              <div className="mt-3">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                    autoComplete="current-password"
+                    aria-label="password"
+                />
+              </div>
+            </CardContent>
 
-          <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              fullWidth
-              sx={{ mt: 2, mb: 1 }}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : null}
-          >
-            {loading ? 'Logging In...' : 'Login'}
-          </Button>
-
-          <Box textAlign="center" mt={2}>
-            <Button
-                variant="text"
-                onClick={() => onNavigate('reset-password')}
-                disabled={loading}
-            >
-              Forgot your password?
-            </Button>
-          </Box>
-
-          <Box textAlign="center" mt={1}>
-            <Typography variant="body2">
-              Don't have an account?{' '}
-              <Button variant="text" onClick={() => onNavigate('signup')} disabled={loading}>
-                Sign Up
+            <CardFooter className="flex flex-col gap-2">
+              <Button type="submit" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? "Logging In..." : "Login"}
               </Button>
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
+              <Button
+                  variant="link"
+                  onClick={() => onNavigate("reset-password")}
+                  disabled={loading}
+              >
+                Forgot your password?
+              </Button>
+              <div>
+                Don&apos;t have an account?{" "}
+                <Button
+                    variant="link"
+                    onClick={() => onNavigate("signup")}
+                    disabled={loading}
+                >
+                  Sign Up
+                </Button>
+              </div>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
   );
 };
 

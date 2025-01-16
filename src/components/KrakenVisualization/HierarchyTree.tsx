@@ -1,24 +1,9 @@
-import React, { useMemo } from 'react';
-import { Typography, Box } from '@mui/material';
-import {
-    Folder as FolderIcon,
-    FolderOpen as FolderOpenIcon,
-    Science as ScienceIcon,
-} from '@mui/icons-material';
-import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
-import { useTreeItem2, UseTreeItem2Parameters } from '@mui/x-tree-view/useTreeItem2';
-import {
-    TreeItem2Content,
-    TreeItem2IconContainer,
-    TreeItem2GroupTransition,
-    TreeItem2Label,
-    TreeItem2Root,
-} from '@mui/x-tree-view/TreeItem2';
-import { TreeItem2Icon } from '@mui/x-tree-view/TreeItem2Icon';
-import { TreeItem2Provider } from '@mui/x-tree-view/TreeItem2Provider';
-import { styled } from '@mui/material/styles';
-import { ProcessedKrakenUniqReport } from "@/lib/types";
-import {TaxonomicRank} from "@/lib/powersync/DrizzleSchema.ts";
+
+import { useMemo, useState } from "react";
+import { Folder, FolderOpen, FlaskConical } from "lucide-react";
+
+import type { ProcessedKrakenUniqReport } from "src/types";
+import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema";
 
 interface TaxonomyFileNode {
     id: string;
@@ -28,152 +13,137 @@ interface TaxonomyFileNode {
     reads: number;
     tax_id: number;
     children?: TaxonomyFileNode[];
-    type: 'folder' | 'leaf';
+    type: "folder" | "leaf";
 }
 
-const formatNumber = (num: number | string): string => {
-    const value = typeof num === 'string' ? parseInt(num) : num;
-    return new Intl.NumberFormat('en-US').format(value);
-};
-
-const formatPercentage = (num: number): string => {
-    return num.toFixed(2).toString() + "%";
-};
-
-const CustomTreeItemContent = styled(TreeItem2Content)(({ theme }) => ({
-    padding: theme.spacing(0.5, 1),
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1),
-}));
-
-interface CustomTaxonomyTreeItemProps
-    extends Omit<UseTreeItem2Parameters, 'rootRef'>,
-        Omit<React.HTMLAttributes<HTMLLIElement>, 'onFocus'> {}
-
-const CustomTaxonomyTreeItem = React.forwardRef(function CustomTaxonomyTreeItem(
-    props: CustomTaxonomyTreeItemProps,
-    ref: React.Ref<HTMLLIElement>,
-) {
-    const { id, itemId, label, disabled, children, ...other } = props;
-    const { getRootProps, getContentProps, getIconContainerProps, getLabelProps, getGroupTransitionProps, status, publicAPI } =
-        useTreeItem2({ id, itemId, children, label, disabled, rootRef: ref });
-
-    const item = publicAPI.getItem(itemId) as TaxonomyFileNode;
-
-    return (
-        <TreeItem2Provider itemId={itemId}>
-            <TreeItem2Root {...getRootProps(other)}>
-                <CustomTreeItemContent {...getContentProps()}>
-                    <TreeItem2IconContainer {...getIconContainerProps()}>
-                        <TreeItem2Icon status={status} />
-                    </TreeItem2IconContainer>
-                    <Box sx={{ flexGrow: 1, display: 'flex', gap: 1, alignItems: 'center', fontSize: '0.9em' }}>
-                        {item.type === 'folder' && (status.expanded ? <FolderOpenIcon /> : <FolderIcon />)}
-                        {item.type !== 'folder' && <ScienceIcon sx={{ color: 'cyan' }} />}
-                        <TreeItem2Label {...getLabelProps()} />
-                        <Typography component="span" color="text.secondary" sx={{ fontSize: '0.8em' }}>
-                            ({item.rank})
-                        </Typography>
-                        <Typography component="span" color="text.secondary" sx={{ fontSize: '0.8em' }}>
-                            {formatPercentage(item.percentage)}
-                        </Typography>
-                        <Typography component="span" color="text.secondary" sx={{ fontSize: '0.8em' }}>
-                            {formatNumber(item.reads)} reads
-                        </Typography>
-                    </Box>
-                </CustomTreeItemContent>
-                {children && <TreeItem2GroupTransition {...getGroupTransitionProps()} />}
-            </TreeItem2Root>
-        </TreeItem2Provider>
-    );
-});
-
-interface HierarchyTreeProps {
-    data: ProcessedKrakenUniqReport[];
+function formatNumber(num: number | string): string {
+    const value = typeof num === "string" ? parseInt(num) : num;
+    return new Intl.NumberFormat("en-US").format(value);
 }
 
-const buildHierarchyTree = (data: ProcessedKrakenUniqReport[]): TaxonomyFileNode[] => {
-    // Create a map of all nodes
+function formatPercentage(num: number): string {
+    return `${num.toFixed(2)}%`;
+}
+
+/**
+ * Build a hierarchy of nodes from the raw `ProcessedKrakenUniqReport[]`
+ */
+function buildHierarchyTree(data: ProcessedKrakenUniqReport[]): TaxonomyFileNode[] {
     const nodeMap = new Map<string, TaxonomyFileNode>();
 
-    // First pass: Create all nodes
+    // 1) Create a node for each item
     data.forEach((item) => {
         nodeMap.set(item.id, {
             id: item.id,
             name: item.tax_name,
             rank: item.rank as TaxonomicRank,
             percentage: item.percentage,
-            reads: parseInt(item.reads),
+            reads: item.reads,
             tax_id: item.tax_id,
-            type: 'leaf', // We'll update this later
+            type: "leaf",
             children: [],
         });
     });
 
-    // Second pass: Build relationships
+    // 2) Link children to parents
     const roots: TaxonomyFileNode[] = [];
     data.forEach((item) => {
         const node = nodeMap.get(item.id);
         if (!node) return;
 
         if (item.parent_id && nodeMap.has(item.parent_id)) {
-            const parent = nodeMap.get(item.parent_id);
-            if (parent) {
-                if (!parent.children) parent.children = [];
-                parent.children.push(node);
-                parent.type = 'folder';
-            }
+            const parent = nodeMap.get(item.parent_id)!;
+            parent.children?.push(node);
+            parent.type = "folder"; // indicates parent has children
         } else {
-            // No parent or parent not in our dataset = root node
+            // Node is root if no parent or parent not in dataset
             roots.push(node);
         }
     });
 
     return roots;
-};
+}
 
-const HierarchyTree: React.FC<HierarchyTreeProps> = ({ data }) => {
-    const fileNodes = useMemo(() => {
-        return buildHierarchyTree(data);
-    }, [data]);
+interface TaxonomyNodeProps {
+    node: TaxonomyFileNode;
+    depth?: number; // track nesting level
+}
 
-    const getItemId = (item: TaxonomyFileNode) => item.id;
-    const getItemLabel = (item: TaxonomyFileNode) => item.name;
+/**
+ * Recursively render a node + children with collapse/expand logic.
+ */
+function TaxonomyNode({ node, depth = 0 }: TaxonomyNodeProps) {
+    const hasChildren = node.children && node.children.length > 0;
 
+    // Root folders (depth === 0) start open; everything else starts closed
+    const [isOpen, setIsOpen] = useState(depth === 0);
+
+    const handleToggle = () => {
+        if (node.type === "folder") {
+            setIsOpen((prev) => !prev);
+        }
+    };
+
+    return (
+        <li className="ml-4 list-none">
+            {/* Row: icon + name + rank + percentage + reads */}
+            <div
+                className="flex items-center gap-2 text-sm cursor-pointer"
+                onClick={handleToggle}
+            >
+                {node.type === "folder" ? (
+                    isOpen ? (
+                        <FolderOpen className="h-4 w-4 text-gray-500" />
+                    ) : (
+                        <Folder className="h-4 w-4 text-gray-500" />
+                    )
+                ) : (
+                    <FlaskConical className="h-4 w-4 text-cyan-500" />
+                )}
+                <span className="font-medium">{node.name}</span>
+                <span className="text-xs text-gray-500">({node.rank})</span>
+                <span className="text-xs text-gray-500">{formatPercentage(node.percentage)}</span>
+                <span className="text-xs text-gray-500">{formatNumber(node.reads)} reads</span>
+            </div>
+
+            {/* Children (only show if folder & open) */}
+            {hasChildren && isOpen && (
+                <ul className="ml-2 mt-1 border-l border-gray-300 pl-2">
+                    {node.children!.map((child) => (
+                        <TaxonomyNode key={child.id} node={child} depth={depth + 1} />
+                    ))}
+                </ul>
+            )}
+        </li>
+    );
+}
+
+interface HierarchyTreeProps {
+    data: ProcessedKrakenUniqReport[];
+}
+
+export default function HierarchyTree({ data }: HierarchyTreeProps) {
+    // 1) Build tree
+    const fileNodes = useMemo(() => buildHierarchyTree(data), [data]);
+
+    // 2) If no data
     if (!data?.length) {
-        return (
-            <Typography color="text.secondary" align="center">
-                No hierarchy data available
-            </Typography>
-        );
+        return <p className="text-center text-gray-500">No hierarchy data available</p>;
     }
 
     return (
-        <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                Total nodes: {data.length}
-            </Typography>
-            <Box
-                sx={{
-                    maxHeight: '800px',
-                    overflowY: 'auto',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: 1,
-                    p: 1,
-                    fontSize: '0.9em',
-                }}
-            >
-                <RichTreeView<TaxonomyFileNode>
-                    items={fileNodes}
-                    slots={{ item: CustomTaxonomyTreeItem }}
-                    getItemId={getItemId}
-                    getItemLabel={getItemLabel}
-                    aria-label="taxonomy hierarchy navigator"
-                />
-            </Box>
-        </Box>
-    );
-};
+        <div className="w-full">
+            {/* Show total nodes */}
+            <p className="mb-1 text-xs text-gray-500">Total nodes: {data.length}</p>
 
-export default HierarchyTree;
+            {/* Container with scroll, border, etc. */}
+            <div className="max-h-[800px] overflow-y-auto border border-gray-300 rounded p-2 text-sm">
+                <ul>
+                    {fileNodes.map((root) => (
+                        <TaxonomyNode key={root.id} node={root} />
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+}

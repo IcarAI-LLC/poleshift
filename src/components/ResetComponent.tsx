@@ -1,76 +1,65 @@
-// ResetComponent.tsx
-import React, {useState} from 'react';
-import {IconButton, Tooltip, CircularProgress, Snackbar, Alert} from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
+import * as React from "react"
+import { RefreshCw, Loader2 } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { useToast } from "@/hooks/use-toast.ts"
 
 interface ResetComponentProps {
-    onReset: () => Promise<void>; // Function to execute the reset commands
+    onReset: () => Promise<void>
 }
 
-const ResetComponent: React.FC<ResetComponentProps> = ({onReset}) => {
-    const [isResetting, setIsResetting] = useState(false);
-    const [openSnackbar, setOpenSnackbar] = useState(false);
-    const [snackbarMessage, setSnackbarMessage] = useState('');
-    const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
-
+export default function ResetComponent({ onReset }: ResetComponentProps) {
+    const [isResetting, setIsResetting] = React.useState(false)
+    const { toast } = useToast()
     const handleReset = async () => {
-        setIsResetting(true);
+        setIsResetting(true)
         try {
-            // Execute the series of reset commands
-            await onReset();
+            // Execute your reset function
+            await onReset()
 
             // Notify the user upon successful completion
-            setSnackbarMessage('Reset completed successfully.');
-            setSnackbarSeverity('success');
-            setOpenSnackbar(true);
+            toast({
+                title: "Reset completed successfully",
+            })
         } catch (error) {
-            console.error('Reset failed:', error);
-            setSnackbarMessage('Reset failed. Please try again.');
-            setSnackbarSeverity('error');
-            setOpenSnackbar(true);
+            console.error("Reset failed:", error)
+            toast({
+                title: "Reset failed. Please try again.",
+                variant: "destructive",
+            })
         } finally {
-            setIsResetting(false);
+            setIsResetting(false)
         }
-    };
-
-    const handleCloseSnackbar = (
-        _event?: React.SyntheticEvent | Event,
-        reason?: string
-    ) => {
-        if (reason === 'clickaway') {
-            return;
-        }
-        setOpenSnackbar(false);
-    };
+    }
 
     return (
-        <>
-            <Tooltip title="Reset Application">
-        <span>
-          {/* Span is used to handle disabled state tooltip */}
-            <IconButton
-                onClick={handleReset}
-                disabled={isResetting}
-                color={isResetting ? 'default' : 'primary'}
-                aria-label="reset application"
-            >
-            {isResetting ? <CircularProgress size={24}/> : <RefreshIcon/>}
-          </IconButton>
-        </span>
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        onClick={handleReset}
+                        disabled={isResetting}
+                        autoFocus={false}
+                        aria-label="Reset Application"
+                    >
+                        {isResetting ? (
+                            <Loader2 className="ml-2 mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <RefreshCw className="ml-2 mr-2 h-4 w-4" />
+                        )}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Reset Application</p>
+                </TooltipContent>
             </Tooltip>
-
-            <Snackbar
-                open={openSnackbar}
-                autoHideDuration={6000}
-                onClose={handleCloseSnackbar}
-                anchorOrigin={{vertical: 'bottom', horizontal: 'center'}}
-            >
-                <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{width: '100%'}}>
-                    {snackbarMessage}
-                </Alert>
-            </Snackbar>
-        </>
-    );
-};
-
-export default ResetComponent;
+        </TooltipProvider>
+    )
+}

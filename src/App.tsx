@@ -1,39 +1,55 @@
 // src/App.tsx
 import {useEffect, useState} from 'react';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { ThemeProvider } from '@mui/material/styles';
 import { PowerSyncContext } from '@powersync/react';
 
-import { theme } from './theme';
 import PreAuth from './components/PreAuth/PreAuth.tsx';
 import './App.css';
-import {db, setupPowerSync} from './lib/powersync/db';
+import { db, setupPowerSync } from './lib/powersync/db';
 import { checkForAppUpdates } from './updater';
+// Import the TooltipProvider from shadcn/ui
+import { TooltipProvider } from '@/components/ui/tooltip';
+import {ToastProvider} from "@/components/ui/toast.tsx";
+import {Toaster} from "@/components/ui/toaster.tsx";
+import {ResourceDownloadProvider} from "@/stores/ResourceDownloadContext.tsx";
+import DnaLoadingIcon from "@/components/DnaLoadingIcon.tsx";
+import {ThemeProvider} from "@/components/ui/theme-provider.tsx";
 
+// Track initialization status outside the component scope
+let isPowerSyncInitialized = false;
 function App() {
-    useEffect(() => {
-        checkForAppUpdates();
-    }, []);
     const [initialized, setInitialized] = useState(false);
 
     useEffect(() => {
-        (async () => {
-            await setupPowerSync(); // Connect to PowerSync
-            setInitialized(true);
-        })();
+        // Check for app updates
+        checkForAppUpdates();
+        // Initialize PowerSync only if it hasn't been initialized
+        if (!isPowerSyncInitialized) {
+            isPowerSyncInitialized = true;
+            (async () => {
+                await setupPowerSync();
+                setInitialized(true);
+            })();
+        } else {
+            setInitialized(true); // Skip initialization if already done
+        }
     }, []);
 
     if (!initialized) {
-        return <div>Initializing PowerSync...</div>;
+        return <div className={"@container flex justify-center items-center h-screen"}><DnaLoadingIcon width={100} height={100} text={"Initializing Poleshift"}/></div>;
     }
+
     return (
         <PowerSyncContext.Provider value={db}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-                <ThemeProvider theme={theme}>
-                    <PreAuth />
-                </ThemeProvider>
-            </LocalizationProvider>
+            <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+            <ResourceDownloadProvider>
+            <ToastProvider>
+                    <TooltipProvider>
+                        <PreAuth/>
+                        <Toaster></Toaster>
+                    </TooltipProvider>
+            </ToastProvider>
+            </ResourceDownloadProvider>
+            </ThemeProvider>
         </PowerSyncContext.Provider>
     );
 }

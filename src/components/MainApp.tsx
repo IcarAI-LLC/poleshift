@@ -1,187 +1,135 @@
-// src/lib/components/MainApp.tsx
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {SampleGroupMetadata} from '@/lib/types';
+import React, {
+  Suspense,
+  useEffect,
+} from "react";
+import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
+import { useAuth, useData, useUI } from "@/hooks";
 
-import {useAuth, useData, useNetworkStatus, useUI,} from '@/lib/hooks';
+import LeftSidebar from "./LeftSidebar/LeftSidebar";
+import RightSidebar from "./RightSidebar";
 
-import TopControls from './TopControls/TopControls';
-import LeftSidebar from './LeftSidebar/LeftSidebar';
-import RightSidebar from './RightSidebar';
-import MergedDropBoxes from './DropBoxes/MergedDropboxes.tsx';
-import ErrorMessage from './ErrorMessage';
-import GlobeComponent from './GlobeComponent';
-import ContextMenu from './ContextMenu';
-import AccountActions from './Account/AccountActions';
-import SampleGroupMetadataComponent from './SampleGroupMetadataComponent.tsx';
-import FilterMenu from './FilterMenu';
-import OfflineWarning from './OfflineWarning';
-import MoveModal from "./LeftSidebar/MoveModal";
-import {FileNodeType} from "@/lib/powersync/DrizzleSchema.ts";
-import ContainerScreen from "@/components/Container/ContainerScreen.tsx";
+import MergedDropBoxes from "@/components/SampleGroupView/MergedDropboxes.tsx";
+import SampleGroupMetadataComponent from "@/components/SampleGroupView/SampleGroupMetadataComponent.tsx";
+import ContainerScreen from "@/components/Container/ContainerScreen";
+import GlobeComponent from "@/components/GlobeComponent.tsx";
+
+import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
+
+import ErrorMessage from "./ErrorMessage";
+import ChatWidget from "@/components/Chatbot/ChatWidget";
+import CheckResourceFiles from "@/components/CheckResourceFiles.tsx";
+import {Loader2} from "lucide-react";
 
 const MainApp: React.FC = () => {
-  // All hooks at the top level
+  // ---- Hooks & Setup ----
   const auth = useAuth();
   const data = useData();
   const ui = useUI();
-  const networkStatus = useNetworkStatus();
+  CheckResourceFiles({});
 
-  // Destructure values from hooks
-  const { error: authError, setError } = auth;
-  const { sampleGroups, deleteNode, error: dataError } = data;
+  const { error: authError, setError: setAuthError } = auth;
+  const { error: dataError } = data;
   const {
     selectedLeftItem,
     showAccountActions,
     errorMessage,
     setErrorMessage,
-    leftSidebarContextMenu,
-    closeLeftSidebarContextMenu,
-    toggleLeftSidebar,
-    setShowAccountActions,
   } = ui;
-  const { isOnline, isSyncing } = networkStatus;
+  const displayedError = authError || dataError || errorMessage;
 
-  // Local state
-  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const [showOfflineWarning, setShowOfflineWarning] = useState(true);
-
-  // Refs
-  const openButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Memoized values
-  const sampleGroup = useMemo<SampleGroupMetadata | null>(() => {
-    if (!selectedLeftItem || selectedLeftItem.type !== FileNodeType.SampleGroup) return null;
-    return sampleGroups[selectedLeftItem.id] as SampleGroupMetadata;
-  }, [selectedLeftItem, sampleGroups]);
-
-  const displayedError = useMemo(() =>
-          authError || dataError || errorMessage,
-      [authError, dataError, errorMessage]
-  );
-
-  // Event handlers
-  const handleToggleLeftSidebar = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    toggleLeftSidebar();
-  }, [toggleLeftSidebar]);
-
-  const handleDeleteSample = useCallback(async () => {
-    if (!leftSidebarContextMenu.itemId) {
-      setErrorMessage('Could not determine which item to delete.');
-      return;
-    }
-
-    try {
-      await deleteNode(leftSidebarContextMenu.itemId);
-      closeLeftSidebarContextMenu();
-    } catch (error) {
-      setErrorMessage(
-          error instanceof Error
-              ? error.message
-              : 'An error occurred while deleting the item.'
-      );
-    }
-  }, [leftSidebarContextMenu.itemId, deleteNode, closeLeftSidebarContextMenu, setErrorMessage]);
-
-  const handleApplyFilters = useCallback(() => {
-    setIsFilterMenuOpen(false);
-  }, []);
-
-  const handleResetFilters = useCallback(() => {
-    setIsFilterMenuOpen(false);
-  }, []);
-
-  const openFilterMenu = useCallback(() => {
-    setIsFilterMenuOpen(true);
-  }, []);
-
-  const closeFilterMenu = useCallback(() => {
-    setIsFilterMenuOpen(false);
-    openButtonRef.current?.focus();
-  }, []);
-
-  const renderContent = useMemo(() => {
-    if (selectedLeftItem?.type === FileNodeType.SampleGroup) {
-      return <MergedDropBoxes onError={setErrorMessage} />;
-    }
-    if (selectedLeftItem?.type === FileNodeType.Container) {
-      return <ContainerScreen />;
-    }
-    return <GlobeComponent />;
-  }, [selectedLeftItem?.type, setErrorMessage]);
-
+  // ---- Effects ----
+  // Auto-dismiss errors
   useEffect(() => {
     if (displayedError) {
       const timer = setTimeout(() => {
         setErrorMessage(null);
-        setError(null);
+        setAuthError(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [displayedError, setErrorMessage]);
+  }, [displayedError, setErrorMessage, setAuthError]);
 
-  useEffect(() => {
-    setShowOfflineWarning(!isOnline);
-  }, [isOnline]);
+  // ---- Determine which content to show (Globe vs. Non-Globe) ----
+  const isGlobe =
+      !selectedLeftItem ||
+      (selectedLeftItem.type !== FileNodeType.SampleGroup &&
+          selectedLeftItem.type !== FileNodeType.Container);
 
-  useEffect(() => {
-    document.body.style.overflow = isFilterMenuOpen ? 'hidden' : 'auto';
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [isFilterMenuOpen]);
+  /**
+   * For non-globe content (SampleGroup or Container),
+   * no extra padding around the content.
+   */
+  function renderNonGlobeContent() {
+    switch (selectedLeftItem?.type) {
+      case FileNodeType.SampleGroup:
+        return (
+            <div className="w-full h-full overflow-auto">
+              <SampleGroupMetadataComponent />
+              <MergedDropBoxes onError={setErrorMessage} />
+            </div>
+        );
+      case FileNodeType.Container:
+        return (
+            <div className="w-full h-full overflow-auto">
+              <ContainerScreen />
+            </div>
+        );
+      default:
+        return null;
+    }
+  }
 
+  // ---- Render ----
   return (
-      <div id="app">
-        <div className="app-container">
-          <TopControls
-              isSyncing={isSyncing}
-              onToggleSidebar={handleToggleLeftSidebar}
-              setShowAccountActions={setShowAccountActions}
-              onOpenFilters={openFilterMenu}
-              filterButtonRef={openButtonRef}
-          />
+      <div className="w-screen h-screen">
+        {/* (1) GLOBE: absolutely positioned to fill the screen, pointer-events on */}
+        {isGlobe && (
+            <div className="absolute">
+                <Suspense fallback={
+                <div style={{marginBottom: "1rem"}}>
+                  <Loader2
+                      className="animate-spin"
+                  />
+                </div>}>
+                <GlobeComponent />
+              </Suspense>
+            </div>
+        )}
 
-          {isFilterMenuOpen && (
-              <FilterMenu
-                  onApply={handleApplyFilters}
-                  onReset={handleResetFilters}
-                  onClose={closeFilterMenu}
-              />
-          )}
-
-          <div className="main-content">
-            <LeftSidebar />
-
-            <OfflineWarning
-                isVisible={!isOnline && showOfflineWarning}
-                message="You are offline"
-                onClose={() => setShowOfflineWarning(false)}
-            />
-
-            {sampleGroup && <SampleGroupMetadataComponent />}
-
-            {displayedError && (
-                <ErrorMessage
-                    message={displayedError.toString()}
-                    onClose={() => {
-                      setErrorMessage(null);
-                    }}
-                    className="error-message"
-                />
-            )}
-
-            <div className="content-body">{renderContent}</div>
+        {/* (2) FOREGROUND LAYOUT: sidebars + content over the globe */}
+        <div className="z-10 w-full h-full flex">
+          {/* Left Sidebar: pointer-events-auto so it’s clickable */}
+          <div className="overflow-auto pointer-events-auto">
+            <LeftSidebar/>
           </div>
 
-          <RightSidebar />
+          {/* Main content area */}
+          {isGlobe ? (
+                <div className={"pointer-events-auto"}>
+                  <RightSidebar/>
+                </div>
+          ) : (
+              /* (B) Non-Globe content (SampleGroup or Container).
+                 * This content can fully intercept clicks.
+                 */
+              <div className="flex-1 pointer-events-auto">
+                {renderNonGlobeContent()}
+              </div>
+          )}
         </div>
+        {/* (4) ERROR MESSAGE TOAST */}
+        {displayedError && (
+            <ErrorMessage
+                message={String(displayedError)}
+                onClose={() => setErrorMessage(null)}
+            />
+        )}
 
-        {showAccountActions && <AccountActions />}
+        {/* (5) CHAT WIDGET */}
+        <ChatWidget />
 
-        <ContextMenu deleteItem={handleDeleteSample} />
-
-        <MoveModal />
+        {/* (6) ACCOUNT MODAL / CONTEXT MENU / MOVE MODAL */}
+        {showAccountActions && <AccountModal />}
       </div>
   );
 };

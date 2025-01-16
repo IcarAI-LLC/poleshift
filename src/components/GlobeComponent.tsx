@@ -1,13 +1,13 @@
 //src/components/GlobeComponent.tsx
-
-import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
+import React, {useRef, useMemo, useCallback, useState, useEffect} from 'react';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import { DateTime } from 'luxon';
-import globeImage from '../assets/globe.jpg';
-import { useData } from '../lib/hooks/useData';
-import { useUI } from '../lib/hooks/useUI';
+import Image from '../assets/globe-small.jpg';
+import { useData } from '../hooks/useData.ts';
+import { useUI } from '../hooks/useUI.ts';
 import { useQuery } from '@powersync/react';
-import useSettings from "../lib/hooks/useSettings";
+import useSettings from "../hooks/useSettings.ts";
+import {Loader2} from "lucide-react";
 
 interface GlobePoint {
     lat: number;
@@ -21,14 +21,13 @@ const GLOBE_CONFIG = {
     pointRadius: 0.1,
     pointColor: 'rgba(0, 255, 255, 0.8)',
     backgroundColor: '#000000',
-    transitionDuration: 1000,
+    transitionDuration: 0,
     defaultAltitude: 0.5,
 } as const;
 
 export const GlobeComponent: React.FC = () => {
-    const { userSettingsArray } = useSettings();
-    const firstUserSetting = userSettingsArray[0] || null;
-
+    const { userSettings } = useSettings();
+    const firstUserSetting = userSettings || null;
     const userGlobeColor = firstUserSetting?.globe_datapoint_color ?? GLOBE_CONFIG.pointColor;
     const userGlobeDiameter = parseFloat(firstUserSetting?.globe_datapoint_diameter ?? String(GLOBE_CONFIG.pointRadius));
     const userGlobeAltitude = firstUserSetting
@@ -53,7 +52,7 @@ export const GlobeComponent: React.FC = () => {
       FROM sample_locations sl
       WHERE sl.is_enabled = 1
     `;
-        const params: any[] = [];
+        const params: string[] = [];
 
         if (filters.selectedLocations.length > 0) {
             const placeholders = filters.selectedLocations.map(() => '?').join(', ');
@@ -100,7 +99,7 @@ export const GlobeComponent: React.FC = () => {
                         .filter(group => group.loc_id === location.id)
                         .filter(group => {
                             // Filter by excluded status
-                            if (!filters.showExcluded && group.excluded === 1) {
+                            if (!filters.showExcluded && group.excluded == true) {
                                 return false;
                             }
 
@@ -110,10 +109,8 @@ export const GlobeComponent: React.FC = () => {
                             if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
                                 return false;
                             }
-                            if (filters.endDate && sampleDate > DateTime.fromISO(filters.endDate)) {
-                                return false;
-                            }
-                            return true;
+                            return !(filters.endDate && sampleDate > DateTime.fromISO(filters.endDate));
+
                         });
 
                     // Only include locations that have samples matching the filters
@@ -134,15 +131,13 @@ export const GlobeComponent: React.FC = () => {
     const handlePointClick = useCallback(
         (
             point: object,
-            _event: MouseEvent,
-            _coords: { lat: number; lng: number; altitude: number }
         ) => {
             const pointData = point as GlobePoint;
             const selectedLocation = filteredLocations.find(loc => loc.id === pointData.id);
             if (!selectedLocation) return;
 
             setSelectedRightItem(selectedLocation);
-
+            console.log(globeRef.current?.lights().pop());
             if (globeRef.current) {
                 globeRef.current.pointOfView(
                     {
@@ -167,29 +162,35 @@ export const GlobeComponent: React.FC = () => {
     }, []);
 
     if (locationsLoading) {
-        return <div>Loading Globe...</div>;
-    }
-    if (locationsError) {
-        return <div>Error loading globe data: {locationsError.message}</div>;
+        return <div className={"flex justify-center items-center h-screen w-screen"}>
+                <Loader2 className="animate-spin"/>
+                </div>;
+            }
+            if (locationsError) {
+                return <div>Error loading globe data: {locationsError.message}</div>;
     }
 
     return (
-        <div className="globe-container">
-            <Globe
-                ref={globeRef}
-                globeImageUrl={globeImage}
-                pointsData={pointsData}
-                onPointClick={handlePointClick}
-                pointAltitude={finalGlobeConfig.pointAltitude}
-                pointRadius={finalGlobeConfig.pointRadius}
-                pointColor={finalGlobeConfig.pointColor}
-                pointLabel="name"
-                backgroundColor={finalGlobeConfig.backgroundColor}
-                enablePointerInteraction={true}
-                width={dimensions.width}
-                height={dimensions.height}
-            />
-        </div>
+            <div
+                className="fixed"
+                style={{overflow: 'hidden'}}
+            >
+                <Globe
+                    ref={globeRef}
+                    globeImageUrl={Image}
+                    pointsData={pointsData}
+                    onPointClick={handlePointClick}
+                    pointAltitude={finalGlobeConfig.pointAltitude}
+                    pointRadius={finalGlobeConfig.pointRadius}
+                    pointColor={finalGlobeConfig.pointColor}
+                    pointLabel="name"
+                    backgroundColor={finalGlobeConfig.backgroundColor}
+                    enablePointerInteraction={true}
+                    width={dimensions.width}
+                    height={dimensions.height}
+                    waitForGlobeReady={true}
+                />
+            </div>
     );
 };
 

@@ -1,14 +1,13 @@
-import React from 'react';
+
 import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
-  Paper,
-  TableSortLabel,
-} from '@mui/material';
+} from "@/components/ui/table";
+import {useState} from "react"; // Adjust path as needed
 
 interface Column {
   key: string;
@@ -20,83 +19,91 @@ interface Column {
 interface DataTableProps {
   data: any[];
   columns: Column[];
-  onSort?: (key: string, direction: 'asc' | 'desc') => void;
+  onSort?: (key: string, direction: "asc" | "desc") => void;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ data, columns, onSort }) => {
-  const [sortConfig, setSortConfig] = React.useState<{
+export default function DataTable({ data, columns, onSort }: DataTableProps) {
+  const [sortConfig, setSortConfig] = useState<{
     key: string;
-    direction: 'asc' | 'desc';
+    direction: "asc" | "desc";
   } | null>(null);
 
   const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-
+    let direction: "asc" | "desc" = "asc";
     if (sortConfig && sortConfig.key === key) {
-      direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+      direction = sortConfig.direction === "asc" ? "desc" : "asc";
     }
-
     setSortConfig({ key, direction });
-    if (onSort) {
-      onSort(key, direction);
-    }
+    onSort?.(key, direction);
   };
 
   return (
-    <TableContainer component={Paper} sx={{ mt: 2 }}>
-      <Table size="small" stickyHeader>
-        <TableHead>
-          <TableRow>
-            {columns.map((column) => (
-              <TableCell
-                key={column.key}
-                sortDirection={
-                  sortConfig?.key === column.key ? sortConfig.direction : false
-                }
-              >
-                {column.sortable ? (
-                  <TableSortLabel
-                    active={sortConfig?.key === column.key}
-                    direction={
-                      sortConfig?.key === column.key
-                        ? sortConfig.direction
-                        : 'asc'
-                    }
-                    onClick={() => handleSort(column.key)}
-                  >
-                    {column.header}
-                  </TableSortLabel>
-                ) : (
-                  column.header
-                )}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {data.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={columns.length} align="center">
-                No data available
-              </TableCell>
-            </TableRow>
-          ) : (
-            data.map((row, index) => (
-              <TableRow key={index}>
-                {columns.map((column) => (
-                  <TableCell key={column.key}>
-                    {column.render
-                      ? column.render(row[column.key], row)
-                      : row[column.key]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-};
+      <div className="mt-2 w-full overflow-auto rounded border">
+        <Table>
+          {/* Sticky header */}
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            {/*
+            We remove the row-level hover by:
+              1) pointer-events-none and hover:bg-transparent on the row
+              2) pointer-events-auto on the button so the button is still clickable
+          */}
+            <TableRow className="pointer-events-none hover:bg-transparent">
+              {columns.map((column) => {
+                const isActiveSort = sortConfig?.key === column.key;
+                const currentDirection = isActiveSort ? sortConfig?.direction : "asc";
 
-export default DataTable;
+                return (
+                    <TableHead key={column.key} className="whitespace-nowrap">
+                      {column.sortable ? (
+                          <button
+                              onClick={() => handleSort(column.key)}
+                              // Make sure the button can still receive clicks
+                              className="
+                        pointer-events-auto
+                        flex items-center gap-1 rounded-md
+                        bg-muted/30 px-2 py-1 text-sm font-medium
+                        hover:bg-muted/50 focus:outline-none
+                      "
+                          >
+                            {column.header}
+                            {isActiveSort && (
+                                <span>{currentDirection === "asc" ? "↑" : "↓"}</span>
+                            )}
+                          </button>
+                      ) : (
+                          <span className="text-sm font-medium">{column.header}</span>
+                      )}
+                    </TableHead>
+                );
+              })}
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="text-center">
+                    No data available
+                  </TableCell>
+                </TableRow>
+            ) : (
+                data.map((row, rowIndex) => (
+                    <TableRow key={rowIndex}>
+                      {columns.map((column) => {
+                        const cellValue = row[column.key];
+                        return (
+                            <TableCell key={column.key}>
+                              {column.render
+                                  ? column.render(cellValue, row)
+                                  : cellValue}
+                            </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+  );
+}

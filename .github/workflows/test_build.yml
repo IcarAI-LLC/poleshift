@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-latest]
+        os: [ubuntu-22.04, macos-latest, windows-latest]
 
     env:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -41,17 +41,21 @@ jobs:
           git config --global --add safe.directory /home/nikothomas/actions-runner/_work/poleshift/poleshift
           git lfs checkout
 
-      - name: Setup Node
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          run_install: true
+
+      - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
-          cache: 'yarn' # Set this to npm, yarn or pnpm.
+          node-version: 23
+          cache: 'pnpm'
 
       - name: Install Rust Stable
-        uses: dtolnay/rust-toolchain@stable # Set this to dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@stable
         with:
-          # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -63,26 +67,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
-          npm install --global yarn
 
       - name: Add Rust Targets for macOS
         if: matrix.os == 'macos-latest'
         run: |
           rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
-      - name: Install Node Modules
-        run: yarn install
-
       - name: Build Tauri Application
         shell: bash
-        # elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-        # yarn tauri build --verbose
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            yarn tauri build --target x86_64-apple-darwin
-            yarn tauri build --target aarch64-apple-darwin
+            pnpm run tauri build --target x86_64-apple-darwin
+            pnpm run tauri build --target aarch64-apple-darwin
+          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+            pnpm run tauri build --verbose
           else
-            yarn tauri build --verbose --bundles appimage deb updater
+            pnpm run tauri build --verbose --bundles appimage deb updater
           fi
 
         env:

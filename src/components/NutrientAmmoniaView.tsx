@@ -1,45 +1,44 @@
-// src/renderer/components/NutrientAmmoniaView/NutrientAmmoniaView.tsx
+import { Info } from "lucide-react"
 
-import React from 'react';
-import { Box, Typography, Grid, Paper } from '@mui/material';
-import {ProcessedNutrientAmmoniaData} from "@/lib/types";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { ProcessedNutrientAmmoniaData } from "src/types"
 
 interface NutrientAmmoniaViewProps {
-  data: ProcessedNutrientAmmoniaData[];
+  data: ProcessedNutrientAmmoniaData[]
 }
 
-const NutrientAmmoniaView: React.FC<NutrientAmmoniaViewProps> = ({ data }) => {
-  const { ammonia, ammonium } = data[0];
-  console.log(data);
-  return (
-    <Box sx={{ padding: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Nutrient Ammonia Details
-      </Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
-          <Paper elevation={3} sx={{ padding: 2 }}>
-            <Typography variant="subtitle1" color="textSecondary">
-              Ammonia Value (NH₃) mg/L
-            </Typography>
-            <Typography variant="h5" color="primary">
-              {ammonia.toFixed(2)}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <Paper elevation={3} sx={{ padding: 2 }}>
-            <Typography variant="subtitle1" color="textSecondary">
-              Ammonium Value (NH₄⁺) μmol/L
-            </Typography>
-            <Typography variant="h5" color="primary">
-              {ammonium.toFixed(2)}
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-};
+export default function NutrientAmmoniaView({ data }: NutrientAmmoniaViewProps) {
+  const { ammonia, ammonium } = data[0]
 
-export default NutrientAmmoniaView;
+  return (
+      <div className="p-4 space-y-4">
+        <h2 className="text-lg font-semibold">Nutrient Ammonia Details</h2>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                <span>Ammonia Value (NH₃) mg/L</span>
+                <Info className="h-4 w-4" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl text-primary">{ammonia.toFixed(2)}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                <span>Ammonium Value (NH₄⁺) μmol/L</span>
+                <Info className="h-4 w-4" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl text-primary">{ammonium.toFixed(2)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+  )
+}

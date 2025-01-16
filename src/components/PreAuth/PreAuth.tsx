@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useAuth } from '@/lib/hooks';
-import type { PreAuthView } from '@/lib/types';
+import {FC, useState} from 'react';
+import { useAuth } from '@/hooks';
+import type { PreAuthView } from 'src/types';
 import LoadingScreen from './LoadingScreen.tsx';
 import Login from './Login.tsx';
 import SignUp from './SignUp.tsx';
@@ -8,18 +8,17 @@ import ResetPassword from './ResetPassword.tsx';
 import MainApp from '../MainApp.tsx';
 import ActivateLicense from './ActivateLicense.tsx';
 import ResetComponent from "../ResetComponent.tsx";
-import {useAuthStore} from "@/lib/stores/authStore.ts";
-
-const PreAuth: React.FC = () => {
+import {Toast} from "@radix-ui/react-toast";
+import {Toaster} from "@/components/ui/toaster.tsx";
+import {useAuthStore} from "@/stores/authStore.ts";
+const PreAuth: FC = () => {
   const {
     isAuthenticated,
     loading: authLoading,
     logout,
-    resetApp
+    resetApp,
   } = useAuth();
-  const {
-    organizationId
-  } = useAuthStore.getState();
+  const organizationId = useAuthStore((state) => state.organizationId);
 
   // Define the reset logic
   const handleReset = async () => {
@@ -78,7 +77,9 @@ const PreAuth: React.FC = () => {
       default:
         return (
             <div>
-            <ResetComponent onReset={ handleReset } />
+              <Toast></Toast>
+              <Toaster></Toaster>
+              <ResetComponent onReset={ handleReset } />
             <Login
                 onNavigate={handleNavigate}
                 prefillEmail={prefillEmail}

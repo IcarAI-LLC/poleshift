@@ -1,5 +1,5 @@
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { AbstractPowerSyncDatabase, CrudEntry, UpdateType } from '@powersync/web';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 import {
@@ -9,11 +9,23 @@ import {
     researcherPermissions,
     viewerPermissions,
     PoleshiftPermissions
-} from "../types";
+} from "../../types";
+import {assignClosestHealthyServer} from "@/lib/powersync/assignServer.ts";
 
 interface SupabaseJwtPayload extends JwtPayload {
     user_role?: UserRole;
     user_org?: string;
+}
+
+/**
+ * Helper to chunk an array into subarrays of a specific size
+ */
+function chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+        chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
 }
 
 function groupByTableAndOp(ops: CrudEntry[]): Record<string, CrudEntry[]> {
@@ -128,11 +140,12 @@ export class SupabaseConnector {
                 console.debug('No session found.');
                 return null;
             }
-
+            console.debug('Session found:', data.session.user.id);
+            const powersync_server = await assignClosestHealthyServer(data.session.user.id);
             console.debug('Credentials fetched successfully.');
             console.log(import.meta.env.VITE_SUPABASE_URL);
             return {
-                endpoint: import.meta.env.VITE_POWERSYNC_URL,
+                endpoint: powersync_server,
                 token: data.session.access_token ?? '',
                 expiresAt: data.session.expires_at
                     ? new Date(data.session.expires_at * 1000)
@@ -146,12 +159,18 @@ export class SupabaseConnector {
     }
 
     /**
-     * Batches the CRUD operations by table & operation type to reduce the number of network calls.
+     * Batches the CRUD operations by table & operation type to reduce the number of network calls,
+     * and limits each batch to `maxBatchSize`.
      *
      * This version does NOT discard failed transactions. Instead, it retries them.
      * Only if it succeeds does it call transaction.complete().
      */
-    async uploadData(database: AbstractPowerSyncDatabase, attempt = 1, maxAttempts = 3): Promise<void> {
+    async uploadData(
+        database: AbstractPowerSyncDatabase,
+        attempt = 1,
+        maxAttempts = 3,
+        maxBatchSize = 10000 // <-- Add your default max batch size here
+    ): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
 
         // If there is no transaction, do nothing
@@ -168,53 +187,60 @@ export class SupabaseConnector {
             // 1. Group the ops by table and operation type
             const groupedOps = groupByTableAndOp(transaction.crud);
 
-            // 2. Loop through each group and perform a single bulk operation
+            // 2. Loop through each group and perform chunked bulk operations
             for (const key of Object.keys(groupedOps)) {
                 const ops = groupedOps[key];
                 if (ops.length === 0) continue;
 
+                // Break down large ops array into sub-chunks of maxBatchSize
+                const opChunks = chunkArray(ops, maxBatchSize);
+
                 const [tableName, opType] = key.split('-') as [string, UpdateType];
                 const table = this.client.from(tableName);
 
-                switch (opType) {
-                    case UpdateType.PUT: {
-                        // For PUT -> Use upsert
-                        const rowsToUpsert = ops.map(op => {
-                            lastOp = op;
-                            return { ...op.opData, id: op.id };
-                        });
-                        const result = await table.upsert(rowsToUpsert);
-                        if (result.error) throw result.error;
-                        break;
-                    }
-                    case UpdateType.PATCH: {
-                        // For PATCH -> Use update
-                        for (const op of ops) {
-                            lastOp = op;
-                            const { error } = await table.update(op.opData).eq('id', op.id);
-                            if (error) throw error;
+                // Process each sub-chunk
+                for (const chunk of opChunks) {
+                    switch (opType) {
+                        case UpdateType.PUT: {
+                            // For PUT -> Use upsert
+                            const rowsToUpsert = chunk.map(op => {
+                                lastOp = op;
+                                return { ...op.opData, id: op.id };
+                            });
+                            const result = await table.upsert(rowsToUpsert);
+                            if (result.error) throw result.error;
+                            break;
                         }
-                        break;
+                        case UpdateType.PATCH: {
+                            // For PATCH -> Use update
+                            // We'll keep doing them one by one, but in a chunk-limited loop
+                            for (const op of chunk) {
+                                lastOp = op;
+                                const { error } = await table.update(op.opData).eq('id', op.id);
+                                if (error) throw error;
+                            }
+                            break;
+                        }
+                        case UpdateType.DELETE: {
+                            // For DELETE -> Use delete in
+                            const idsToDelete = chunk.map(op => {
+                                lastOp = op;
+                                return op.id;
+                            });
+                            const result = await table.delete().in('id', idsToDelete);
+                            if (result.error) throw result.error;
+                            break;
+                        }
+                        default:
+                            throw new Error(`Unsupported operation type: ${opType}`);
                     }
-                    case UpdateType.DELETE: {
-                        // For DELETE -> Use delete
-                        const idsToDelete = ops.map(op => {
-                            lastOp = op;
-                            return op.id;
-                        });
-                        const result = await table.delete().in('id', idsToDelete);
-                        if (result.error) throw result.error;
-                        break;
-                    }
-                    default:
-                        throw new Error(`Unsupported operation type: ${opType}`);
                 }
             }
 
             // 3. Complete the transaction on success
             await transaction.complete();
             console.debug('Data upload successful.');
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error uploading data in batch:', error, 'Last operation:', lastOp);
 
             // Retry logic: only retry up to `maxAttempts` times
@@ -225,7 +251,7 @@ export class SupabaseConnector {
                 await new Promise(resolve => setTimeout(resolve, delayMs));
 
                 // Recursively call uploadData with incremented attempt
-                return this.uploadData(database, attempt + 1, maxAttempts);
+                return this.uploadData(database, attempt + 1, maxAttempts, maxBatchSize);
             } else {
                 console.error(`Max retry attempts (${maxAttempts}) reached. Not discarding transaction, but will not retry again.`);
                 // IMPORTANT: We do NOT call transaction.complete() here
