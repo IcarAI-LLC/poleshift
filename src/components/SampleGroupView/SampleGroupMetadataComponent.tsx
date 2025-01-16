@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react"
-import { Clock } from "lucide-react"
 
 import { useData, useUI } from "@/hooks"
 import { useAuthStore } from "@/stores/authStore.ts"
@@ -27,6 +26,7 @@ import {
 import { Label } from "@/components/ui/label.tsx"
 import LocationFields from "./LocationFields.tsx"
 import { AccordionHeader } from "@radix-ui/react-accordion"
+import {TimePicker} from "@/components/ui/time-picker.tsx";
 
 /**
  * Special string value for "no proximity category"
@@ -259,20 +259,16 @@ export default function SampleGroupMetadataComponent() {
                             </div>
 
                             {/* Time (UTC) */}
-                            <div className="flex items-center py-1">
+                            <div className="flex items-start py-1">
                                 <Label className="w-36 text-sm font-medium leading-7 text-muted-foreground">
                                     Time (UTC):
                                 </Label>
-                                <div className="flex-1 flex items-center">
-                                    <Clock size={16} className="mr-2 text-muted-foreground" />
-                                    <Input
-                                        type="time"
-                                        step="1"
+                                <div className="flex-1">
+                                    <TimePicker
                                         value={localState.collectionTimeUTC}
                                         onChange={(e) =>
-                                            hasModifyPermission && handleCollectionTimeUpdate(e.target.value)
+                                            hasModifyPermission && handleCollectionTimeUpdate(e || "")
                                         }
-                                        disabled={!hasModifyPermission}
                                         className="leading-7"
                                     />
                                 </div>
@@ -293,20 +289,22 @@ export default function SampleGroupMetadataComponent() {
                                 <Label className="w-36 text-sm font-medium leading-7 text-muted-foreground">
                                     Notes:
                                 </Label>
-                                <Textarea
-                                    rows={3}
-                                    value={localState.notes}
-                                    onChange={(e) =>
-                                        hasModifyPermission &&
-                                        setLocalState((prev) => ({ ...prev, notes: e.target.value }))
-                                    }
-                                    onBlur={() =>
-                                        hasModifyPermission && handleNotesUpdate(localState.notes)
-                                    }
-                                    disabled={!hasModifyPermission}
-                                    className="leading-7"
-                                    placeholder="Add notes about this sample..."
-                                />
+                                <div className="flex-1">
+                                    <Textarea
+                                        rows={3}
+                                        value={localState.notes}
+                                        onChange={(e) =>
+                                            hasModifyPermission &&
+                                            setLocalState((prev) => ({ ...prev, notes: e.target.value }))
+                                        }
+                                        onBlur={() =>
+                                            hasModifyPermission && handleNotesUpdate(localState.notes)
+                                        }
+                                        disabled={!hasModifyPermission}
+                                        className="leading-7 w-full"
+                                        placeholder="Add notes about this sample..."
+                                    />
+                                </div>
                             </div>
 
                             {/* Proximity Category */}
@@ -314,31 +312,33 @@ export default function SampleGroupMetadataComponent() {
                                 <Label className="w-36 text-sm font-medium leading-7 text-muted-foreground">
                                     Proximity:
                                 </Label>
-                                <Select
-                                    value={proximityValue}
-                                    onValueChange={(val) => {
-                                        if (!hasModifyPermission) return
-                                        const nextValue =
-                                            val === NO_PROXIMITY_VALUE ? null : (val as ProximityCategory)
-                                        handleProximityUpdate(nextValue)
-                                    }}
-                                    disabled={!hasModifyPermission}
-                                >
-                                    <SelectTrigger className="leading-7">
-                                        <SelectValue placeholder="None" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={NO_PROXIMITY_VALUE}>None</SelectItem>
-                                        {Object.values(ProximityCategory).map((cat) => (
-                                            <SelectItem key={cat} value={cat}>
-                                                {cat}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="flex-1">
+                                    <Select
+                                        value={proximityValue}
+                                        onValueChange={(val) => {
+                                            if (!hasModifyPermission) return
+                                            const nextValue =
+                                                val === NO_PROXIMITY_VALUE ? null : (val as ProximityCategory)
+                                            handleProximityUpdate(nextValue)
+                                        }}
+                                        disabled={!hasModifyPermission}
+                                    >
+                                        <SelectTrigger className="leading-7">
+                                            <SelectValue placeholder="None" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={NO_PROXIMITY_VALUE}>None</SelectItem>
+                                            {Object.values(ProximityCategory).map((cat) => (
+                                                <SelectItem key={cat} value={cat}>
+                                                    {cat}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            {/* Location Fields (sub-component) */}
+                            {/* Location Fields */}
                             <LocationFields
                                 sampleGroup={sampleGroup as SampleGroupMetadata}
                                 metadataItemStyles="py-1"
@@ -351,23 +351,25 @@ export default function SampleGroupMetadataComponent() {
                                 <Label className="w-36 text-sm font-medium leading-7 text-muted-foreground">
                                     Penguin Count:
                                 </Label>
-                                <Input
-                                    type="number"
-                                    value={localState.penguinCount ?? ""}
-                                    onChange={(e) => {
-                                        if (!hasModifyPermission) return
-                                        const val = e.target.value
-                                        setLocalState((prev) => ({
-                                            ...prev,
-                                            penguinCount: val === "" ? null : parseInt(val, 10),
-                                        }))
-                                    }}
-                                    onBlur={() =>
-                                        hasModifyPermission && handlePenguinCountUpdate(localState.penguinCount)
-                                    }
-                                    disabled={!hasModifyPermission}
-                                    className="leading-7"
-                                />
+                                <div className="flex-1">
+                                    <Input
+                                        type="number"
+                                        value={localState.penguinCount ?? ""}
+                                        onChange={(e) => {
+                                            if (!hasModifyPermission) return
+                                            const val = e.target.value
+                                            setLocalState((prev) => ({
+                                                ...prev,
+                                                penguinCount: val === "" ? null : parseInt(val, 10),
+                                            }))
+                                        }}
+                                        onBlur={() =>
+                                            hasModifyPermission && handlePenguinCountUpdate(localState.penguinCount)
+                                        }
+                                        disabled={!hasModifyPermission}
+                                        className="leading-7 w-full"
+                                    />
+                                </div>
                             </div>
 
                             {/* External penguin data hint */}
@@ -388,34 +390,39 @@ export default function SampleGroupMetadataComponent() {
                             )}
 
                             {/* Penguins Present */}
-                            <div className="flex items-center py-1">
+                            <div className="flex items-start py-1">
                                 <Label className="w-36 text-sm font-medium leading-7 text-muted-foreground">
                                     Penguins Present:
                                 </Label>
-                                <Switch
-                                    checked={Boolean(localState.penguinPresent)}
-                                    onCheckedChange={(checked) =>
-                                        hasModifyPermission && handlePenguinPresentUpdate(checked)
-                                    }
-                                    disabled={!hasModifyPermission}
-                                />
+                                <div className="flex-1">
+                                    <Switch
+                                        checked={Boolean(localState.penguinPresent)}
+                                        onCheckedChange={(checked) =>
+                                            hasModifyPermission && handlePenguinPresentUpdate(checked)
+                                        }
+                                        disabled={!hasModifyPermission}
+                                    />
+                                </div>
                             </div>
 
                             {/* Excluded */}
-                            <div className="flex items-center py-1">
+                            <div className="flex items-start py-1">
                                 <Label className="w-36 text-sm font-medium leading-7 text-muted-foreground">
                                     Excluded:
                                 </Label>
-                                <Switch
-                                    checked={Boolean(localState.excluded)}
-                                    onCheckedChange={(checked) =>
-                                        hasModifyPermission && handleExcludedUpdate(checked)
-                                    }
-                                    disabled={!hasModifyPermission}
-                                />
+                                <div className="flex-1">
+                                    <Switch
+                                        checked={Boolean(localState.excluded)}
+                                        onCheckedChange={(checked) =>
+                                            hasModifyPermission && handleExcludedUpdate(checked)
+                                        }
+                                        disabled={!hasModifyPermission}
+                                    />
+                                </div>
                             </div>
                         </CardContent>
                     </AccordionContent>
+
                 </AccordionItem>
             </Accordion>
         </Card>

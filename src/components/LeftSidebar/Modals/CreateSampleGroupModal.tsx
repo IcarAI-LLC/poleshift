@@ -13,7 +13,6 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
     Popover,
@@ -36,6 +35,7 @@ import type {
     SampleLocations,
 } from "src/types"
 import { useAuthStore } from "@/stores/authStore"
+import { TimePicker } from "@/components/ui/time-picker.tsx"
 
 interface CreateSampleGroupModalProps {
     open: boolean
@@ -143,20 +143,21 @@ const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
                 updated_at: new Date().toISOString(),
             }
 
-            // If user set a time, we combine date + time into a single UTC datetime
-            // Note: For simplicity, this example just appends "Z" to treat it as UTC
+            // Combine date + time into UTC if time is set
             const collectionDateTimeUTC = collectionTime
                 ? `${DateTime.fromJSDate(collectionDate).toISODate()}T${collectionTime}Z`
                 : null
-            if (!formattedDate){
-                setErrorMessage("Sample date is required");
+
+            if (!formattedDate) {
+                setErrorMessage("Sample date is required")
             }
+
             // The sample group record
             const sampleGroupData: SampleGroupMetadata = {
                 id,
                 human_readable_sample_id: sampleGroupName,
                 loc_id: location.id,
-                collection_date: formattedDate || "", // or store as is
+                collection_date: formattedDate || "",
                 collection_datetime_utc: collectionDateTimeUTC,
                 user_id: userId,
                 org_id: organization.id,
@@ -177,7 +178,7 @@ const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
 
         } catch (err) {
             console.error(err)
-            //@ts-expect-error: Any error
+            // @ts-expect-error: Let’s just cast it
             setErrorMessage(err.message)
         } finally {
             setIsProcessing(false)
@@ -204,101 +205,90 @@ const CreateSampleGroupModal: FC<CreateSampleGroupModalProps> = ({
                     <DialogTitle>Create New Sampling Event</DialogTitle>
                 </DialogHeader>
 
-                {/* Collection Date (ReactDatePicker) */}
-                <div className="mt-2 space-y-1">
-                    <Label htmlFor="collection-date">Collection Date</Label>
-                    <ReactDatePicker
-                        id="collection-date"
-                        selected={collectionDate}
-                        onChange={(date) => setCollectionDate(date)}
-                        placeholderText="Select date..."
-                        className="w-full rounded-md border bg-transparent px-3 py-2 text-sm
-              outline-none"
-                        // Optional: You can configure more datepicker props here
-                    />
-                </div>
+                <form onSubmit={handleSubmit}>
+                    {/* Collection Date */}
+                    <div className="grid w-full max-w-sm items-center gap-1.5 mb-4">
+                        <Label htmlFor="collection-date">Collection Date</Label>
+                        <ReactDatePicker
+                            id="collection-date"
+                            selected={collectionDate}
+                            onChange={(date) => setCollectionDate(date)}
+                            placeholderText="Select date..."
+                            className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none"
+                        />
+                    </div>
 
-                {/* Collection Time (UTC) */}
-                <div className="mt-4 space-y-1">
-                    <Label htmlFor="collection-time">Collection Time (UTC)</Label>
-                    <Input
-                        id="collection-time"
-                        type="time"
-                        step="1"
-                        placeholder={"Select a time..."}
-                        value={collectionTime}
-                        onChange={(e) => setCollectionTime(e.target.value)}
-                    />
-                </div>
+                    {/* Collection Time (UTC) */}
+                    <div className="grid w-full max-w-sm items-center gap-1.5 mb-4">
+                        <Label htmlFor="collection-time">Collection Time (UTC)</Label>
+                        <TimePicker
+                            value={collectionTime}
+                            onChange={(e) => setCollectionTime(e)}
+                        />
+                    </div>
 
-                {/* Location Selection (Popover + Command) */}
-                <div className="mt-4 space-y-1">
-                    <Label>Location</Label>
-                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className="w-full justify-between"
+                    {/* Location Selection (Popover + Command) */}
+                    <div className="grid w-full max-w-sm items-center gap-1.5 mb-4">
+                        <Label htmlFor="location">Location</Label>
+                        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between">
+                                    {locCharId
+                                        ? `${locCharId} selected`
+                                        : "Select a location..."}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                                side="bottom"
+                                align="start"
+                                sideOffset={8}
+                                updatePositionStrategy={"optimized"}
+                                avoidCollisions={false}
+                                className="p-0 w-[250px]"
                             >
-                                {locCharId
-                                    ? `${locCharId} selected`
-                                    : "Select a location..."}
-                            </Button>
-                        </PopoverTrigger>
+                                <Command>
+                                    <CommandInput
+                                        placeholder="Search location..."
+                                        value={searchTerm}
+                                        onValueChange={setSearchTerm}
+                                    />
+                                    <CommandList>
+                                        <CommandEmpty>No results found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {filteredLocations.map((loc) => (
+                                                <CommandItem
+                                                    key={loc.char_id}
+                                                    onSelect={() => {
+                                                        setLocCharId(loc.char_id)
+                                                        setSearchTerm(`${loc.label} (${loc.char_id})`)
+                                                        setPopoverOpen(false)
+                                                    }}
+                                                >
+                                                    {loc.label} ({loc.char_id})
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
 
-                        <PopoverContent
-                            side="bottom"
-                            align="start"
-                            sideOffset={8}
-                            updatePositionStrategy={"optimized"}
-                            avoidCollisions={false}
-                            className="p-0 w-[250px]"
+                    {/* Footer Buttons */}
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onClose}
+                            disabled={isProcessing}
                         >
-                            <Command>
-                                <CommandInput
-                                    placeholder="Search location..."
-                                    value={searchTerm}
-                                    onValueChange={setSearchTerm}
-                                />
-                                <CommandList>
-                                    <CommandEmpty>No results found.</CommandEmpty>
-                                    <CommandGroup>
-                                        {filteredLocations.map((loc) => (
-                                            <CommandItem
-                                                key={loc.char_id}
-                                                onSelect={() => {
-                                                    setLocCharId(loc.char_id)
-                                                    setSearchTerm(`${loc.label} (${loc.char_id})`)
-                                                    setPopoverOpen(false)
-                                                }}
-                                            >
-                                                {loc.label} ({loc.char_id})
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onClose}
-                        disabled={isProcessing}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="submit"
-                        disabled={isProcessing}
-                        onClick={handleSubmit}
-                    >
-                        {isProcessing ? "Creating..." : "Create"}
-                    </Button>
-                </DialogFooter>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isProcessing}>
+                            {isProcessing ? "Creating..." : "Create"}
+                        </Button>
+                    </DialogFooter>
+                </form>
             </DialogContent>
         </Dialog>
     )

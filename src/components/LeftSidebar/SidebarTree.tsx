@@ -224,7 +224,7 @@ export function SidebarTree({
 
                                         // Leaf child
                                         return (
-                                            <SidebarMenuSubItem key={child.id}>
+                                            <SidebarMenuItem key={child.id}>
                                                 <SidebarMenuSubButton
                                                     asChild
                                                     isActive={childActive}
@@ -243,7 +243,7 @@ export function SidebarTree({
 
                                                 {/* Child “More” action */}
                                                 {renderChildActions()}
-                                            </SidebarMenuSubItem>
+                                            </SidebarMenuItem>
                                         );
                                     })}
                                 </SidebarMenuSub>

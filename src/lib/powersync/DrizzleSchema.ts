@@ -202,7 +202,6 @@ export const user_settings = sqliteTable("user_settings", {
     globe_datapoint_poles: integer("globe_datapoint_poles").notNull(),
     globe_datapoint_color: text("globe_datapoint_color").notNull(),
     globe_datapoint_diameter: text("globe_datapoint_diameter").notNull(),
-    powersyncPerformance: integer('powersync_performance'), // e.g. Drizzle type
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────

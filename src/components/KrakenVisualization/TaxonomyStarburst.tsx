@@ -252,8 +252,8 @@ export default function TaxonomySunburstD3({
             .arc()
             .startAngle((d: any) => d.x0)
             .endAngle((d: any) => d.x1)
-            .padAngle((d: any) => Math.min((d.x1 - d.x0) / 2, 0.02))
-            .padRadius(radius * 1.5)
+            .padAngle((d: any) => Math.min((d.x1 - d.x0) / 2, 0.01))
+            .padRadius(radius * 0.1)
             .innerRadius((d: any) => d.y0 * radius)
             .outerRadius((d: any) => Math.max(d.y0 * radius, d.y1 * radius - 1));
 
@@ -389,7 +389,7 @@ export default function TaxonomySunburstD3({
                 };
             });
 
-            const t = svg.transition().duration(event.altKey ? 7500 : 750);
+            const t = svg.transition().duration(event.altKey ? 7500 : 100);
 
             // Transition each arc
             node

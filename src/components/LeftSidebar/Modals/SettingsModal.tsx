@@ -30,7 +30,6 @@ import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks";
 import { UserSettings } from "src/types";
 import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema";
-import {Slider} from "@/components/ui/slider";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -112,35 +111,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                 {/* User Settings Subheading */}
                 <p>{userSettings ? "User Settings" : "Create New Setting"}</p>
-
-                {/* ======== PowerSync Performance Slider ======== */}
-                <Label htmlFor="powersyncPerformance">PowerSync Performance</Label>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <div className="flex items-center gap-2">
-                            <Slider
-                                id="powersyncPerformance"
-                                min={50000}
-                                max={2000000}
-                                step={5000}
-                                defaultValue={[newSetting.powersyncPerformance || 50000]}
-                                onValueChange={(e) =>
-                                    setNewSetting((prev) => ({
-                                        ...prev,
-                                        powersyncPerformance: Number([e]),
-                                    }))
-                                }
-                            />
-                            {/* Show the numeric value for clarity */}
-                            <span className="text-sm w-16">
-                {newSetting.powersyncPerformance ?? 50000}
-              </span>
-                        </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        Set performance between 50,000 and 2,000,000.
-                    </TooltipContent>
-                </Tooltip>
 
                 {/* ======== Taxonomic Starburst Section ======== */}
                 <div className="flex items-center gap-2 mt-4">

@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import {forwardRef, useImperativeHandle, useRef, useState} from "react";
 import {
     BarChart,
     Bar,
@@ -129,6 +129,85 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
         // 3) Default X-axis key if not provided
         const finalXAxisKey = xAxisKey ?? "locationCharId";
 
+        function measureTextWidth(text: string, fontSize = 12, fontFamily = "sans-serif") {
+            if (typeof document === "undefined") {
+                return text.length * fontSize * 0.6;
+            }
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            if (!context) return 0;
+            context.font = `${fontSize}px ${fontFamily}`;
+            return context.measureText(text).width;
+        }
+
+        function CustomXAxisTick(props: any) {
+            const { x, y, payload } = props;
+
+            // Vertical line below the axis
+            const verticalLineHeight = 50;
+
+            // Angle in degrees
+            const angleDegrees = 55;
+            const angleRadians = (Math.PI / 180) * angleDegrees;
+
+            // The text you want to display
+            const textValue = payload?.value ?? "";
+
+            // Adjust these to match your styling
+            const fontSize = 16.5;
+            const fontFamily = "Inter";
+
+            // 1) Measure your text in the browser:
+            const textWidth = measureTextWidth(textValue, fontSize, fontFamily);
+
+            // 2) The diagonal line is the same length as the text
+            const angledEndX = textWidth * Math.cos(angleRadians);
+            const angledEndY = textWidth * Math.sin(angleRadians);
+
+            return (
+                <g transform={`translate(${x}, ${y})`}>
+                    {/* 1) Short vertical tick line */}
+                    <line x1={0} y1={0} x2={0} y2={verticalLineHeight} stroke="#fff" />
+
+                    {/* 2) The diagonal line, exactly the width of the text */}
+                    <line
+                        x1={0}
+                        y1={verticalLineHeight}
+                        x2={angledEndX}
+                        y2={verticalLineHeight + angledEndY}
+                        stroke="#fff"
+                    />
+
+                    {/* 3) Rotate the group so our text is angled.
+          We want the baseline to be at the "end" of the vertical line,
+          so we translate to (0, verticalLineHeight) first. */}
+                    <g
+                        transform={`
+          translate(0, ${verticalLineHeight})
+          rotate(${angleDegrees})
+        `}
+                    >
+                        {/* 4) We shift the foreignObject up (negative y)
+              so that the text is rendered above the line, not below it.
+              Depending on your exact needs, tweak this offset. */}
+                        <foreignObject
+                            x={0}
+                            y={-fontSize * 1.2} // Shift the text up by ~1.2 lines
+                            width={textWidth}
+                            height={fontSize * 3} // Enough height to prevent clipping
+                        >
+                            <div style={{ width: textWidth }}>
+                                {/* 5) Use your shadcn or Tailwind classes here */}
+                                <p className="text-sm text-white overflow-visible text-nowrap">
+                                    {textValue}
+                                </p>
+                            </div>
+                        </foreignObject>
+                    </g>
+                </g>
+            );
+        }
+
         // 4) Format helpers
         const yAxisTickFormatter = (val: number) =>
             showAsIntraPercent ? `${(val * 100).toFixed(0)}%` : val.toLocaleString();
@@ -168,27 +247,27 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                 {/* Chart Container for export */}
                 <div ref={chartContainerRef} className="p-4">
                     <CardContent>
-                        <ResponsiveContainer width="100%" height="100%" minHeight={700}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={900}>
                             <BarChart
                                 data={chartData}
                                 stackOffset={showAsIntraPercent ? "expand" : undefined}
-                                style={{ backgroundColor: "#333333" }}
-                                margin={{ top: 20, right: 20, bottom: 200, left: 60 }}
+                                style={{backgroundColor: "#333333"}}
+                                margin={{top: 20, right: 120, bottom: 250, left: 60}}
                             >
-                                {/* Built-in legend for the stacked bars (taxa) */}
-                                <Legend
-                                    verticalAlign={"top"}
-                                    iconType={"wye"}
-                                    align={"center"}
-                                />
-                                <CartesianGrid strokeDasharray="3 3" stroke="#999999" />
+                                <Legend verticalAlign={"top"} iconType={"wye"} align={"center"}/>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#999999"/>
+
+                                {/* 2) Use the custom tick component here */}
                                 <XAxis
                                     dataKey={finalXAxisKey}
                                     stroke="#ffffff"
+                                    tick={<CustomXAxisTick/>}
+                                    // You can remove angle and tickMargin if you're handling it all in the custom tick
                                     interval={0}
-                                    angle={-60}
-                                    tickMargin={100}
+                                    height={150}
                                 />
+
+                                {/* ... the rest of your chart setup ... */}
                                 <YAxis
                                     tickFormatter={yAxisTickFormatter}
                                     stroke="#ffffff"
@@ -201,15 +280,13 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                                     }}
                                 />
                                 <Tooltip
-                                    wrapperStyle={{ fill: "#333", backgroundColor: "#666" }}
-                                    contentStyle={{ backgroundColor: "#333" }}
+                                    wrapperStyle={{fill: "#333", backgroundColor: "#666"}}
+                                    contentStyle={{backgroundColor: "#333"}}
                                     formatter={tooltipFormatter}
-                                    labelFormatter={(label: string) =>
-                                        `${finalXAxisKey}: ${label}`
-                                    }
+                                    labelFormatter={(label: string) => `${finalXAxisKey}: ${label}`}
                                 />
 
-                                {/* Render a Bar for each taxon key */}
+                                {/* Render a Bar for each taxon */}
                                 {Object.keys(taxaColors).map((taxon) =>
                                     taxon !== finalXAxisKey ? (
                                         <Bar
@@ -224,8 +301,7 @@ export const ChartRenderer = forwardRef<ChartRendererRef, ChartRendererProps>(
                             </BarChart>
                         </ResponsiveContainer>
 
-                        {/* Custom location legend listing char_id => full name */}
-                        <LocationLegend data={chartData} />
+                        <LocationLegend data={chartData}/>
                     </CardContent>
                 </div>
 
