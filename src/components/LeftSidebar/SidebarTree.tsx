@@ -50,7 +50,7 @@ export function SidebarTree({
                                 onMove,
                                 onDelete,
                             }: SidebarTreeProps) {
-    const { userPermissions } = useAuthStore.getState()
+    const userPermissions = useAuthStore((state) => state.userPermissions);
     const canDelete =
         userPermissions?.includes(PoleshiftPermissions.DeleteSampleGroup) ?? false
     const canMove =
@@ -151,27 +151,23 @@ export function SidebarTree({
                                             child.proximity_category
                                         );
 
-                                        // Same permission logic for the child:
-                                        const childCanMove = canMove;
-                                        const childCanDelete = canDelete;
-
                                         const renderChildActions = () => {
-                                            if (!childCanMove && !childCanDelete) return null;
+                                            if (!canMove && !canDelete) return null;
                                             return (
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <SidebarMenuAction>
+                                                        <SidebarMenuAction asChild>
                                                             <MoreHorizontal className="h-4 w-4" />
                                                         </SidebarMenuAction>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent side="right" align="start">
                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                        {childCanMove && (
+                                                        {canMove && (
                                                             <DropdownMenuItem onClick={() => onMove(child)}>
                                                                 Move
                                                             </DropdownMenuItem>
                                                         )}
-                                                        {childCanDelete && (
+                                                        {canDelete && (
                                                             <DropdownMenuItem
                                                                 onClick={() => onDelete(child)}
                                                                 className="text-destructive"

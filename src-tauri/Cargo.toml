@@ -40,5 +40,5 @@ tauri-plugin-cli = "2"
 tauri-plugin-positioner = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
-rusqlite = { version = "0.32.1" }
+rusqlite = { version = "0.32.1", features = ["bundled"] }
 

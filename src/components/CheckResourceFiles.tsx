@@ -94,16 +94,9 @@ export const CheckResourceFiles: React.FC = () => {
                                     return item;
                                 })
                             );
-
-                            console.log(
-                                `Downloading "${resource.fileName}": ` +
-                                `${progress.progress} of ${progress.total} bytes`
-                            );
                         },
                         headerMap
                     );
-
-                    console.log(`Successfully downloaded "${resource.fileName}".`);
                     // You might optionally remove it from context once done, or leave it
                     // so you can show "all done" stats. Example:
                     setDownloads((prev) => prev.filter((r) => r.fileName !== resource.fileName));

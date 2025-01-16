@@ -55,8 +55,7 @@ export function LeftSidebar() {
     const {organization} = useAuth();
     const {fileTree, sampleGroups, locations, createSampleGroup, addFileNode, deleteNode} =
         useData();
-    const {userPermissions} = useAuthStore.getState();
-
+    const userPermissions = useAuthStore((state) => state.userPermissions);
     const canDeleteSampleGroup =
         userPermissions?.includes(PoleshiftPermissions.DeleteSampleGroup) ?? false;
     const canModifySampleGroup =

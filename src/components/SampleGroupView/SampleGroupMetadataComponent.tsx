@@ -37,7 +37,7 @@ const NO_PROXIMITY_VALUE = "NO_PROXIMITY_VALUE"
 export default function SampleGroupMetadataComponent() {
     const { locations, updateSampleGroup, sampleGroups, penguinData } = useData()
     const { selectedLeftItem } = useUI()
-    const { userPermissions } = useAuthStore.getState()
+    const userPermissions = useAuthStore((state) => state.userPermissions);
 
     const hasModifyPermission = userPermissions?.includes(
         PoleshiftPermissions.ModifySampleGroup

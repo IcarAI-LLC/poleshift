@@ -119,11 +119,12 @@ const KrakenVisualization: React.FC<Props> = ({ data, open, onClose }) => {
         (node) =>
             node.rank === "Root" || node.tax_name === "Root" || node.tax_name === "Life"
     );
-    const totalReads = rootNode ? rootNode.reads : 0;
+    console.log(rootNode);
+    const classifiedReads = rootNode ? rootNode.reads : 0;
     const classificationRate = rootNode ? rootNode.percentage : 0;
     const unclassifiedPercentage = 100 - classificationRate;
-    const unclassifiedReads = Math.round((unclassifiedPercentage / 100) * totalReads);
-    const classifiedReads = totalReads - unclassifiedReads;
+    const unclassifiedReads = Math.round((unclassifiedPercentage / 100) * classifiedReads);
+    const totalReads = classifiedReads + unclassifiedReads;
 
     const uniqueTaxa = data.filter(
         (node) => node.tax_name !== "Root" && node.tax_name !== "Life"

@@ -1,32 +1,17 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from "react";
-import Plotly from "plotly.js-dist";
+"use client";
 
-// ShadCN UI
-import { Button } from "@/components/ui/button"; // Adjust path as needed
-
-import useSettings from "@/hooks/useSettings.ts";
+import { useRef, useEffect, useMemo, useCallback, useState } from "react";
+import * as d3 from "d3";
 import { ProcessedKrakenUniqReport } from "src/types";
-import { TaxonomicRank } from "@/lib/powersync/DrizzleSchema";
 
-interface TaxonomyStarburstProps {
-    data: ProcessedKrakenUniqReport[];
-    width?: number;
-    height?: number;
-}
+// Import the shadcn Tooltip components
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const topLevelBeige = "#f5f5dc";
-
-const baseColors = [
-    "#ff6d55",
-    "#ffec4d",
-    "#ffae21",
-    "#2fffdc",
-    "#ff66ae",
-    "#b4ceff",
-    "#ffbf89",
-];
-
-// Convert HEX to HSL
+// ---- Same color helper logic (unchanged) ---- //
 function hexToHsl(hex: string) {
     let h: number, s: number;
     hex = hex.replace("#", "");
@@ -44,7 +29,6 @@ function hexToHsl(hex: string) {
     } else {
         const d = max - min;
         s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-
         switch (max) {
             case r:
                 h = ((g - b) / d) % 6;
@@ -56,17 +40,13 @@ function hexToHsl(hex: string) {
                 h = (r - g) / d + 4;
                 break;
         }
-
         h = Math.round(h * 60);
-        if (h < 0) {
-            h += 360;
-        }
+        if (h < 0) h += 360;
     }
 
     return { h, s, l };
 }
 
-// Convert HSL to HEX
 function hslToHex(h: number, s: number, l: number) {
     const hueToRgb = (p: number, q: number, t: number) => {
         if (t < 0) t += 1;
@@ -97,11 +77,9 @@ function hslToHex(h: number, s: number, l: number) {
     return "#" + toHex(r) + toHex(g) + toHex(b);
 }
 
-// Decrease saturation as depth increases
 function getColorForDepth(baseColor: string, depth: number) {
     const { h, s, l } = hexToHsl(baseColor);
     if (depth > 1) {
-        // tweak multiplier as needed
         const reduceSteps = depth - 1;
         const newS = Math.max(s - reduceSteps * 0.015, 0);
         return hslToHex(h, newS, l);
@@ -109,318 +87,348 @@ function getColorForDepth(baseColor: string, depth: number) {
     return baseColor;
 }
 
-interface NodeInfo {
-    node: ProcessedKrakenUniqReport;
-    depth: number;
-    parentId?: string;
+/**
+ * Returns whether a label can fit on the arc.
+ */
+function canFitLabel(d: any, radius: number) {
+    if (!d?.data?.name) {
+        return false;
+    }
+    // Arc length = angle * radius (approx). We'll label at the mid radius.
+    const rMid = ((d.y0 + d.y1) / 2) * radius;
+    const angle = d.x1 - d.x0;
+    const arcLength = angle * rMid;
+
+    const label = d.data.name;
+    const estimatedTextLength = label.length * 6;
+    return arcLength >= estimatedTextLength;
 }
 
-export default function TaxonomyStarburst({
-                                              data,
-                                              width = 800,
-                                              height = 800,
-                                          }: TaxonomyStarburstProps) {
-    const plotRef = useRef<HTMLDivElement | null>(null);
+/**
+ * When using a textPath, reversing the path if the arc midpoint
+ * is > 180° (π radians) keeps the text from flipping upside down.
+ */
+function computeLabelPath(d: any, labelArc: any) {
+    // Copy x0/x1 so we can flip if needed
+    const [startAngle, endAngle] = [d.x0, d.x1];
+    // Temporarily clone `d` so labelArc sees the flipped angles
+    const cloned = { ...d, x0: startAngle, x1: endAngle };
+    return labelArc(cloned);
+}
+
+// ---- MAIN COMPONENT ---- //
+export default function TaxonomySunburstD3({
+                                               data,
+                                           }: {
+    data: ProcessedKrakenUniqReport[];
+}) {
+    const svgRef = useRef<SVGSVGElement | null>(null);
+
+    // Keep track of the “current root” for zooming
     const [currentRootId, setCurrentRootId] = useState<string | undefined>();
-    const [parentMap, setParentMap] = useState<Record<string, string>>({});
 
-    // User settings for max rank
-    const { userSettings } = useSettings();
-    const userSetting = userSettings || null;
-    const maxRankSetting = userSetting?.taxonomic_starburst_max_rank as
-        | TaxonomicRank
-        | undefined;
+    // ---- NEW: track tooltip info in React state ---- //
+    const [tooltipData, setTooltipData] = useState<{
+        content: string;
+        x: number;
+        y: number;
+    } | null>(null);
 
-    // Quick rank order map
-    const rankOrderMap: Record<TaxonomicRank, number> = {
-        [TaxonomicRank.Root]: 0,
-        [TaxonomicRank.Domain]: 1,
-        [TaxonomicRank.Supergroup]: 2,
-        [TaxonomicRank.Division]: 3,
-        [TaxonomicRank.Subdivision]: 4,
-        [TaxonomicRank.Class]: 5,
-        [TaxonomicRank.Order]: 6,
-        [TaxonomicRank.Family]: 7,
-        [TaxonomicRank.Genus]: 8,
-        [TaxonomicRank.Species]: 9,
-        [TaxonomicRank.Assembly]: 10,
-        [TaxonomicRank.Sequence]: 11,
-    };
+    // ---- Same color logic
+    const topLevelBeige = "#f5f5dc";
+    const baseColors = [
+        "#ff6d55",
+        "#ffec4d",
+        "#ffae21",
+        "#2fffdc",
+        "#ff66ae",
+        "#b4ceff",
+        "#ffbf89",
+    ];
 
-    /**
-     * Build a parent -> children map for quick lookups.
-     * Also build the parentMap for upward traversal.
-     */
-    const [childrenMap, setChildrenMap] = useState<
-        Record<string, ProcessedKrakenUniqReport[]>
-    >({});
-
-    useEffect(() => {
-        if (!data || data.length === 0) return;
-
-        const tmpParentMap: Record<string, string> = {};
-        const tmpChildrenMap: Record<string, ProcessedKrakenUniqReport[]> = {};
-
-        // Initialize arrays for all possible ids so you don't need checks
-        data.forEach((node) => {
-            if (node.parent_id) {
-                tmpParentMap[node.id] = node.parent_id;
-            }
-            tmpChildrenMap[node.id] = [];
+    const childrenMap = useMemo(() => {
+        const tmp: Record<string, ProcessedKrakenUniqReport[]> = {};
+        data.forEach((n) => {
+            tmp[n.id] = [];
         });
-
-        // Fill children
-        data.forEach((node) => {
-            if (node.parent_id && tmpChildrenMap[node.parent_id]) {
-                tmpChildrenMap[node.parent_id].push(node);
+        data.forEach((n) => {
+            if (n.parent_id && tmp[n.parent_id]) {
+                tmp[n.parent_id].push(n);
             }
         });
-
-        setParentMap(tmpParentMap);
-        setChildrenMap(tmpChildrenMap);
+        return tmp;
     }, [data]);
 
-    /**
-     * Build a NodeInfo array from a root node down via DFS or BFS
-     */
-    const buildHierarchyFromRoot = useCallback(
-        (root: ProcessedKrakenUniqReport): NodeInfo[] => {
-            const result: NodeInfo[] = [];
-            const stack: Array<{ node: ProcessedKrakenUniqReport; depth: number }> = [
-                { node: root, depth: 0 },
-            ];
+    // Build an actual hierarchical structure for d3.hierarchy
+    const buildHierarchy = useCallback(() => {
+        // Quick map from id => node
+        const nodeById: Record<string, ProcessedKrakenUniqReport> = {};
+        data.forEach((d) => {
+            nodeById[d.id] = d;
+        });
 
-            while (stack.length > 0) {
-                const { node, depth } = stack.pop()!;
-                result.push({ node, depth, parentId: node.parent_id || undefined });
-
-                // push children to stack
-                if (childrenMap[node.id]) {
-                    for (const child of childrenMap[node.id]) {
-                        stack.push({ node: child, depth: depth + 1 });
-                    }
-                }
-            }
-            return result;
-        },
-        [childrenMap]
-    );
-
-    /**
-     * Filter nodes by rank and build NodeInfo for the entire forest (all roots),
-     * or for a particular subtree if `currentRootId` is defined.
-     */
-    const buildFilteredHierarchy = useCallback((): NodeInfo[] => {
-        // 1) Keep only nodes whose rank is in the enum
-        let filtered = data.filter((n) =>
-            Object.values(TaxonomicRank).includes(n.rank as TaxonomicRank)
-        );
-
-        // 2) If user sets a max rank, filter deeper ranks
-        if (maxRankSetting) {
-            filtered = filtered.filter((n) => {
-                const nodeRankEnum = n.rank as TaxonomicRank;
-                return rankOrderMap[nodeRankEnum] <= rankOrderMap[maxRankSetting];
-            });
+        // Identify root(s)
+        let roots: ProcessedKrakenUniqReport[] = [];
+        if (currentRootId && nodeById[currentRootId]) {
+            roots = [nodeById[currentRootId]];
+        } else {
+            // Forest roots => no parent or missing parent's node
+            roots = data.filter((d) => !d.parent_id || !nodeById[d.parent_id]);
         }
 
-        // Create a quick map so we can find the root node(s)
-        const nodeMap: Record<string, ProcessedKrakenUniqReport> = {};
-        filtered.forEach((node) => {
-            nodeMap[node.id] = node;
-        });
-
-        // If we have a currentRootId, just build the subtree from that root
-        if (currentRootId && nodeMap[currentRootId]) {
-            return buildHierarchyFromRoot(nodeMap[currentRootId]);
+        function buildNode(node: ProcessedKrakenUniqReport): any {
+            const kids = childrenMap[node.id] || [];
+            return {
+                name: node.tax_name,
+                id: node.id,
+                value: node.tax_reads, // or coverage, e_score, etc.
+                coverage: node.coverage,
+                duplication: node.duplication,
+                e_score: node.e_score,
+                percentage: node.percentage,
+                rank: node.rank,
+                tax_id: node.tax_id,
+                nodeData: node,
+                children: kids.map((c) => buildNode(c)),
+            };
         }
 
-        // Otherwise, build from all "forest" roots (i.e. no valid parent)
-        const forestRoots: ProcessedKrakenUniqReport[] = [];
-        filtered.forEach((node) => {
-            // If it has no parent OR its parent is not in the nodeMap => root
-            if (!node.parent_id || !nodeMap[node.parent_id]) {
-                forestRoots.push(node);
-            }
-        });
+        if (roots.length > 1) {
+            return {
+                name: "dummyRoot",
+                children: roots.map((r) => buildNode(r)),
+            };
+        } else if (roots.length === 1) {
+            return buildNode(roots[0]);
+        }
+        return null;
+    }, [data, currentRootId, childrenMap]);
 
-        const allNodes: NodeInfo[] = [];
-        forestRoots.forEach((root) => {
-            allNodes.push(...buildHierarchyFromRoot(root));
-        });
-
-        return allNodes;
-    }, [
-        data,
-        maxRankSetting,
-        currentRootId,
-        rankOrderMap,
-        buildHierarchyFromRoot,
-    ]);
-
-    /**
-     * Take NodeInfo array and transform into Plotly sunburst data
-     */
-    const processDataForPlotly = useCallback((nodeInfos: NodeInfo[]) => {
-        const labels: string[] = [];
-        const parents: string[] = [];
-        const values: number[] = [];
-        const ids: string[] = [];
-        const customdata: Array<[number, string, number, number, number, number]> =
-            [];
-        const colors: string[] = [];
-
-        // Keep track of color assigned to each node’s index
-        let secondLevelColorIndex = 0;
-
-        // A helper to find an index quickly by ID
-        const idToIndex: Record<string, number> = {};
-
-        nodeInfos.forEach((info, i) => {
-            const { node, parentId } = info;
-            labels.push(node.tax_name);
-            parents.push(parentId || "");
-            values.push(node.reads);
-            ids.push(node.id);
-            customdata.push([
-                node.tax_id,
-                node.rank,
-                node.percentage,
-                node.reads,
-                node.coverage,
-                node.e_score,
-            ]);
-            idToIndex[node.id] = i;
-        });
-
-        // Now assign colors with a second pass to be sure parentIndex is known
-        nodeInfos.forEach((info) => {
-            const { depth, parentId } = info;
-            let nodeColor = topLevelBeige;
-
-            if (depth === 1) {
-                // second-level child
-                nodeColor = baseColors[secondLevelColorIndex % baseColors.length];
-                secondLevelColorIndex += 1;
-            } else if (depth > 1) {
-                const parentIndex = idToIndex[parentId ?? ""];
-                const parentColor = parentIndex >= 0 ? colors[parentIndex] : topLevelBeige;
-                nodeColor = getColorForDepth(parentColor, depth);
-            }
-
-            colors.push(nodeColor);
-        });
-
-        return { labels, parents, values, ids, customdata, colors };
-    }, []);
-
-    // Build the final Plotly data
-    const processedData = useMemo(() => {
-        if (!data || data.length === 0) return null;
-        const nodeInfos = buildFilteredHierarchy();
-        return processDataForPlotly(nodeInfos);
-    }, [data, buildFilteredHierarchy, processDataForPlotly]);
-
-    // Check if the root is clickable (i.e. can bubble up)
-    const isRootClickable = useCallback(
-        (rootId: string | undefined) => {
-            return !!rootId && !!parentMap[rootId];
-        },
-        [parentMap]
-    );
-
-    // Plotly draw
-    async function drawPlot() {
-        if (!plotRef.current || !processedData) return;
-
-        const chartData: Partial<Plotly.PlotData>[] = [
-            {
-                type: "sunburst",
-                labels: processedData.labels,
-                parents: processedData.parents,
-                ids: processedData.ids,
-                values: processedData.values,
-                customdata: processedData.customdata,
-                hovertemplate: `
-          <b>%{label}</b><br>
-          Tax ID: %{customdata[0]}<br>
-          Rank: %{customdata[1]}<br>
-          Percentage: %{customdata[2]}%<br>
-          Reads: %{customdata[3]}<br>
-          Coverage: %{customdata[4]}<br>
-          E-score: %{customdata[5]}<br>
-          <extra></extra>`,
-                marker: {
-                    colors: processedData.colors,
-                    line: { width: 0 },
-                    pattern: {
-                        solidity: 1,
-                    },
-                },
-                branchvalues: "total",
-                textinfo: "label",
-            },
-        ];
-
-        const layout: Partial<Plotly.Layout> = {
-            margin: { l: 0, r: 0, b: 0, t: 0 },
-            width,
-            height,
-            paper_bgcolor: "rgba(0,0,0,0)",
-        };
-
-        const config: Partial<Plotly.Config> = {
-            responsive: true,
-            displayModeBar: false,
-        };
-
-        const gd = await Plotly.react(plotRef.current, chartData, layout, config);
-
-        // Remove existing listeners
-        gd.removeAllListeners("plotly_sunburstclick");
-        gd.removeAllListeners("plotly_hover");
-        gd.removeAllListeners("plotly_unhover");
-
-        gd.on("plotly_sunburstclick", (event: any) => {
-            const point = event.points?.[0];
-            if (!point || !point.id) return;
-
-            const clickedId = point.id;
-            if (clickedId === currentRootId && isRootClickable(currentRootId)) {
-                // bubble up
-                if (currentRootId && parentMap[currentRootId]) {
-                    setCurrentRootId(parentMap[currentRootId]);
-                }
-            } else {
-                setCurrentRootId(clickedId);
-            }
-        });
-
-        gd.on("plotly_hover", (event: any) => {
-            const point = event.points?.[0];
-            if (!point || !plotRef.current) return;
-
-            const hoveredId = point.id;
-            let cursorStyle = "default";
-
-            if (hoveredId !== currentRootId) {
-                cursorStyle = "pointer";
-            } else if (isRootClickable(currentRootId)) {
-                cursorStyle = "pointer";
-            }
-            plotRef.current.style.cursor = cursorStyle;
-        });
-
-        gd.on("plotly_unhover", () => {
-            if (plotRef.current) {
-                plotRef.current.style.cursor = "default";
-            }
-        });
-    }
-
+    // D3 code
     useEffect(() => {
-        drawPlot();
-    }, [processedData, width, height]);
+        const hierarchyData = buildHierarchy();
+        if (!hierarchyData) return;
+
+        if (svgRef.current) {
+            d3.select(svgRef.current).selectAll("*").remove();
+        }
+
+        const size = 700;
+        const radius = size / 24;
+
+        const root = d3
+            .hierarchy(hierarchyData as any)
+            .sum((d: any) => d.value)
+            .sort((a, b) => (b.value || 0) - (a.value || 0));
+
+        d3.partition().size([2 * Math.PI, root.height + 1])(root);
+
+        root.each((d: any) => {
+            d.current = d;
+        });
+
+        // Assign color
+        const nodeColors: Record<string, string> = {};
+        let secondLevelColorIndex = 0;
+        root.descendants().forEach((d: any) => {
+            const depth = d.depth;
+            const id = d.data.id;
+            if (!id) return;
+
+            if (depth === 0) {
+                nodeColors[id] = topLevelBeige;
+            } else if (depth === 1) {
+                nodeColors[id] = baseColors[secondLevelColorIndex % baseColors.length];
+                secondLevelColorIndex++;
+            } else {
+                const parentId = d.parent?.data?.id;
+                const parentColor = parentId ? nodeColors[parentId] : topLevelBeige;
+                nodeColors[id] = getColorForDepth(parentColor, depth);
+            }
+        });
+
+        // Main arc
+        const arc = d3
+            .arc()
+            .startAngle((d: any) => d.x0)
+            .endAngle((d: any) => d.x1)
+            .padAngle((d: any) => Math.min((d.x1 - d.x0) / 2, 0.02))
+            .padRadius(radius * 1.5)
+            .innerRadius((d: any) => d.y0 * radius)
+            .outerRadius((d: any) => Math.max(d.y0 * radius, d.y1 * radius - 1));
+
+        // Label arc => used for textPath
+        const labelArc = d3
+            .arc()
+            .innerRadius((d: any) => ((d.y0 + d.y1) / 2) * radius)
+            .outerRadius((d: any) => ((d.y0 + d.y1) / 2) * radius)
+            .startAngle((d: any) => d.x0)
+            .endAngle((d: any) => d.x1)
+            .padAngle((d: any) => Math.min((d.x1 - d.x0) / 2, 0.005));
+
+        const svg = d3
+            .select(svgRef.current)
+            .attr("viewBox", [-size / 2, -size / 2, size, size])
+            .style("font", "10px sans-serif");
+
+        // Each node => a <g>
+        const node = svg
+            .selectAll("g.node")
+            .data(root.descendants())
+            .join("g")
+            .attr("class", "node");
+
+        // Arc path
+        node
+            .append("path")
+            .attr("class", "sunburst-arc")
+            .attr("id", (d: any) => `arc-${d.data.id}`)
+            .attr("fill", (d: any) => nodeColors[d.data.id] || "#ccc")
+            .attr("d", (d: any) => arc(d.current))
+            .style("cursor", (d: any) => (d.children ? "pointer" : "default"))
+            .on("click", (event, p: any) => {
+                clicked(event, p, root, svg, node, arc, radius, labelArc);
+            })
+            // ---- NEW: Track mouse over/out to drive shadcn tooltip state ----
+            .on("mouseenter", (event, d: any) => {
+                // Build the “ancestors / Reads: value” text
+               d
+                    .ancestors()
+                    .map((a: any) => a.data.name)
+                    .reverse()
+                    .join("/");
+                const content = `${d.data.name}\n Taxonomic Rank: ${d.data.rank}\n Reads:${d.value}\n Percentage: ${d.data.percentage}\n Coverage: ${d.data.coverage}\n Duplication: ${d.data.duplication}\n E-Score: ${d.data.e_score}\n Taxonomy ID: ${d.data.tax_id}\n`;
+
+                // Use clientX/Y or pageX/Y or offsetX/Y as you prefer
+                setTooltipData({
+                    content,
+                    x: event.clientX,
+                    y: event.clientY,
+                });
+            })
+            .on("mousemove", (event) => {
+                // Keep position updated as the user moves
+                setTooltipData((old) =>
+                    old
+                        ? {
+                            ...old,
+                            x: event.clientX,
+                            y: event.clientY,
+                        }
+                        : null
+                );
+            })
+            .on("mouseleave", () => {
+                // Hide the tooltip
+                setTooltipData(null);
+            });
+
+        // ---- Remove the old native tooltip code ----
+        // path.append("title").text(...);
+
+        // We only create label arcs/paths if it fits
+        node
+            .filter((d: any) => canFitLabel(d.current, radius))
+            .append("path")
+            .attr("id", (d: any) => `label-arc-${d.data.id}`)
+            .attr("fill", "none")
+            .attr("stroke", "none")
+            .attr("pointer-events", "none")
+            .attr("d", (d: any) => computeLabelPath(d.current, labelArc));
+
+        // Attach the textPath itself
+        node
+            .filter((d: any) => canFitLabel(d.current, radius))
+            .append("text")
+            .attr("dy", "0.0em") // vertical offset along the arc
+            .append("textPath")
+            .attr("href", (d: any) => `#label-arc-${d.data.id}`)
+            // Center the text along the arc:
+            .attr("startOffset", "75%")
+            .attr("text-anchor", "middle")
+            .attr("pointer-events", "none")
+            .text((d: any) => d.data.name);
+
+        // Center circle => bubble up
+        svg
+            .append("circle")
+            .datum(root)
+            .attr("r", radius / 3)
+            .attr("fill", "none")
+            .attr("pointer-events", "all")
+            .on("click", (_event, p) => {
+                if (p.parent && p.parent.data && p.parent.data.id) {
+                    setCurrentRootId(p.parent.data.id);
+                } else {
+                    setCurrentRootId(undefined);
+                }
+            });
+
+        // ----------- ZOOM / CLICK HANDLER -----------
+        function clicked(
+            event: any,
+            p: any,
+            root: any,
+            svg: any,
+            node: any,
+            arc: any,
+            radius: number,
+            labelArc: any
+        ) {
+            // If clicked arc has children, set as new root
+            if (p.children) {
+                setCurrentRootId(p.data.id);
+            }
+
+            root.each((d: any) => {
+                d.target = {
+                    x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+                    x1: Math.max(0, Math.min(1, (d.x1 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+                    y0: Math.max(0, d.y0 - p.depth),
+                    y1: Math.max(0, d.y1 - p.depth),
+                };
+            });
+
+            const t = svg.transition().duration(event.altKey ? 7500 : 750);
+
+            // Transition each arc
+            node
+                .selectAll("path.sunburst-arc")
+                .transition(t)
+                .tween("data", function (d: any) {
+                    const i = d3.interpolate(d.current, d.target);
+                    return (t: any) => {
+                        d.current = i(t);
+                    };
+                })
+                .attrTween("d", function (d: any) {
+                    return () => arc(d.current);
+                });
+
+            // Transition label arcs and text
+            node
+                .selectAll("path[id^='label-arc-']")
+                .transition(t)
+                .attrTween("d", function (d: any) {
+                    return () => computeLabelPath(d.current, labelArc);
+                });
+
+            node
+                .selectAll("textPath")
+                .transition(t)
+                .attrTween("href", function (d: any) {
+                    return () => `#label-arc-${d.data.id}`;
+                });
+
+            // Fade text in/out if it no longer fits
+            node
+                .selectAll("text")
+                .transition(t)
+                .attrTween("opacity", function (d: any) {
+                    return () => (canFitLabel(d.current, radius) ? "1" : "0");
+                });
+        }
+    }, [buildHierarchy]);
 
     function handleReset() {
         setCurrentRootId(undefined);
@@ -435,15 +443,40 @@ export default function TaxonomyStarburst({
     }
 
     return (
-        <div className="flex items-center justify-center h-[80vh]">
-            <div className="relative" style={{ width, height }}>
-                <div ref={plotRef} className="w-full h-full" />
-                <Button
+        <div className="relative flex flex-col items-center justify-center">
+            <div className="relative w-[1000px] h-[800px]">
+                <svg ref={svgRef} width="100%" height="100%" />
+                <button
                     onClick={handleReset}
-                    className="absolute top-4 right-4 bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="absolute top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded"
                 >
                     Reset
-                </Button>
+                </button>
+
+                {/* --- SHADCN TOOLTIP RENDERING --- */}
+                {tooltipData && (
+                    <Tooltip open={true}>
+                        <TooltipTrigger asChild>
+                            {/*
+                A small absolutely-positioned div near the mouse pointer,
+                so the shadcn Tooltip knows where to anchor.
+              */}
+                            <div
+                                style={{
+                                    position: "fixed",
+                                    top: tooltipData.y-10,
+                                    left: tooltipData.x,
+                                    width: 0,
+                                    height: 0,
+                                    transform: "translate(-50%, -50%)",
+                                }}
+                            />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <pre>{tooltipData.content}</pre>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
             </div>
         </div>
     );

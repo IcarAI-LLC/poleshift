@@ -8,19 +8,18 @@ import ResetPassword from './ResetPassword.tsx';
 import MainApp from '../MainApp.tsx';
 import ActivateLicense from './ActivateLicense.tsx';
 import ResetComponent from "../ResetComponent.tsx";
-import {useAuthStore} from "@/stores/authStore.ts";
 import {Toast} from "@radix-ui/react-toast";
 import {Toaster} from "@/components/ui/toaster.tsx";
+import {useAuthStore} from "@/stores/authStore.ts";
 const PreAuth: FC = () => {
   const {
     isAuthenticated,
     loading: authLoading,
     logout,
-    resetApp
+    resetApp,
   } = useAuth();
-  const {
-    organizationId
-  } = useAuthStore.getState();
+  const organizationId = useAuthStore((state) => state.organizationId);
+
   // Define the reset logic
   const handleReset = async () => {
     try {

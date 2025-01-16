@@ -1,10 +1,18 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import reactCompiler from 'eslint-plugin-react-compiler'
 
-export default tseslint.config(
+export default [
     eslint.configs.recommended,
     ...tseslint.configs.recommended,
     {
-        ignores: ["ui/*", "**/hooks/use-toast.ts", "**/Container/*", "**/KrakenVisualization/*"]
-    }
-);
+        plugins: {
+            'react-compiler': reactCompiler,
+        },
+        rules: {
+            'react-compiler/react-compiler': 'error',
+            '@typescript-eslint/no-explicit-any': 'off',
+            '@typescript-eslint/no-unused-vars': 'off'
+        },
+    },
+]

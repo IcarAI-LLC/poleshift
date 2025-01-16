@@ -137,7 +137,7 @@ export default function DistributionChart({
                                     if (name === "dup") return `${formatNumber(value)}x`;
                                     if (name === "percentage" || name === "cov") return formatPercentage(value);
                                 }}
-                                labelFormatter={(label: string, payload: any) => {
+                                labelFormatter={(label: string, payload) => {
                                     if (!payload || !payload.length) return label;
                                     // For multi-axis charts, `payload` includes an object for each area
                                     // so we can find the actual data row from any of them
