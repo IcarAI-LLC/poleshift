@@ -1,12 +1,10 @@
 // src/App.tsx
 import {useEffect, useState} from 'react';
 import { PowerSyncContext } from '@powersync/react';
-
 import PreAuth from './components/PreAuth/PreAuth.tsx';
 import './App.css';
 import { db, setupPowerSync } from './lib/powersync/db';
 import { checkForAppUpdates } from './updater';
-// Import the TooltipProvider from shadcn/ui
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {ToastProvider} from "@/components/ui/toast.tsx";
 import {Toaster} from "@/components/ui/toaster.tsx";
@@ -26,7 +24,7 @@ function App() {
         if (!isPowerSyncInitialized) {
             isPowerSyncInitialized = true;
             (async () => {
-                setupPowerSync();
+                await setupPowerSync();
                 setInitialized(true);
             })();
         } else {

@@ -19,12 +19,20 @@ export class PowerSyncDB {
     public static getInstance(): PowerSyncDatabase {
         try {
             if (!this.instance) {
+                const isLinux =
+                    typeof navigator !== 'undefined' &&
+                    /Linux/i.test(navigator.platform);
+
+                // Then use:
+                const vfsImplementation = isLinux
+                    ? WASQLiteVFS.IDBBatchAtomicVFS
+                    : WASQLiteVFS.OPFSCoopSyncVFS;
                 this.instance = new PowerSyncDatabase({
                     schema: AppSchema,
                     database: new WASQLiteOpenFactory({
-                        dbFilename: 'powersync',
-                        vfs: WASQLiteVFS.AccessHandlePoolVFS,
-                        dbLocation: './powersync',
+                        dbFilename: 'powersync2',
+                        vfs: vfsImplementation,
+                        dbLocation: './powersync2/',
                         flags: {
                             enableMultiTabs: false
                         }
@@ -51,7 +59,7 @@ export class PowerSyncDB {
 /**
  * Sets up PowerSync with event listeners using the singleton DB instance.
  */
-export const setupPowerSync = () => {
+export const setupPowerSync = async () => {
     console.log('Setup Power Sync called');
     const db = PowerSyncDB.getInstance();
     // Always reference the singleton DB instance through the static getter
@@ -61,7 +69,7 @@ export const setupPowerSync = () => {
     }
     console.log('PowerSync is not yet connected');
     try {
-        db?.connect(supabaseConnector);
+        await db?.connect(supabaseConnector);
         console.log('Connector created');
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);

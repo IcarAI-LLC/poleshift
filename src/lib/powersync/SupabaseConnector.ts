@@ -169,7 +169,7 @@ export class SupabaseConnector {
         database: AbstractPowerSyncDatabase,
         attempt = 1,
         maxAttempts = 3,
-        maxBatchSize = 100 // <-- Add your default max batch size here
+        maxBatchSize = 5000 // <-- Add your default max batch size here
     ): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
 

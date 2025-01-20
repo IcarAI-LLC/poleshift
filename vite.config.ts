@@ -29,7 +29,6 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
             }
             }), eslint(),
             visualizer(),
-            nodePolyfills(),
             ViteImageOptimizer({})],
         // PowerSync
         optimizeDeps: {

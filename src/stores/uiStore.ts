@@ -1,6 +1,6 @@
 // src/lib/stores/uiStore.ts
 import { create } from 'zustand';
-import type { SampleLocations, FileNodes } from '../types';
+import type { SampleLocations, FileNodes } from '@/types';
 
 interface ContextMenuState {
     isVisible: boolean;
@@ -45,15 +45,11 @@ interface UIState {
     toggleRightSidebar: (collapsed?: boolean) => void;
     setSelectedLeftItem: (item: FileNodes | undefined) => void;
     setSelectedRightItem: (item: SampleLocations | null) => void;
-    setLeftSidebarContextMenuState: (state: Partial<ContextMenuState>) => void;
     closeLeftSidebarContextMenu: () => void;
     setShowAccountActions: (show: boolean) => void;
     setErrorMessage: (message: string | null) => void;
     setFilters: (filters: Partial<Filters>) => void;
     resetFilters: () => void;
-    showMoveModal: (itemId: string | null) => void;
-    hideMoveModal: () => void;
-
 }
 
 const initialFilters: Filters = {
@@ -106,14 +102,6 @@ export const useUIStore = create<UIState>((set) => ({
         });
     },
 
-    setLeftSidebarContextMenuState: (newState) =>
-        set((state) => ({
-            leftSidebarContextMenu: {
-                ...state.leftSidebarContextMenu,
-                ...newState,
-            },
-        })),
-
     closeLeftSidebarContextMenu: () =>
         set((state) => ({
             leftSidebarContextMenu: {
@@ -145,11 +133,4 @@ export const useUIStore = create<UIState>((set) => ({
         set({
             filters: initialFilters,
         }),
-
-    showMoveModal: (itemId: string | null) =>
-        set({ moveModalItemId: itemId }),
-
-    hideMoveModal: () =>
-        set({ moveModalItemId: null }),
-
 }));

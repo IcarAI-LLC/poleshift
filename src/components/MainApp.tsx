@@ -1,24 +1,24 @@
-import React, {
-  Suspense,
-  useEffect,
-} from "react";
+"use client";
+
+import React, { Suspense, useEffect } from "react";
 import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
 import { useAuth, useData, useUI } from "@/hooks";
 
 import LeftSidebar from "./LeftSidebar/LeftSidebar";
 import RightSidebar from "./RightSidebar";
-
 import MergedDropBoxes from "@/components/SampleGroupView/MergedDropboxes.tsx";
 import SampleGroupMetadataComponent from "@/components/SampleGroupView/SampleGroupMetadataComponent.tsx";
 import ContainerScreen from "@/components/Container/ContainerScreen";
 import GlobeComponent from "@/components/GlobeComponent.tsx";
-
 import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
+// Remove: import ErrorMessage from "./ErrorMessage";
 
-import ErrorMessage from "./ErrorMessage";
 import ChatWidget from "@/components/Chatbot/ChatWidget";
 import CheckResourceFiles from "@/components/CheckResourceFiles.tsx";
-import {Loader2} from "lucide-react";
+import { Loader2 } from "lucide-react";
+
+// 1) Import useToast from your shadcn toast utility
+import { useToast } from "@/hooks/use-toast";
 
 const MainApp: React.FC = () => {
   // ---- Hooks & Setup ----
@@ -35,19 +35,31 @@ const MainApp: React.FC = () => {
     errorMessage,
     setErrorMessage,
   } = ui;
+
   const displayedError = authError || dataError || errorMessage;
 
+  // 2) Initialize the shadcn toast
+  const { toast } = useToast();
+
   // ---- Effects ----
-  // Auto-dismiss errors
+  // Whenever `displayedError` changes, trigger the toast
   useEffect(() => {
     if (displayedError) {
+      toast({
+        title: "Error",
+        description: String(displayedError),
+        variant: "destructive",
+        // If you want a custom duration or action, specify them here:
+        // duration: 5000, // 5 seconds
+      });
+      // If you still want to clear the error from state after 5s:
       const timer = setTimeout(() => {
         setErrorMessage(null);
         setAuthError(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [displayedError, setErrorMessage, setAuthError]);
+  }, [displayedError, toast, setErrorMessage, setAuthError]);
 
   // ---- Determine which content to show (Globe vs. Non-Globe) ----
   const isGlobe =
@@ -55,10 +67,6 @@ const MainApp: React.FC = () => {
       (selectedLeftItem.type !== FileNodeType.SampleGroup &&
           selectedLeftItem.type !== FileNodeType.Container);
 
-  /**
-   * For non-globe content (SampleGroup or Container),
-   * no extra padding around the content.
-   */
   function renderNonGlobeContent() {
     switch (selectedLeftItem?.type) {
       case FileNodeType.SampleGroup:
@@ -82,53 +90,40 @@ const MainApp: React.FC = () => {
   // ---- Render ----
   return (
       <div className="w-screen h-screen">
-        {/* (1) GLOBE: absolutely positioned to fill the screen, pointer-events on */}
         {isGlobe && (
             <div className="absolute">
-                <Suspense fallback={
-                <div style={{marginBottom: "1rem"}}>
-                  <Loader2
-                      className="animate-spin"
-                  />
-                </div>}>
+              <Suspense
+                  fallback={
+                    <div style={{ marginBottom: "1rem" }}>
+                      <Loader2 className="animate-spin" />
+                    </div>
+                  }
+              >
                 <GlobeComponent />
               </Suspense>
             </div>
         )}
 
-        {/* (2) FOREGROUND LAYOUT: sidebars + content over the globe */}
         <div className="z-10 w-full h-full flex">
-          {/* Left Sidebar: pointer-events-auto so it’s clickable */}
           <div className="overflow-auto pointer-events-auto">
-            <LeftSidebar/>
+            <LeftSidebar />
           </div>
 
-          {/* Main content area */}
           {isGlobe ? (
-                <div className={"pointer-events-auto"}>
-                  <RightSidebar/>
-                </div>
+              <div className={"pointer-events-auto"}>
+                <RightSidebar />
+              </div>
           ) : (
-              /* (B) Non-Globe content (SampleGroup or Container).
-                 * This content can fully intercept clicks.
-                 */
               <div className="flex-1 pointer-events-auto">
                 {renderNonGlobeContent()}
               </div>
           )}
         </div>
-        {/* (4) ERROR MESSAGE TOAST */}
-        {displayedError && (
-            <ErrorMessage
-                message={String(displayedError)}
-                onClose={() => setErrorMessage(null)}
-            />
-        )}
 
-        {/* (5) CHAT WIDGET */}
+        {/* Chat Widget */}
         <ChatWidget />
 
-        {/* (6) ACCOUNT MODAL / CONTEXT MENU / MOVE MODAL */}
+        {/* Account Modal */}
         {showAccountActions && <AccountModal />}
       </div>
   );
