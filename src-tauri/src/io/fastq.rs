@@ -71,69 +71,8 @@ impl<R: Read> FastqReader<R> {
 
         Ok(records)
     }
-
-    /// Process records in parallel with a custom function
-    pub fn process_parallel<F, T>(&mut self, f: F) -> Result<Vec<T>, ParseError>
-    where
-        F: Fn(&FastqRecord) -> T + Send + Sync,
-        T: Send,
-    {
-        let records = self.collect_records()?;
-
-        // Validate records in parallel
-        if let Err(e) = records
-            .par_iter()
-            .try_for_each(|record| record.validate().map_err(ParseError::Fastq))
-        {
-            return Err(e);
-        }
-
-        // Process valid records in parallel
-        Ok(records.par_iter().map(f).collect())
-    }
-
-    /// Validate all records in parallel
-    pub fn validate_parallel(&mut self) -> Result<(), ParseError> {
-        let records = self.collect_records()?;
-
-        records
-            .par_iter()
-            .try_for_each(|record| record.validate().map_err(ParseError::Fastq))
-    }
-
-    /// Calculate quality score statistics in parallel
-    pub fn quality_stats(&mut self) -> Result<QualityStats, ParseError> {
-        let records = self.collect_records()?;
-
-        // Validate first
-        records
-            .par_iter()
-            .try_for_each(|record| record.validate().map_err(ParseError::Fastq))?;
-
-        // Calculate stats in parallel
-        let stats: Vec<QualityStats> = records
-            .par_iter()
-            .map(|record| {
-                let scores = &record.quality;
-                let sum: u32 = scores.iter().map(|&x| x as u32).sum();
-                let min = *scores.iter().min().unwrap_or(&0);
-                let max = *scores.iter().max().unwrap_or(&0);
-
-                QualityStats {
-                    min,
-                    max,
-                    avg: sum as f64 / scores.len() as f64,
-                    count: scores.len(),
-                }
-            })
-            .collect();
-
-        // Combine all stats
-        Ok(QualityStats::combine(&stats))
-    }
 }
 
-#[derive(Debug, Clone)]
 pub struct QualityStats {
     pub min: u8,
     pub max: u8,

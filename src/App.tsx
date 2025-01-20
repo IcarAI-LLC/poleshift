@@ -26,7 +26,7 @@ function App() {
         if (!isPowerSyncInitialized) {
             isPowerSyncInitialized = true;
             (async () => {
-                await setupPowerSync();
+                setupPowerSync();
                 setInitialized(true);
             })();
         } else {

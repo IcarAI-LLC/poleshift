@@ -8,7 +8,7 @@ async function measurePing(url: string): Promise<number> {
     console.log(`Measuring ping for ${url}`);
     // If the server URL contains 'journeryapps', assign ping=100 without querying
     if (url.includes('journeyapps')) {
-        return 150;
+        return 300;
     }
 
     const startTime = performance.now();
@@ -18,7 +18,7 @@ async function measurePing(url: string): Promise<number> {
         return performance.now() - startTime;
     } catch {
         if (url.includes('journeyapps')) {
-            return 150;
+            return 300;
         }
         return Infinity;
     }

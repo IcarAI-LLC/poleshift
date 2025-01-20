@@ -28,6 +28,8 @@
     "core:path:allow-extname",
     "core:menu:allow-popup",
     "updater:default",
+    "process:default",
+    "process:allow-restart",
     "fs:allow-create",
     "fs:allow-seek",
     "fs:allow-size",

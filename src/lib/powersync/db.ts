@@ -51,7 +51,7 @@ export class PowerSyncDB {
 /**
  * Sets up PowerSync with event listeners using the singleton DB instance.
  */
-export const setupPowerSync = async () => {
+export const setupPowerSync = () => {
     console.log('Setup Power Sync called');
     const db = PowerSyncDB.getInstance();
     // Always reference the singleton DB instance through the static getter
@@ -61,7 +61,7 @@ export const setupPowerSync = async () => {
     }
     console.log('PowerSync is not yet connected');
     try {
-        await db?.connect(supabaseConnector);
+        db?.connect(supabaseConnector);
         console.log('Connector created');
     } catch (error) {
         console.error('Failed to connect PowerSyncDatabase:', error);
