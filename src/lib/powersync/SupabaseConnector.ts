@@ -9,7 +9,7 @@ import {
     researcherPermissions,
     viewerPermissions,
     PoleshiftPermissions
-} from "../../types";
+} from "@/types";
 import {assignClosestHealthyServer} from "@/lib/powersync/assignServer.ts";
 
 interface SupabaseJwtPayload extends JwtPayload {
@@ -129,6 +129,26 @@ export class SupabaseConnector {
     async resetPassword(email: string) {
         const { error } = await this.client.auth.resetPasswordForEmail(email);
         if (error) throw error;
+    }
+
+    // In SupabaseConnector.ts
+    async validateLicenseKey(licenseKey: string) {
+        // This would call a backend function or table query
+        // returning { valid: boolean; organizationName?: string; errorMessage?: string }
+        const { data, error } = await this.client.functions.invoke("validateLicenseKey", {
+            body: { licenseKey }
+        })
+
+        if (error) {
+            // For example, if license is not found or an error occurred
+            return {
+                valid: false,
+                errorMessage: error.message ?? "License validation failed",
+            }
+        }
+
+        // data might look like: { valid: true, organizationName: "My Org" }
+        return data
     }
 
     async fetchCredentials() {

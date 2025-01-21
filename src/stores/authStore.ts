@@ -14,6 +14,12 @@ interface AuthState {
 
     // Actions
     setError: (error: string | null) => void;
+    setLoading: (loading: boolean) => void;
+    setUser: (user: User | null) => void;
+    setUserId: (userId: string | null) => void;
+    setRole: (role: UserRole | null) => void;
+    setOrganizationId: (organizationId: string | null) => void;
+    setPermissions: (userPermissions: null | PoleshiftPermissions[]) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -25,5 +31,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     organizationId: null,
     userPermissions: null,
 
+    setUserId: (userId: string | null) => set({ userId }),
     setError: (error: string | null) => set({ error }),
+    setLoading: (loading: boolean) => set({ loading }),
+    setUser: (user: User | null) => set({ user }),
+    setRole: (role: UserRole | null) => set({ role: role }),
+    setOrganizationId: (organizationId: string | null) => set({ organizationId }),
+    setPermissions: (userPermissions: PoleshiftPermissions[] | null) => set({ userPermissions: userPermissions }),
 }));
