@@ -29,7 +29,7 @@ import {
     raw_nutrient_ammonia_data
 } from '../lib/powersync/DrizzleSchema.ts';
 
-const BATCH_SIZE = 10000;
+const BATCH_SIZE = 100;
 
 /**
  * Helper to create a placeholder in the `processed_data_improved` table.

@@ -22,11 +22,6 @@ pub struct FastqGzReader<R: Read> {
 }
 
 impl FastqGzReader<File> {
-    /// Open a gz-compressed FASTQ file from a filesystem path.
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
-        let file = File::open(path)?;
-        Ok(Self::new(file))
-    }
 }
 
 impl<R: Read> FastqGzReader<R> {
@@ -114,92 +109,9 @@ impl<R: Read> FastqGzReader<R> {
 
         Ok(records)
     }
-
-    /// Validate all records in the gzipped FASTQ file in parallel.
-    /// This checks that each record has the same length for sequence and quality,
-    /// among other potential validations (as defined by the `Validate` trait).
-    pub fn validate_parallel(&mut self) -> Result<(), ParseError> {
-        let records = self.collect_records()?;
-
-        records
-            .par_iter()
-            .try_for_each(|record| record.validate().map_err(ParseError::Fastq))
-    }
-
-    /// Process all records in parallel with a user-supplied function `f`.
-    ///
-    /// # Returns
-    ///
-    /// A `Vec<T>` where `T` is the result of applying `f` to each record.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ParseError` if any record fails validation.
-    pub fn process_parallel<F, T>(&mut self, f: F) -> Result<Vec<T>, ParseError>
-    where
-        F: Fn(&FastqRecord) -> T + Send + Sync,
-        T: Send,
-    {
-        let records = self.collect_records()?;
-
-        // Validate first, in parallel
-        records
-            .par_iter()
-            .try_for_each(|rec| rec.validate().map_err(ParseError::Fastq))?;
-
-        // Apply the user function `f` in parallel
-        let results = records.par_iter().map(f).collect();
-
-        Ok(results)
-    }
-
-    /// Calculate quality statistics (min, max, average) across all records in parallel.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ParseError` if there is a problem reading or validating records.
-    pub fn quality_stats(&mut self) -> Result<QualityStats, ParseError> {
-        let records = self.collect_records()?;
-
-        // Validate records first
-        records
-            .par_iter()
-            .try_for_each(|rec| rec.validate().map_err(ParseError::Fastq))?;
-
-        // Compute per-record stats
-        let per_record_stats: Vec<QualityStats> = records
-            .par_iter()
-            .map(|rec| {
-                if rec.quality.is_empty() {
-                    return QualityStats {
-                        min: 0,
-                        max: 0,
-                        avg: 0.0,
-                        count: 0,
-                    };
-                }
-
-                let min_q = *rec.quality.iter().min().unwrap();
-                let max_q = *rec.quality.iter().max().unwrap();
-                let sum_q: u32 = rec.quality.iter().map(|&b| b as u32).sum();
-                let count = rec.quality.len();
-
-                QualityStats {
-                    min: min_q,
-                    max: max_q,
-                    avg: sum_q as f64 / count as f64,
-                    count,
-                }
-            })
-            .collect();
-
-        // Combine stats
-        Ok(QualityStats::combine(&per_record_stats))
-    }
 }
 
 /// Aggregated statistics over quality scores.
-#[derive(Debug, Clone)]
 pub struct QualityStats {
     pub min: u8,
     pub max: u8,

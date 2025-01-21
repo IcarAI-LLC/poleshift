@@ -29,6 +29,10 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      VITE_SUPABASE_URL: ${{secrets.VITE_SUPABASE_URL}}
+      VITE_SUPABASE_ANON_KEY: ${{secrets.VITE_SUPABASE_ANON_KEY}}
+      VITE_SUPABASE_JWT: ${{secrets.VITE_SUPABASE_JWT}}
+      VITE_AYD_API_KEY: ${{secrets.VITE_AYD_API_KEY}}
 
     steps:
       - name: Checkout Repository
@@ -66,7 +70,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y webkit2gtk-4.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y webkit2gtk-4.1
 
       - name: Add Rust Targets for macOS
         if: matrix.os == 'macos-latest'

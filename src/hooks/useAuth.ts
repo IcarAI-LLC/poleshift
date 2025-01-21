@@ -42,17 +42,21 @@ export const useAuth = () => {
         }
     }, [setError, setLoading, setUser]);
 
-    const signUp = useCallback(async (email: string, password: string) => {
-        try {
-            setLoading(true);
-            await supabaseConnector.signUp(email, password);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Sign up failed');
-            throw err;
-        } finally {
-            setLoading(false);
-        }
-    }, [setError, setLoading]);
+    const signUp = useCallback(
+        async (email: string, password: string) => {
+            try {
+                setLoading(true);
+                // Pass the license key to your supabaseConnector:
+                await supabaseConnector.signUp(email, password);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : "Sign up failed");
+                throw err;
+            } finally {
+                setLoading(false);
+            }
+        },
+        [setError, setLoading]
+    );
 
     const activateLicense = useCallback(async (licenseKey: string) => {
         if (!user) {

@@ -34,3 +34,5 @@ dist-ssr
 /src-tauri/resources/database.kdb.counts
 /src-tauri/resources/taxDB
 /pnpm-lock.yaml
+/src/.env
+/.env

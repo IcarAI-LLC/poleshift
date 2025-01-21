@@ -383,7 +383,7 @@ pub async fn handle_ctd_data(
 
     for row in processed_rows {
         if let Some(depth) = row.depth {
-            if depth >= prev_depth {
+            if depth >= prev_depth && depth > 0.1 {
                 monotonic_filtered.push(row.clone());
                 prev_depth = depth;
             }

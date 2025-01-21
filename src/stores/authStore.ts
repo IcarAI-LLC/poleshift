@@ -1,7 +1,7 @@
 // src/lib/stores/authStore.ts
 
 import { create } from 'zustand';
-import {User, UserRole, PoleshiftPermissions} from '../types';
+import {User, UserRole, PoleshiftPermissions} from '@/types';
 
 interface AuthState {
     user: User | null;

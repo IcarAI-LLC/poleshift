@@ -19,12 +19,20 @@ export class PowerSyncDB {
     public static getInstance(): PowerSyncDatabase {
         try {
             if (!this.instance) {
+                const isLinux =
+                    typeof navigator !== 'undefined' &&
+                    /Linux/i.test(navigator.platform);
+
+                // Then use:
+                const vfsImplementation = isLinux
+                    ? WASQLiteVFS.IDBBatchAtomicVFS
+                    : WASQLiteVFS.OPFSCoopSyncVFS;
                 this.instance = new PowerSyncDatabase({
                     schema: AppSchema,
                     database: new WASQLiteOpenFactory({
-                        dbFilename: 'powersync',
-                        vfs: WASQLiteVFS.AccessHandlePoolVFS,
-                        dbLocation: './powersync',
+                        dbFilename: 'powersync2',
+                        vfs: vfsImplementation,
+                        dbLocation: './powersync2/',
                         flags: {
                             enableMultiTabs: false
                         }

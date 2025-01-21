@@ -3,9 +3,6 @@ use thiserror::Error;
 pub mod fastq;
 pub mod fastqgz;
 
-pub use fastq::FastqReader;
-pub use fastqgz::FastqGzReader;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct FastqRecord {
     pub header: String,
@@ -32,9 +29,7 @@ pub enum ParseError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("FASTQ error: {0}")]
-    Fastq(#[from] FastqError),
-    #[error("Invalid file format")]
-    InvalidFormat,
+    Fastq(#[from] FastqError)
 }
 pub trait Validate {
     type Error;

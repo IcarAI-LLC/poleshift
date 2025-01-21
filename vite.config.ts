@@ -29,7 +29,6 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
             }
             }), eslint(),
             visualizer(),
-            nodePolyfills(),
             ViteImageOptimizer({})],
         // PowerSync
         optimizeDeps: {
@@ -60,8 +59,8 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
         envPrefix: ['VITE_', 'TAURI_ENV_*'],
         build: {
             target: process.env.TAURI_ENV_PLATFORM == 'windows'
-                ? 'chrome105'
-                : 'safari16',
+                ? 'chrome132'
+                : 'safari18',
             minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
             sourcemap: !!process.env.TAURI_ENV_DEBUG
         },
