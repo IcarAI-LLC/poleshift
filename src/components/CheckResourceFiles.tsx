@@ -18,24 +18,24 @@ function removeGzExtension(filename: string): string {
 const resourcesToEnsure = [
     {
         fileName: "database.kdb.gz",
-        url: "https://example.com/database.kdb.gz",
+        url: "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/application-dist/taxdb_v01/database.kdb.gz?t=2025-01-12T00%3A52%3A44.191Z",
         headers: { "Content-Type": "application/x-gzip" },
     },
     {
         fileName: "database.kdb.counts.gz",
-        url: "https://example.com/database.kdb.counts.gz",
+        url: "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/application-dist/taxdb_v01/database.kdb.counts.gz",
         headers: { "Content-Type": "application/x-gzip" },
     },
     {
         fileName: "database.idx.gz",
-        url: "https://example.com/database.idx.gz",
+        url: "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/application-dist/taxdb_v01/database.idx.gz?t=2025-01-12T00%3A49%3A55.601Z",
         headers: { "Content-Type": "application/x-gzip" },
     },
     {
         fileName: "taxDB.gz",
-        url: "https://example.com/taxDB.gz",
+        url: "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/application-dist/taxdb_v01/taxDB.gz",
         headers: { "Content-Type": "application/x-gzip" },
-    },
+    }
     // Add more files as needed
 ];
 
