@@ -81,7 +81,6 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            pnpm run tauri build --target x86_64-apple-darwin
             pnpm run tauri build --target aarch64-apple-darwin
           elif [ "${{ matrix.os }}" == "windows-latest" ]; then
             pnpm run tauri build --verbose
