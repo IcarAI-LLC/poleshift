@@ -188,8 +188,8 @@ export class SupabaseConnector {
     async uploadData(
         database: AbstractPowerSyncDatabase,
         attempt = 1,
-        maxAttempts = 3,
-        maxBatchSize = 5000 // <-- Add your default max batch size here
+        maxAttempts = 10,
+        maxBatchSize = 1024 // <-- Add your default max batch size here
     ): Promise<void> {
         const transaction = await database.getNextCrudTransaction();
 
