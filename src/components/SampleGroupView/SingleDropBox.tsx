@@ -4,7 +4,7 @@ import { Plus, CheckCircle2, Lock, Search } from "lucide-react";
 
 import ProgressTracker from "./ProgressTracker.tsx"; // Replace MUI references with custom ShadCN logic
 import DataChart from "../DataChart.tsx";
-import NutrientAmmoniaView from "../NutrientAmmoniaView.tsx";
+import NutrientAmmoniaView from "./NutrientAmmoniaView.tsx";
 import KrakenVisualization from "../KrakenVisualization/KrakenVisualization.tsx";
 import NutrientAmmoniaInput from "@/components/SampleGroupView/NutrientAmmoniaInput.tsx";
 
