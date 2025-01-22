@@ -1,6 +1,6 @@
 "$schema" = "https://schema.tauri.app/config/2"
 productName = "poleshift"
-version = "0.1.9"
+version = "0.1.10"
 identifier = "io.icarai.poleshift"
 
 [build]
