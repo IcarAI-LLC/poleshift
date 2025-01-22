@@ -10,6 +10,7 @@ mod krakenuniq;
 mod poleshift_common;
 #[cfg(desktop)]
 mod process_sidebar_stats;
+// mod splashscreen;
 
 #[cfg(desktop)]
 use chat::create_chatbot_session;
@@ -28,8 +29,7 @@ pub fn run() {
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             let _ = app.get_webview_window("main")
-                .expect("no main window")
-                .set_focus();
+                .expect("no main window");
         }))
             .invoke_handler(tauri::generate_handler![
             handle_ctd_data,

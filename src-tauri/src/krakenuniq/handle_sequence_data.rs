@@ -72,7 +72,7 @@ fn maybe_decompress(file_path: &str) -> Result<(), PoleshiftError> {
         copy(&mut d, &mut out_file).map_err(|e| {
             PoleshiftError::Other(format!("Failed to decompress {}: {}", gz_path.display(), e))
         })?;
-
+        
         // Now that decompression was successful, remove the `.gz` file
         remove_file(&gz_path).map_err(|e| {
             PoleshiftError::Other(format!(
@@ -83,7 +83,6 @@ fn maybe_decompress(file_path: &str) -> Result<(), PoleshiftError> {
         })?;
         println!("Removed compressed file: {}", gz_path.display());
     }
-
     Ok(())
 }
 
