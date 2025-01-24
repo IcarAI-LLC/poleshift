@@ -14,7 +14,7 @@ env:
 
 jobs:
   draft:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest-m
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-latest, windows-latest]
+        os: [ubuntu-latest-m, macos-latest, windows-latest-l]
 
     env:
       NODE_OPTIONS: "--max-old-space-size=8192"
@@ -93,7 +93,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install Dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-latest-m'
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
@@ -111,7 +111,7 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             pnpm tauri build --target aarch64-apple-darwin
-          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+          elif [ "${{ matrix.os }}" == "windows-latest-l" ]; then
             pnpm tauri build --verbose
           else
             pnpm tauri build --verbose --bundles appimage deb updater
