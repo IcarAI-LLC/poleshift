@@ -35,6 +35,7 @@ createUpdaterArtifacts = true
 category = "Utility"
 resources = [ "resources/taxdb_config.toml" ]
 copyright = "IcarAI LLC 2025"
+homepage = "https://poleshift.cloud"
 licenseFile = "../LICENSE"
 publisher = "IcarAI LLC"
 shortDescription = "Research application"
