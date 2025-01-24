@@ -1,6 +1,6 @@
 '$schema' = "https://schema.tauri.app/config/2"
 productName = "poleshift"
-version = "0.1.10"
+version = "0.1.11"
 identifier = "io.icarai.poleshift"
 
 [build]
@@ -18,14 +18,13 @@ withGlobalTauri = true
 title = "poleshift"
 width = 1_920
 height = 1_080
-visible = false
 label = "main"
-
+visible = false
 [[app.windows]]
 title = "Initializing poleshift"
-width = 800
+width = 600
 height = 800
-url = "/splashscreen"
+url = "splashscreen.html"
 label = "splashscreen"
 decorations = false
 
