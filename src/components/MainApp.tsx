@@ -14,7 +14,6 @@ import AccountModal from './LeftSidebar/Modals/AccountModal.tsx';
 // Remove: import ErrorMessage from "./ErrorMessage";
 
 import ChatWidget from '@/components/Chatbot/ChatWidget';
-import CheckResourceFiles from '@/components/CheckResourceFiles.tsx';
 import { Loader2 } from 'lucide-react';
 
 // 1) Import useToast from your shadcn toast utility
@@ -25,7 +24,6 @@ const MainApp: React.FC = () => {
   const auth = useAuth();
   const data = useData();
   const ui = useUI();
-  CheckResourceFiles({});
 
   const { error: authError, setError: setAuthError } = auth;
   const { error: dataError } = data;

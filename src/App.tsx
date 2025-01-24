@@ -8,7 +8,6 @@ import { checkForAppUpdates } from './updater';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToastProvider } from '@/components/ui/toast.tsx';
 import { Toaster } from '@/components/ui/toaster.tsx';
-import { ResourceDownloadProvider } from '@/stores/ResourceDownloadContext.tsx';
 import DnaLoadingIcon from '@/components/DnaLoadingIcon.tsx';
 import { ThemeProvider } from '@/components/ui/theme-provider.tsx';
 
@@ -47,14 +46,12 @@ function App() {
   return (
     <PowerSyncContext.Provider value={db}>
       <ThemeProvider defaultTheme='system' storageKey='vite-ui-theme'>
-        <ResourceDownloadProvider>
           <ToastProvider>
             <TooltipProvider>
               <PreAuth />
               <Toaster></Toaster>
             </TooltipProvider>
           </ToastProvider>
-        </ResourceDownloadProvider>
       </ThemeProvider>
     </PowerSyncContext.Provider>
   );

@@ -29,7 +29,6 @@ import { SidebarTree } from './SidebarTree';
 
 // Indicators
 import { SyncProgressIndicator } from './Indicators/SyncIndicator';
-import { ResourceDownloadIndicator } from './Indicators/ResourceDownloadIndicator';
 import { NetworkIndicator } from './Indicators/NetworkIndicator';
 
 // Modals
@@ -275,8 +274,6 @@ export function LeftSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-
-        <ResourceDownloadIndicator />
         <SidebarRail />
       </Sidebar>
 
