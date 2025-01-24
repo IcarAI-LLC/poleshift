@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest-m, macos-latest, windows-latest-l]
+        os: [ubuntu-22.04, macos-latest, windows-latest-l]
 
     env:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -72,7 +72,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install Dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-latest-m'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1
@@ -81,11 +81,6 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           rustup target add x86_64-apple-darwin aarch64-apple-darwin
-
-      - name: Install openssl on Windows
-        if: matrix.os == 'windows-latest-l'
-        run: |
-          powershell.exe ./.github/workflows/scripts/Install-OpenSSL.ps1
 
       - name: Build Tauri Application
         shell: bash
