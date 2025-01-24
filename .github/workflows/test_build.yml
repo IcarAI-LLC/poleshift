@@ -77,6 +77,11 @@ jobs:
         run: |
           rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
+      - name: Install openssl on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          run: powershell.exe ./.github/workflows/Install-OpenSSL.ps1
+
       - name: Build Tauri Application
         shell: bash
         run: |
