@@ -271,6 +271,7 @@ export default function SingleDropBox({
         return (
           <KrakenVisualization
             data={detailedData.data}
+            sampleId={sampleGroup.id}
             open={dataDialogOpen}
             onClose={() => setDataDialogOpen(false)}
           />
@@ -431,6 +432,7 @@ export default function SingleDropBox({
       {dataDialogOpen && detailedData?.dataType === DataType.Sequence && (
         <KrakenVisualization
           data={detailedData.data}
+          sampleId={sampleGroup.id}
           open={dataDialogOpen}
           onClose={() => setDataDialogOpen(false)}
         />

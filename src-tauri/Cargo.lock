@@ -3207,12 +3207,16 @@ name = "poleshift"
 version = "0.1.10"
 dependencies = [
  "flate2",
+ "futures-util",
+ "hex",
  "krakenuniq-rs",
+ "openssl",
  "rayon",
  "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-cli",

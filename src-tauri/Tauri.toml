@@ -18,20 +18,23 @@ withGlobalTauri = true
 title = "poleshift"
 width = 1_920
 height = 1_080
+visible = false
+label = "main"
 
-#[[app.windows]]
-#title = "Initializing poleshift"
-#width = 800
-#height = 800
-#url = "splashscreen.html"
-#label = "splashscreen"
+[[app.windows]]
+title = "Initializing poleshift"
+width = 800
+height = 800
+url = "/splashscreen"
+label = "splashscreen"
+decorations = false
 
 [bundle]
 active = true
 targets = "all"
 createUpdaterArtifacts = true
 category = "Utility"
-resources = [ "resources/checksum", "resources/checksum_decompressed" ]
+resources = [ "resources/taxdb_config.toml" ]
 copyright = "IcarAI LLC 2025"
 licenseFile = "../LICENSE"
 publisher = "IcarAI LLC"

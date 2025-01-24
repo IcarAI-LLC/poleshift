@@ -1,0 +1,74 @@
+/* Reset default margins/padding */
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+/* Use a sans-serif font, dark purple background, light text */
+body {
+    font-family: sans-serif;
+    background-color: #3c0f59; /* Dark purple */
+    color: #e7ddec;           /* Light text */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+/* Container that mimics "max-w-sm" style from Tailwind */
+.max-w-sm {
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+    margin: 0 auto;
+}
+
+/* Title styling */
+h1 {
+    font-size: 1.5rem;  /* ~text-2xl */
+    font-weight: 600;   /* ~font-semibold */
+    margin-bottom: 1rem;
+}
+
+/* Progress container spacing */
+.progress-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    row-gap: 0.5rem; /* ~space-y-2 in Tailwind */
+}
+
+/* Status text styling */
+#status {
+    font-size: 0.875rem; /* ~text-sm */
+    color: #cab9d7;      /* slightly lighter purple */
+}
+
+/* PROGRESS BAR STYLING */
+
+/* Basic bar sizing and shape */
+progress {
+    width: 100%;
+    height: 1rem;         /* ~h-4 */
+    border-radius: 0.5rem;
+    overflow: hidden;
+    /* Remove default appearance in WebKit-based browsers */
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: #5e2b7a; /* A medium purple for the track */
+}
+
+/* For Chrome, Safari, Opera */
+progress::-webkit-progress-bar {
+    background-color: #5e2b7a; /* track color */
+}
+progress::-webkit-progress-value {
+    background-color: #a563c4; /* fill color */
+}
+
+/* For Firefox */
+progress::-moz-progress-bar {
+    background-color: #a563c4; /* fill color */
+}

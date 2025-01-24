@@ -16,24 +16,17 @@ import {
   ProcessedNutrientAmmoniaData,
   HandleCtdDataResult,
   HandleSequenceDataResult,
-  ProgressPayload,
-  RawFastqData,
-  ProcessedKrakenUniqReport,
-  ProcessedKrakenUniqStdout,
+  ProgressPayload
 } from '@/types';
 
 import {
   DataType,
-  processed_ctd_rbr_data_values,
   processed_data_improved,
   processed_nutrient_ammonia_data,
   ProcessingState,
-  raw_ctd_rbr_data_values,
   raw_data_improved,
   raw_nutrient_ammonia_data,
 } from '../lib/powersync/DrizzleSchema.ts';
-
-const BATCH_SIZE = 2048;
 
 /**
  * Helper to create a placeholder in the `processed_data_improved` table.
@@ -93,54 +86,49 @@ async function updateProcessingState(
     .run();
 }
 
-/**
- * Hook that provides functions to process various data types via Tauri commands.
- */
-export function useTauriDataProcessor() {
-  const { userId, organizationId } = useAuthStore.getState();
-  const db = usePowerSync();
-  const drizzleDB = wrapPowerSyncWithDrizzle(db);
 
-  async function bulkInsertJSON1(
+/**
+ * Helper to do bulk JSON insertion.
+ * (Update your signature if needed to support the CTD data types.)
+ */
+async function bulkInsertJSON1<T extends object>(
+    db: ReturnType<typeof usePowerSync>,
     tableName: string,
     columns: string[],
-    data:
-      | RawFastqData[]
-      | ProcessedKrakenUniqReport[]
-      | ProcessedKrakenUniqStdout[]
-  ): Promise<void> {
+    data: T[]
+): Promise<void> {
     if (data.length === 0) {
-      console.info(
-        `bulkInsertJSON1: No data provided for table '${tableName}'. Skipping insertion.`
-      );
-      return;
+        console.info(
+            `bulkInsertJSON1: No data provided for table '${tableName}'. Skipping insertion.`
+        );
+        return;
     }
 
     // Log the start of the bulk insert process
     console.info(
-      `bulkInsertJSON1: Starting bulk insert into table '${tableName}'. Number of records: ${data.length}`
+        `bulkInsertJSON1: Starting bulk insert into table '${tableName}'. Number of records: ${data.length}`
     );
 
     // Serialize data to JSON
     let jsonData: string;
     try {
-      jsonData = JSON.stringify(data);
-      const byteLength = new TextEncoder().encode(jsonData).length;
-      console.debug(
-        `bulkInsertJSON1: Serialized data to JSON. Size: ${byteLength} bytes.`
-      );
+        jsonData = JSON.stringify(data);
+        const byteLength = new TextEncoder().encode(jsonData).length;
+        console.debug(
+            `bulkInsertJSON1: Serialized data to JSON. Size: ${byteLength} bytes.`
+        );
     } catch (serializationError) {
-      console.error(
-        `bulkInsertJSON1: Failed to serialize data to JSON for table '${tableName}'. Error:`,
-        serializationError
-      );
-      throw serializationError; // Re-throw after logging
+        console.error(
+            `bulkInsertJSON1: Failed to serialize data to JSON for table '${tableName}'. Error:`,
+            serializationError
+        );
+        throw serializationError; // Re-throw after logging
     }
 
     // Construct column mappings for the SELECT statement, referencing 'e.value'
     const columnMappings = columns
-      .map((col) => `e.value ->> '${col}' AS ${col}`)
-      .join(', ');
+        .map((col) => `e.value ->> '${col}' AS ${col}`)
+        .join(', ');
     console.debug(`bulkInsertJSON1: Column mappings: ${columnMappings}`);
 
     // Construct the SQL query with a CTE and alias 'e' for json_each
@@ -159,145 +147,201 @@ export function useTauriDataProcessor() {
     // Execute the query with timing
     const startTime = Date.now();
     try {
-      console.debug(
-        `bulkInsertJSON1: Executing SQL query for table '${tableName}' with JSON data.`
-      );
-      await db.execute(sql, [jsonData]);
-      const duration = Date.now() - startTime;
-      console.info(
-        `bulkInsertJSON1: Successfully inserted ${data.length} records into '${tableName}' in ${duration}ms.`
-      );
+        console.debug(
+            `bulkInsertJSON1: Executing SQL query for table '${tableName}' with JSON data.`
+        );
+        await db.execute(sql, [jsonData]);
+        const duration = Date.now() - startTime;
+        console.info(
+            `bulkInsertJSON1: Successfully inserted ${data.length} records into '${tableName}' in ${duration}ms.`
+        );
     } catch (executionError) {
-      console.error(
-        `bulkInsertJSON1: Failed to execute bulk insert for table '${tableName}'. Error:`,
-        executionError
-      );
-      throw executionError;
+        console.error(
+            `bulkInsertJSON1: Failed to execute bulk insert for table '${tableName}'. Error:`,
+            executionError
+        );
+        throw executionError;
     }
-  }
+}
 
-  /**
-   * Process CTD data files via Tauri command and save to database.
-   */
+/**
+ * Hook that provides functions to process various data types via Tauri commands.
+ */
+export function useTauriDataProcessor() {
+  const { userId, organizationId } = useAuthStore.getState();
+  const db = usePowerSync();
+  const drizzleDB = wrapPowerSyncWithDrizzle(db);
+
+
+  // --------------------------------------------------------------------------
+  //  processCtdData updated to use bulkInsertJSON1
+  // --------------------------------------------------------------------------
   async function processCtdData(
-    sampleGroupId: string,
-    filePaths: string[]
+      sampleGroupId: string,
+      filePaths: string[]
   ): Promise<void> {
-    if (!userId || !organizationId) {
-      throw new Error('User credentials could not be found.');
-    }
-    if (!filePaths.length) {
-      throw new Error('No CTD file paths provided.');
-    }
+      if (!userId || !organizationId) {
+          throw new Error('User credentials could not be found.');
+      }
+      if (!filePaths.length) {
+          throw new Error('No CTD file paths provided.');
+      }
 
-    // Generate IDs
-    const rawDataId = uuidv4();
-    const processedDataId = uuidv4();
+      // Generate IDs
+      const rawDataId = uuidv4();
+      const processedDataId = uuidv4();
 
-    // Create a placeholder for the processed data
-    await createProcessedDataPlaceholder(drizzleDB, {
-      id: processedDataId,
-      dataType: DataType.CTD,
-      userId,
-      orgId: organizationId,
-      sampleId: sampleGroupId,
-      statusMessage: 'Waiting for Tauri to start...',
-    });
+      // Create a placeholder for the processed data
+      await createProcessedDataPlaceholder(drizzleDB, {
+          id: processedDataId,
+          dataType: DataType.CTD,
+          userId,
+          orgId: organizationId,
+          sampleId: sampleGroupId,
+          statusMessage: 'Waiting for Tauri to start...',
+      });
 
-    // Prepare a raw-data entry (not yet inserted)
-    const rawDataEntry: RawDataImproved = {
-      id: rawDataId,
-      data_type: DataType.CTD,
-      user_id: userId,
-      org_id: organizationId,
-      sample_id: sampleGroupId,
-      created_at: DateTime.now().toISO(),
-    };
-
-    let progressUnlisten: UnlistenFn | undefined;
-
-    try {
-      // Listen to progress events
-      progressUnlisten = await listen<ProgressPayload>(
-        'progress',
-        async ({ payload }) => {
-          const { progress_percentage, status_message, processing_state } =
-            payload;
-          await updateProcessingState(
-            drizzleDB,
-            processedDataId,
-            progress_percentage,
-            status_message,
-            processing_state
-          );
-        }
-      );
-
-      // Invoke the Tauri command
-      const result: HandleCtdDataResult = await invoke(
-        TauriProcessingFunctions.CTD,
-        {
-          sample_id: sampleGroupId,
-          org_id: organizationId,
+      // Prepare a raw-data entry (not yet inserted)
+      const rawDataEntry: RawDataImproved = {
+          id: rawDataId,
+          data_type: DataType.CTD,
           user_id: userId,
-          raw_data_id: rawDataId,
-          processed_data_id: processedDataId,
-          file_paths: filePaths,
-        }
-      );
+          org_id: organizationId,
+          sample_id: sampleGroupId,
+          created_at: DateTime.now().toISO(),
+      };
 
-      console.debug('CTD processing result:', result);
-      if (result.status !== 'Success') {
-        throw new Error(`CTD processing failed: ${result.status}`);
+      let progressUnlisten: UnlistenFn | undefined;
+
+      try {
+          // Listen to progress events
+          progressUnlisten = await listen<ProgressPayload>(
+              'progress',
+              async ({ payload }) => {
+                  const { progress_percentage, status_message, processing_state } =
+                      payload;
+                  await updateProcessingState(
+                      drizzleDB,
+                      processedDataId,
+                      progress_percentage,
+                      status_message,
+                      processing_state
+                  );
+              }
+          );
+
+          // Invoke the Tauri command
+          const result: HandleCtdDataResult = await invoke(
+              TauriProcessingFunctions.CTD,
+              {
+                  sample_id: sampleGroupId,
+                  org_id: organizationId,
+                  user_id: userId,
+                  raw_data_id: rawDataId,
+                  processed_data_id: processedDataId,
+                  file_paths: filePaths,
+              }
+          );
+
+          console.debug('CTD processing result:', result);
+          if (result.status !== 'Success') {
+              throw new Error(`CTD processing failed: ${result.status}`);
+          }
+
+          if (!result.report.raw_data || result.report.raw_data.length === 0) {
+              throw new Error('CTD file is empty or invalid.');
+          }
+
+          // Update to "Saving" phase
+          await updateProcessingState(
+              drizzleDB,
+              processedDataId,
+              0,
+              'Saving CTD data to the database...',
+              ProcessingState.Saving
+          );
+
+          // 1) Insert raw_data_improved
+          await drizzleDB.insert(raw_data_improved).values(rawDataEntry).run();
+
+          const { raw_data, processed_data } = result.report;
+
+          // 2) Use bulkInsertJSON1 for raw_ctd_rbr_data_values
+          await bulkInsertJSON1(
+              db, // pass the PowerSync DB handle
+              'raw_ctd_rbr_data_values',
+              [
+                  'id',
+                  'timestamp',
+                  'depth',
+                  'pressure',
+                  'sea_pressure',
+                  'temperature',
+                  'chlorophyll_a',
+                  'salinity',
+                  'speed_of_sound',
+                  'specific_conductivity',
+                  'raw_data_id',
+                  'user_id',
+                  'org_id',
+                  'sample_id',
+                  'depth_unit',
+                  'pressure_unit',
+                  'sea_pressure_unit',
+                  'temperature_unit',
+                  'chlorophyll_a_unit',
+                  'salinity_unit',
+                  'speed_of_sound_unit',
+                  'specific_conductivity_unit',
+              ],
+              raw_data
+          );
+
+          // 3) Use bulkInsertJSON1 for processed_ctd_rbr_data_values
+          await bulkInsertJSON1(
+              db,
+              'processed_ctd_rbr_data_values',
+              [
+                  'id',
+                  'timestamp',
+                  'depth',
+                  'pressure',
+                  'sea_pressure',
+                  'temperature',
+                  'chlorophyll_a',
+                  'salinity',
+                  'speed_of_sound',
+                  'specific_conductivity',
+                  'processed_data_id',
+                  'user_id',
+                  'org_id',
+                  'sample_id',
+                  'depth_unit',
+                  'pressure_unit',
+                  'sea_pressure_unit',
+                  'temperature_unit',
+                  'chlorophyll_a_unit',
+                  'salinity_unit',
+                  'speed_of_sound_unit',
+                  'specific_conductivity_unit',
+              ],
+              processed_data
+          );
+
+          // Finally set to "Complete"
+          await updateProcessingState(
+              drizzleDB,
+              processedDataId,
+              100,
+              'CTD data successfully saved.',
+              ProcessingState.Complete
+          );
+      } finally {
+          // Clean up event listener
+          if (progressUnlisten) {
+              progressUnlisten();
+          }
       }
-
-      if (!result.report.raw_data || result.report.raw_data.length === 0) {
-        throw new Error('CTD file is empty or invalid.');
-      }
-
-      // Update to "Saving" phase
-      await updateProcessingState(
-        drizzleDB,
-        processedDataId,
-        0,
-        'Saving CTD data to the database...',
-        ProcessingState.Saving
-      );
-
-      // Insert raw_data_improved
-      await drizzleDB.insert(raw_data_improved).values(rawDataEntry).run();
-
-      // Insert raw data in batches
-      const { raw_data, processed_data } = result.report;
-
-      for (let i = 0; i < raw_data.length; i += BATCH_SIZE) {
-        const batch = raw_data.slice(i, i + BATCH_SIZE);
-        await drizzleDB.insert(raw_ctd_rbr_data_values).values(batch).run();
-      }
-
-      // Insert processed data in batches
-      for (let i = 0; i < processed_data.length; i += BATCH_SIZE) {
-        const batch = processed_data.slice(i, i + BATCH_SIZE);
-        await drizzleDB
-          .insert(processed_ctd_rbr_data_values)
-          .values(batch)
-          .run();
-      }
-
-      // Finally set to "Complete"
-      await updateProcessingState(
-        drizzleDB,
-        processedDataId,
-        100,
-        'CTD data successfully saved.',
-        ProcessingState.Complete
-      );
-    } finally {
-      // Clean up event listener
-      if (progressUnlisten) {
-        progressUnlisten();
-      }
-    }
   }
 
   /**
@@ -485,6 +529,7 @@ export function useTauriDataProcessor() {
 
       // Bulk insert raw FASTQ data
       await bulkInsertJSON1(
+          db,
         'raw_fastq_data',
         [
           'id',
@@ -512,6 +557,7 @@ export function useTauriDataProcessor() {
       );
 
       await bulkInsertJSON1(
+          db,
         'processed_kraken_uniq_report',
         [
           'id',
@@ -536,6 +582,7 @@ export function useTauriDataProcessor() {
       );
 
       await bulkInsertJSON1(
+          db,
         'processed_kraken_uniq_stdout',
         [
           'id',

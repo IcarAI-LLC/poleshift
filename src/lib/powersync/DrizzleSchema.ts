@@ -278,7 +278,7 @@ export const processed_ctd_rbr_data_values = sqliteTable(
     chlorophyll_a_unit: text('chlorophyll_a_unit'),
     salinity_unit: text('salinity_unit'),
     speed_of_sound_unit: text('speed_of_sound_unit'),
-    specific_conductivity_unit: text('specific_conductivity'),
+    specific_conductivity_unit: text('specific_conductivity_unit'),
   }
 );
 
@@ -385,7 +385,7 @@ export const raw_ctd_rbr_data_values = sqliteTable('raw_ctd_rbr_data_values', {
   chlorophyll_a_unit: text('chlorophyll_a_unit'),
   salinity_unit: text('salinity_unit'),
   speed_of_sound_unit: text('speed_of_sound_unit'),
-  specific_conductivity_unit: text('specific_conductivity'),
+  specific_conductivity_unit: text('specific_conductivity_unit'),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -435,7 +435,6 @@ export const raw_fastq_data = sqliteTable('raw_fastq_data', {
   sample_id: text('sample_id')
     .notNull()
     .references(() => sample_group_metadata.id),
-  sync_flag: integer('sync_flag').$type<boolean>(),
 });
 
 /** ─────────────────────────────────────────────────────────────────────────────

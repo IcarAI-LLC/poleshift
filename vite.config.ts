@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import eslint from 'vite-plugin-eslint';
 //because __dirname was showing undefined
 import { fileURLToPath } from 'url';
+// @ts-ignore
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { visualizer } from 'rollup-plugin-visualizer';
