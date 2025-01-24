@@ -2,7 +2,10 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@powersync/react';
 import { usePowerSync } from '@powersync/react';
-import { toCompilableQuery, wrapPowerSyncWithDrizzle } from '@powersync/drizzle-driver';
+import {
+  toCompilableQuery,
+  wrapPowerSyncWithDrizzle,
+} from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import { DrizzleSchema, user_settings } from '@/lib/powersync/DrizzleSchema';
 import { UserSettings } from '@/types';
@@ -17,103 +20,103 @@ import { useAuth } from '@/hooks'; // or wherever your auth hook is
  * The table has a primary key of type `text` named `id`, which references the user’s ID.
  */
 export const useSettings = () => {
-    const { user } = useAuth();
-    const userId = user?.id; // typically a string user ID
+  const { user } = useAuth();
+  const userId = user?.id; // typically a string user ID
 
-    // 1. Get the PowerSync database and wrap it with Drizzle
-    const db = usePowerSync();
-    const drizzleDB = wrapPowerSyncWithDrizzle(db, { schema: DrizzleSchema });
+  // 1. Get the PowerSync database and wrap it with Drizzle
+  const db = usePowerSync();
+  const drizzleDB = wrapPowerSyncWithDrizzle(db, { schema: DrizzleSchema });
 
-    // 2. Memoize a query that selects exactly the row for the current user
-    const userSettingsQuery = useMemo(() => {
-        return drizzleDB
-            .select()
-            .from(user_settings)
-            .where(eq(user_settings.id, userId || ''));
-    }, [drizzleDB, userId]);
+  // 2. Memoize a query that selects exactly the row for the current user
+  const userSettingsQuery = useMemo(() => {
+    return drizzleDB
+      .select()
+      .from(user_settings)
+      .where(eq(user_settings.id, userId || ''));
+  }, [drizzleDB, userId]);
 
-    // 3. Convert the Drizzle query to something the useQuery hook can consume
-    const compiledUserSettingsQuery = toCompilableQuery(userSettingsQuery);
+  // 3. Convert the Drizzle query to something the useQuery hook can consume
+  const compiledUserSettingsQuery = toCompilableQuery(userSettingsQuery);
 
-    // 4. Fetch the data reactively (skip if we have no user)
-    const {
-        data: userSettingsArray = [],
-        isLoading: userSettingsLoading,
-        error: userSettingsError,
-    } = useQuery<UserSettings>(compiledUserSettingsQuery);
+  // 4. Fetch the data reactively (skip if we have no user)
+  const {
+    data: userSettingsArray = [],
+    isLoading: userSettingsLoading,
+    error: userSettingsError,
+  } = useQuery<UserSettings>(compiledUserSettingsQuery);
 
-    // 5. Typically there is only one settings row per user, so pick the first
-    const userSettings = userSettingsArray[0];
+  // 5. Typically there is only one settings row per user, so pick the first
+  const userSettings = userSettingsArray[0];
 
-    // 6. Handle loading & error states
-    const loading = userSettingsLoading;
-    const error = userSettingsError || null;
+  // 6. Handle loading & error states
+  const loading = userSettingsLoading;
+  const error = userSettingsError || null;
 
-    // 7. Utility to log errors
-    const setError = useCallback((err: string | null) => {
-        if (err) {
-            console.error(err);
-        }
-    }, []);
+  // 7. Utility to log errors
+  const setError = useCallback((err: string | null) => {
+    if (err) {
+      console.error(err);
+    }
+  }, []);
 
-    // 8. CRUD Operations
+  // 8. CRUD Operations
 
-    /**
-     * Add a new user_settings row for this user.
-     */
-    const addUserSetting = useCallback(
-        async (setting: UserSettings) => {
-            if (!userId) {
-                throw new Error('Cannot add settings: No current user ID');
-            }
-            setting.id = userId;
-            await drizzleDB.insert(user_settings).values(setting).run();
-        },
-        [drizzleDB, userId, setError]
-    );
+  /**
+   * Add a new user_settings row for this user.
+   */
+  const addUserSetting = useCallback(
+    async (setting: UserSettings) => {
+      if (!userId) {
+        throw new Error('Cannot add settings: No current user ID');
+      }
+      setting.id = userId;
+      await drizzleDB.insert(user_settings).values(setting).run();
+    },
+    [drizzleDB, userId, setError]
+  );
 
-    /**
-     * Update the current user’s row with new fields.
-     */
-    const updateUserSetting = useCallback(
-        async (updates: Partial<UserSettings>) => {
-            if (!userId) {
-                throw new Error('Cannot update settings: No current user ID');
-            }
-            await drizzleDB
-                .update(user_settings)
-                .set(updates)
-                .where(eq(user_settings.id, userId))
-                .run();
-        },
-        [drizzleDB, userId, setError]
-    );
+  /**
+   * Update the current user’s row with new fields.
+   */
+  const updateUserSetting = useCallback(
+    async (updates: Partial<UserSettings>) => {
+      if (!userId) {
+        throw new Error('Cannot update settings: No current user ID');
+      }
+      await drizzleDB
+        .update(user_settings)
+        .set(updates)
+        .where(eq(user_settings.id, userId))
+        .run();
+    },
+    [drizzleDB, userId, setError]
+  );
 
-    /**
-     * Delete the current user’s settings row.
-     */
-    const deleteUserSetting = useCallback(async () => {
-        if (!userId) {
-            throw new Error('Cannot delete settings: No current user ID');
-        }
-        await drizzleDB
-            .delete(user_settings)
-            .where(eq(user_settings.id, userId))
-            .run();
-    }, [drizzleDB, userId, setError]);
+  /**
+   * Delete the current user’s settings row.
+   */
+  const deleteUserSetting = useCallback(async () => {
+    if (!userId) {
+      throw new Error('Cannot delete settings: No current user ID');
+    }
+    await drizzleDB
+      .delete(user_settings)
+      .where(eq(user_settings.id, userId))
+      .run();
+  }, [drizzleDB, userId, setError]);
 
-    // 9. Return the current user’s settings + CRUD
-    return {
-        // Single row for the current user (or null if none exists yet)
-        userSettings,
-        loading,
-        error,
+  // 9. Return the current user’s settings + CRUD
+  return {
+    // Single row for the current user (or null if none exists yet)
+    userSettings,
+    loading,
+    error,
 
-        // CRUD actions
-        addUserSetting,
-        updateUserSetting,
-        deleteUserSetting,
-    };
+    // CRUD actions
+    addUserSetting,
+    updateUserSetting,
+    deleteUserSetting,
+  };
 };
 
 export default useSettings;

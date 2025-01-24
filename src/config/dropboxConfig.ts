@@ -1,11 +1,19 @@
 // src/renderer/config/dropboxConfig.ts
 
-import {DataType} from "@/lib/powersync/DrizzleSchema.ts";
+import { DataType } from '@/lib/powersync/DrizzleSchema.ts';
 
 export interface ModalField {
   name: string;
   label?: string;
-  type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'time' | 'timezone' | 'location';
+  type:
+    | 'text'
+    | 'textarea'
+    | 'select'
+    | 'number'
+    | 'date'
+    | 'time'
+    | 'timezone'
+    | 'location';
   tooltip?: string;
   required?: boolean;
 }
@@ -39,7 +47,8 @@ const dropboxConfig: DropboxConfigItem[] = [
         name: 'ammoniaValue',
         type: 'number',
         label: 'Ammonia Value',
-        tooltip: 'Please input the Ammonia value, this will be converted to Ammonium.',
+        tooltip:
+          'Please input the Ammonia value, this will be converted to Ammonium.',
       },
     ],
   },
@@ -61,7 +70,7 @@ const dropboxConfig: DropboxConfigItem[] = [
     label: 'Sequencing Data',
     dataType: DataType.Sequence,
     expectedFileTypes: {
-      'text/plain': ['.fastq', '.fq', '.fasta', '.fa', '.gz']
+      'text/plain': ['.fastq', '.fq', '.fasta', '.fa', '.gz'],
     },
     isEnabled: true,
     isModalInput: false,

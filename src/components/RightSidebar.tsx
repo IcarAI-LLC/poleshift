@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { DateTime } from "luxon";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { DateTime } from 'luxon';
 
 // ─────────────────────────────────────────────────────────────
 // shadcn/ui Sidebar components
@@ -9,20 +9,20 @@ import {
   Sidebar,
   SidebarContent,
   SidebarRail,
-} from "@/components/ui/sidebar";
+} from '@/components/ui/sidebar';
 
 // ─────────────────────────────────────────────────────────────
 // Other shadcn/ui components
 // ─────────────────────────────────────────────────────────────
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 
 // ─────────────────────────────────────────────────────────────
 // Your custom hooks and data methods
 // ─────────────────────────────────────────────────────────────
-import { usePowerSync, useQuery } from "@powersync/react";
-import { useUI, useData } from "../hooks";
+import { usePowerSync, useQuery } from '@powersync/react';
+import { useUI, useData } from '../hooks';
 import {
   DrizzleSchema,
   processed_data_improved,
@@ -31,12 +31,12 @@ import {
   processed_kraken_uniq_report,
   sample_group_metadata,
   DataType,
-} from "../lib/powersync/DrizzleSchema";
-import { eq, and, inArray } from "drizzle-orm";
+} from '../lib/powersync/DrizzleSchema';
+import { eq, and, inArray } from 'drizzle-orm';
 import {
   toCompilableQuery,
   wrapPowerSyncWithDrizzle,
-} from "@powersync/drizzle-driver";
+} from '@powersync/drizzle-driver';
 
 /* -------------------------------------------------------------------------
    1. Types & Initial States
@@ -95,129 +95,151 @@ const RightSidebar: React.FC = () => {
   const samplesAtLocation = useMemo(() => {
     if (!selectedRightItem) return [];
     return Object.values(sampleGroups).filter(
-        (group: typeof sample_group_metadata.$inferSelect) => {
-          // 1) Must match location
-          if (group.loc_id !== selectedRightItem.id) return false;
+      (group: typeof sample_group_metadata.$inferSelect) => {
+        // 1) Must match location
+        if (group.loc_id !== selectedRightItem.id) return false;
 
-          // 2) If certain locations are selected, filter out others
+        // 2) If certain locations are selected, filter out others
+        if (
+          filters.selectedLocations.length > 0 &&
+          !filters.selectedLocations.includes(group.loc_id)
+        ) {
+          return false;
+        }
+
+        // 3) Filter out excluded if showExcluded=false
+        if (!filters.showExcluded && group.excluded) {
+          return false;
+        }
+
+        // 4) Date range
+        if (group.collection_date) {
+          const sampleDate = DateTime.fromISO(group.collection_date);
           if (
-              filters.selectedLocations.length > 0 &&
-              !filters.selectedLocations.includes(group.loc_id)
+            filters.startDate &&
+            sampleDate < DateTime.fromISO(filters.startDate)
           ) {
             return false;
           }
-
-          // 3) Filter out excluded if showExcluded=false
-          if (!filters.showExcluded && group.excluded) {
+          if (
+            filters.endDate &&
+            sampleDate > DateTime.fromISO(filters.endDate)
+          ) {
             return false;
           }
-
-          // 4) Date range
-          if (group.collection_date) {
-            const sampleDate = DateTime.fromISO(group.collection_date);
-            if (filters.startDate && sampleDate < DateTime.fromISO(filters.startDate)) {
-              return false;
-            }
-            if (filters.endDate && sampleDate > DateTime.fromISO(filters.endDate)) {
-              return false;
-            }
-          }
-
-          return true;
         }
+
+        return true;
+      }
     );
   }, [selectedRightItem, sampleGroups, filters]);
 
-  const sampleIds = useMemo(() => samplesAtLocation.map((g) => g.id), [samplesAtLocation]);
+  const sampleIds = useMemo(
+    () => samplesAtLocation.map((g) => g.id),
+    [samplesAtLocation]
+  );
 
   // ─────────────────────────────────────────────────────────────
   // Queries
   // ─────────────────────────────────────────────────────────────
   const ctdDataQuery = useMemo(() => {
     return drizzleDB
-        .select()
-        .from(processed_data_improved)
-        .where(
-            and(
-                eq(processed_data_improved.data_type, DataType.CTD),
-                sampleIds.length
-                    ? inArray(processed_data_improved.sample_id, sampleIds)
-                    : eq(processed_data_improved.sample_id, "FALSE")
-            )
-        );
+      .select()
+      .from(processed_data_improved)
+      .where(
+        and(
+          eq(processed_data_improved.data_type, DataType.CTD),
+          sampleIds.length
+            ? inArray(processed_data_improved.sample_id, sampleIds)
+            : eq(processed_data_improved.sample_id, 'FALSE')
+        )
+      );
   }, [drizzleDB, sampleIds]);
 
   const nutrientDataQuery = useMemo(() => {
     return drizzleDB
-        .select()
-        .from(processed_data_improved)
-        .where(
-            and(
-                eq(processed_data_improved.data_type, DataType.NutrientAmmonia),
-                sampleIds.length
-                    ? inArray(processed_data_improved.sample_id, sampleIds)
-                    : eq(processed_data_improved.sample_id, "FALSE")
-            )
-        );
+      .select()
+      .from(processed_data_improved)
+      .where(
+        and(
+          eq(processed_data_improved.data_type, DataType.NutrientAmmonia),
+          sampleIds.length
+            ? inArray(processed_data_improved.sample_id, sampleIds)
+            : eq(processed_data_improved.sample_id, 'FALSE')
+        )
+      );
   }, [drizzleDB, sampleIds]);
 
   const sequenceDataQuery = useMemo(() => {
     return drizzleDB
-        .select()
-        .from(processed_data_improved)
-        .where(
-            and(
-                eq(processed_data_improved.data_type, DataType.Sequence),
-                sampleIds.length
-                    ? inArray(processed_data_improved.sample_id, sampleIds)
-                    : eq(processed_data_improved.sample_id, "FALSE")
-            )
-        );
+      .select()
+      .from(processed_data_improved)
+      .where(
+        and(
+          eq(processed_data_improved.data_type, DataType.Sequence),
+          sampleIds.length
+            ? inArray(processed_data_improved.sample_id, sampleIds)
+            : eq(processed_data_improved.sample_id, 'FALSE')
+        )
+      );
   }, [drizzleDB, sampleIds]);
 
   const ctdData = useQuery(toCompilableQuery(ctdDataQuery)).data || [];
-  const nutrientData = useQuery(toCompilableQuery(nutrientDataQuery)).data || [];
-  const sequenceData = useQuery(toCompilableQuery(sequenceDataQuery)).data || [];
+  const nutrientData =
+    useQuery(toCompilableQuery(nutrientDataQuery)).data || [];
+  const sequenceData =
+    useQuery(toCompilableQuery(sequenceDataQuery)).data || [];
 
   // Detail queries
   const ctdIds = useMemo(() => ctdData.map((d) => d.id), [ctdData]);
   const ctdDetailQuery = useMemo(() => {
     return drizzleDB
-        .select()
-        .from(processed_ctd_rbr_data_values)
-        .where(
-            ctdIds.length
-                ? inArray(processed_ctd_rbr_data_values.processed_data_id, ctdIds)
-                : eq(processed_ctd_rbr_data_values.processed_data_id, "FALSE")
-        );
+      .select()
+      .from(processed_ctd_rbr_data_values)
+      .where(
+        ctdIds.length
+          ? inArray(processed_ctd_rbr_data_values.processed_data_id, ctdIds)
+          : eq(processed_ctd_rbr_data_values.processed_data_id, 'FALSE')
+      );
   }, [drizzleDB, ctdIds]);
   const ctdDetailRows = useQuery(toCompilableQuery(ctdDetailQuery)).data || [];
 
-  const nutrientIds = useMemo(() => nutrientData.map((d) => d.id), [nutrientData]);
+  const nutrientIds = useMemo(
+    () => nutrientData.map((d) => d.id),
+    [nutrientData]
+  );
   const nutrientDetailQuery = useMemo(() => {
     return drizzleDB
-        .select()
-        .from(processed_nutrient_ammonia_data)
-        .where(
-            nutrientIds.length
-                ? inArray(processed_nutrient_ammonia_data.processed_data_id, nutrientIds)
-                : eq(processed_nutrient_ammonia_data.processed_data_id, "FALSE")
-        );
+      .select()
+      .from(processed_nutrient_ammonia_data)
+      .where(
+        nutrientIds.length
+          ? inArray(
+              processed_nutrient_ammonia_data.processed_data_id,
+              nutrientIds
+            )
+          : eq(processed_nutrient_ammonia_data.processed_data_id, 'FALSE')
+      );
   }, [drizzleDB, nutrientIds]);
-  const nutrientDetailRows = useQuery(toCompilableQuery(nutrientDetailQuery)).data || [];
+  const nutrientDetailRows =
+    useQuery(toCompilableQuery(nutrientDetailQuery)).data || [];
 
-  const sequenceIds = useMemo(() => sequenceData.map((d) => d.id), [sequenceData]);
+  const sequenceIds = useMemo(
+    () => sequenceData.map((d) => d.id),
+    [sequenceData]
+  );
   const sequenceDetailQuery = useMemo(() => {
     return drizzleDB
-        .select()
-        .from(processed_kraken_uniq_report)
-        .where(
-            sequenceIds.length
-                ? inArray(processed_kraken_uniq_report.processed_data_id, sequenceIds)
-                : eq(processed_kraken_uniq_report.processed_data_id, "FALSE")
-        );
+      .select()
+      .from(processed_kraken_uniq_report)
+      .where(
+        sequenceIds.length
+          ? inArray(processed_kraken_uniq_report.processed_data_id, sequenceIds)
+          : eq(processed_kraken_uniq_report.processed_data_id, 'FALSE')
+      );
   }, [drizzleDB, sequenceIds]);
-  const sequenceDetailRows = useQuery(toCompilableQuery(sequenceDetailQuery)).data || [];
+  const sequenceDetailRows =
+    useQuery(toCompilableQuery(sequenceDetailQuery)).data || [];
 
   // ─────────────────────────────────────────────────────────────
   // Compute stats in the frontend
@@ -236,11 +258,11 @@ const RightSidebar: React.FC = () => {
 
     for (const row of ctdDetailRows) {
       if (row.depth != null && row.depth <= 2) {
-        if (typeof row.temperature === "number") {
+        if (typeof row.temperature === 'number') {
           totalTemp += row.temperature;
           tempCount++;
         }
-        if (typeof row.salinity === "number") {
+        if (typeof row.salinity === 'number') {
           totalSalinity += row.salinity;
           salCount++;
         }
@@ -253,7 +275,7 @@ const RightSidebar: React.FC = () => {
     // B) Ammonium stats
     const ammoniumVals: number[] = [];
     for (const row of nutrientDetailRows) {
-      if (typeof row.ammonium === "number") {
+      if (typeof row.ammonium === 'number') {
         ammoniumVals.push(row.ammonium);
       }
     }
@@ -276,11 +298,11 @@ const RightSidebar: React.FC = () => {
     const genus_data: Record<string, number> = {};
 
     for (const row of sequenceDetailRows) {
-      if (typeof row.percentage !== "number") continue;
+      if (typeof row.percentage !== 'number') continue;
       if (row.percentage > confidenceThreshold) {
-        if (row.rank === "species") {
+        if (row.rank === 'species') {
           species_data[row.tax_name] = (species_data[row.tax_name] || 0) + 1;
-        } else if (row.rank === "genus") {
+        } else if (row.rank === 'genus') {
           genus_data[row.tax_name] = (genus_data[row.tax_name] || 0) + 1;
         }
       }
@@ -313,185 +335,183 @@ const RightSidebar: React.FC = () => {
   // Render with shadcn/ui <Sidebar> structure
   // ─────────────────────────────────────────────────────────────
   return (
-      <SidebarProvider
-          open={!isRightSidebarCollapsed}
-          onOpenChange={toggleRightSidebar}
-          style={{
-            //@ts-expect-error: Not my component
-            "--sidebar-width": "20rem",
-            "--sidebar-width-mobile": "20rem",
-          }}
-      >
-        <Sidebar side="right" variant="sidebar">
-          {/* Header with close button */}
+    <SidebarProvider
+      open={!isRightSidebarCollapsed}
+      onOpenChange={toggleRightSidebar}
+      style={{
+        //@ts-expect-error: Not my component
+        '--sidebar-width': '20rem',
+        '--sidebar-width-mobile': '20rem',
+      }}
+    >
+      <Sidebar side='right' variant='sidebar'>
+        {/* Header with close button */}
 
-          {/* Main content area */}
-          <SidebarContent className="overflow-y-auto p-4 pt-4">
-            {/* Location info */}
-            <h2 className="scroll-m-20 text-2xl font-semibold tracking-tight mb-3">
-              {selectedRightItem.label}
-            </h2>
-            <p className="text-sm mb-2">
-              <strong>Location ID:</strong> {selectedRightItem.char_id}
-            </p>
-            <p className="text-sm mb-2">
-              <strong>Latitude:</strong> {selectedRightItem.lat}
-            </p>
-            <p className="text-sm">
-              <strong>Longitude:</strong> {selectedRightItem.long}
-            </p>
+        {/* Main content area */}
+        <SidebarContent className='overflow-y-auto p-4 pt-4'>
+          {/* Location info */}
+          <h2 className='scroll-m-20 text-2xl font-semibold tracking-tight mb-3'>
+            {selectedRightItem.label}
+          </h2>
+          <p className='text-sm mb-2'>
+            <strong>Location ID:</strong> {selectedRightItem.char_id}
+          </p>
+          <p className='text-sm mb-2'>
+            <strong>Latitude:</strong> {selectedRightItem.lat}
+          </p>
+          <p className='text-sm'>
+            <strong>Longitude:</strong> {selectedRightItem.long}
+          </p>
 
-            <Separator className="my-4" />
+          <Separator className='my-4' />
 
-            {/* Confidence Threshold Slider */}
-            <Card className="mb-4">
+          {/* Confidence Threshold Slider */}
+          <Card className='mb-4'>
+            <CardHeader>
+              <CardTitle className='text-base'>
+                Sequence Abundance Threshold
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Slider
+                value={[confidenceThreshold]}
+                onValueChange={handleConfidenceChange}
+                max={100}
+                step={5}
+                defaultValue={[25]}
+              />
+              <p className='text-xs text-muted-foreground text-center mt-2'>
+                Showing taxa with &gt;{confidenceThreshold}% inter-sample read
+                abundance
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Temperature & Salinity */}
+          {(stats.average_temperature !== null ||
+            stats.average_salinity !== null) && (
+            <Card className='mb-4'>
               <CardHeader>
-                <CardTitle className="text-base">
-                  Sequence Abundance Threshold
+                <CardTitle className='text-base'>
+                  Average Measurements (First 2 Meters)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='space-y-2'>
+                {stats.average_temperature !== null ? (
+                  <p>
+                    <strong>Temperature:</strong>{' '}
+                    {stats.average_temperature.toFixed(2)} °C
+                  </p>
+                ) : (
+                  <p>Temperature data not available for the first 2 meters.</p>
+                )}
+                {stats.average_salinity !== null ? (
+                  <p>
+                    <strong>Salinity:</strong>{' '}
+                    {stats.average_salinity.toFixed(2)} PSU
+                  </p>
+                ) : (
+                  <p>Salinity data not available for the first 2 meters.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Ammonium Stats */}
+          {stats.ammonium_stats.count > 0 && (
+            <Card className='mb-4'>
+              <CardHeader>
+                <CardTitle className='text-base'>
+                  Ammonium Measurements
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Slider
-                    value={[confidenceThreshold]}
-                    onValueChange={handleConfidenceChange}
-                    max={100}
-                    step={5}
-                    defaultValue={[25]}
-                />
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Showing taxa with &gt;{confidenceThreshold}% inter-sample read
-                  abundance
-                </p>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+                  <div>
+                    <p>
+                      <strong>Average:</strong>{' '}
+                      {stats.ammonium_stats.average?.toFixed(2)} µmol/L
+                    </p>
+                    <p>
+                      <strong>Minimum:</strong>{' '}
+                      {stats.ammonium_stats.min?.toFixed(2)} µmol/L
+                    </p>
+                  </div>
+                  <div>
+                    <p>
+                      <strong>Maximum:</strong>{' '}
+                      {stats.ammonium_stats.max?.toFixed(2)} µmol/L
+                    </p>
+                    <p>
+                      <strong>Samples:</strong> {stats.ammonium_stats.count}
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
+          )}
 
-            {/* Temperature & Salinity */}
-            {(stats.average_temperature !== null ||
-                stats.average_salinity !== null) && (
-                <Card className="mb-4">
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      Average Measurements (First 2 Meters)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {stats.average_temperature !== null ? (
-                        <p>
-                          <strong>Temperature:</strong>{" "}
-                          {stats.average_temperature.toFixed(2)} °C
-                        </p>
-                    ) : (
-                        <p>Temperature data not available for the first 2 meters.</p>
-                    )}
-                    {stats.average_salinity !== null ? (
-                        <p>
-                          <strong>Salinity:</strong>{" "}
-                          {stats.average_salinity.toFixed(2)} PSU
-                        </p>
-                    ) : (
-                        <p>Salinity data not available for the first 2 meters.</p>
-                    )}
-                  </CardContent>
-                </Card>
-            )}
+          {/* Species Data */}
+          {Object.keys(stats.species_data).length > 0 && (
+            <Card className='mb-4'>
+              <CardHeader>
+                <CardTitle className='text-base'>Species Identified</CardTitle>
+              </CardHeader>
+              <CardContent className='space-y-2'>
+                {Object.entries(stats.species_data)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 100)
+                  .map(([species, count]) => (
+                    <p key={species}>
+                      <strong>{species}</strong>: {count} sample(s)
+                    </p>
+                  ))}
+              </CardContent>
+            </Card>
+          )}
 
-            {/* Ammonium Stats */}
-            {stats.ammonium_stats.count > 0 && (
-                <Card className="mb-4">
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      Ammonium Measurements
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <p>
-                          <strong>Average:</strong>{" "}
-                          {stats.ammonium_stats.average?.toFixed(2)} µmol/L
-                        </p>
-                        <p>
-                          <strong>Minimum:</strong>{" "}
-                          {stats.ammonium_stats.min?.toFixed(2)} µmol/L
-                        </p>
-                      </div>
-                      <div>
-                        <p>
-                          <strong>Maximum:</strong>{" "}
-                          {stats.ammonium_stats.max?.toFixed(2)} µmol/L
-                        </p>
-                        <p>
-                          <strong>Samples:</strong> {stats.ammonium_stats.count}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-            )}
-
-            {/* Species Data */}
-            {Object.keys(stats.species_data).length > 0 && (
-                <Card className="mb-4">
-                  <CardHeader>
-                    <CardTitle className="text-base">Species Identified</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {Object.entries(stats.species_data)
-                        .sort(([, a], [, b]) => b - a)
-                        .slice(0, 100)
-                        .map(([species, count]) => (
-                            <p key={species}>
-                              <strong>{species}</strong>: {count} sample(s)
-                            </p>
-                        ))}
-                  </CardContent>
-                </Card>
-            )}
-
-            {/* Samples List */}
-            {samplesAtLocation.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      Samples at this Location
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {samplesAtLocation.map((sampleGroup) => (
-                          <div
-                              key={sampleGroup.id}
-                              className="flex flex-col sm:flex-row items-start sm:items-center justify-between"
-                          >
-                            <p className="text-sm">
-                              <strong>
-                                {sampleGroup.human_readable_sample_id}
-                              </strong>
-                              {(sampleGroup.excluded == true) ? (
-                                  <span className="ml-2 text-red-500 italic text-xs">
+          {/* Samples List */}
+          {samplesAtLocation.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className='text-base'>
+                  Samples at this Location
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className='space-y-3'>
+                  {samplesAtLocation.map((sampleGroup) => (
+                    <div
+                      key={sampleGroup.id}
+                      className='flex flex-col sm:flex-row items-start sm:items-center justify-between'
+                    >
+                      <p className='text-sm'>
+                        <strong>{sampleGroup.human_readable_sample_id}</strong>
+                        {sampleGroup.excluded == true ? (
+                          <span className='ml-2 text-red-500 italic text-xs'>
                             (Excluded)
                           </span>
-                              ): null}
-                            </p>
-                            {sampleGroup.collection_date && (
-                                <p className="text-xs text-muted-foreground">
-                                  {DateTime.fromISO(
-                                      sampleGroup.collection_date
-                                  ).toLocaleString(DateTime.DATE_MED)}
-                                </p>
-                            )}
-                          </div>
-                      ))}
+                        ) : null}
+                      </p>
+                      {sampleGroup.collection_date && (
+                        <p className='text-xs text-muted-foreground'>
+                          {DateTime.fromISO(
+                            sampleGroup.collection_date
+                          ).toLocaleString(DateTime.DATE_MED)}
+                        </p>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-            )}
-          </SidebarContent>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </SidebarContent>
 
-          {/* If you want the optional "rail" when collapsed */}
-          <SidebarRail />
-        </Sidebar>
-      </SidebarProvider>
+        {/* If you want the optional "rail" when collapsed */}
+        <SidebarRail />
+      </Sidebar>
+    </SidebarProvider>
   );
 };
 
