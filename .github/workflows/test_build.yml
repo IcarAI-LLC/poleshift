@@ -80,7 +80,7 @@ jobs:
       - name: Install openssl on Windows
         if: matrix.os == 'windows-latest'
         run: |
-          powershell.exe ./.github/workflows/Install-OpenSSL.ps1
+          powershell.exe ./.github/workflows/scripts/Install-OpenSSL.ps1
 
       - name: Build Tauri Application
         shell: bash
