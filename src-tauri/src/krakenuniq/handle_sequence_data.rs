@@ -1,6 +1,5 @@
 // src/lib/hooks/useTauriDataProcessor.rs
 
-use serde_json;
 use std::collections::HashMap;
 use std::fs::{remove_file, File};
 use std::io::copy;
@@ -164,7 +163,7 @@ pub async fn handle_sequence_data<R: Runtime>(
         "processing",
     )?;
 
-    // 6) Parse FASTQ data for "rawSequences"
+    // 6) Parse FASTQ data for "raw_sequences"
     let raw_sequences_parsed = parse_fastq_files(
         &file_paths,
         user_id.clone(),
@@ -281,9 +280,9 @@ pub async fn handle_sequence_data<R: Runtime>(
 
     // 9) Construct final result
     let final_kraken_result = KrakenUniqResult {
-        processedKrakenUniqReport: processed_kraken_uniq_report,
-        processedKrakenUniqStdout: processed_kraken_uniq_stdout,
-        rawSequences: raw_sequence_entries,
+        processed_kraken_uniq_report: processed_kraken_uniq_report,
+        processed_kraken_uniq_stdout: processed_kraken_uniq_stdout,
+        raw_sequences: raw_sequence_entries,
     };
 
     // 10) Return in the `StandardResponseNoFiles`

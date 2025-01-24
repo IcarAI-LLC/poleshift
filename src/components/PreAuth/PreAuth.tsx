@@ -1,4 +1,4 @@
-import {FC, useState} from 'react';
+import { FC, useState } from 'react';
 import { useAuth } from '@/hooks';
 import type { PreAuthView } from 'src/types';
 import LoadingScreen from './LoadingScreen.tsx';
@@ -7,17 +7,12 @@ import SignUp from './SignUp.tsx';
 import ResetPassword from './ResetPassword.tsx';
 import MainApp from '../MainApp.tsx';
 import ActivateLicense from './ActivateLicense.tsx';
-import ResetComponent from "../ResetComponent.tsx";
-import {Toast} from "@radix-ui/react-toast";
-import {Toaster} from "@/components/ui/toaster.tsx";
-import {useAuthStore} from "@/stores/authStore.ts";
+import ResetComponent from '../ResetComponent.tsx';
+import { Toast } from '@radix-ui/react-toast';
+import { Toaster } from '@/components/ui/toaster.tsx';
+import { useAuthStore } from '@/stores/authStore.ts';
 const PreAuth: FC = () => {
-  const {
-    isAuthenticated,
-    loading: authLoading,
-    logout,
-    resetApp,
-  } = useAuth();
+  const { isAuthenticated, loading: authLoading, logout, resetApp } = useAuth();
   const organizationId = useAuthStore((state) => state.organizationId);
 
   // Define the reset logic
@@ -50,13 +45,13 @@ const PreAuth: FC = () => {
   const [loginMessage, setLoginMessage] = useState<string>('');
 
   if (authLoading) {
-    return <LoadingScreen message="Authenticating..." />;
+    return <LoadingScreen message='Authenticating...' />;
   }
 
   if (!isAuthenticated) {
     const handleNavigate = (
-        view: PreAuthView,
-        data?: { email?: string; message?: string }
+      view: PreAuthView,
+      data?: { email?: string; message?: string }
     ) => {
       if (view === 'login' && data) {
         if (data.email) setPrefillEmail(data.email);
@@ -76,16 +71,16 @@ const PreAuth: FC = () => {
         return <ResetPassword onNavigate={handleNavigate} />;
       default:
         return (
-            <div>
-              <Toast></Toast>
-              <Toaster></Toaster>
-              <ResetComponent onReset={ handleReset } />
+          <div>
+            <Toast></Toast>
+            <Toaster></Toaster>
+            <ResetComponent onReset={handleReset} />
             <Login
-                onNavigate={handleNavigate}
-                prefillEmail={prefillEmail}
-                message={loginMessage}
+              onNavigate={handleNavigate}
+              prefillEmail={prefillEmail}
+              message={loginMessage}
             />
-            </div>
+          </div>
         );
     }
   }

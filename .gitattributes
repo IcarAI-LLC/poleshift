@@ -1,4 +1,0 @@
-database.idx.gz filter=lfs diff=lfs merge=lfs -text
-database.kdb.counts.gz filter=lfs diff=lfs merge=lfs -text
-database.kdb.gz filter=lfs diff=lfs merge=lfs -text
-taxDB.gz filter=lfs diff=lfs merge=lfs -text

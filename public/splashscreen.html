@@ -1,10 +1,248 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+    <meta charset="utf-8" />
+    <title>Splashscreen with Rotating Globe</title>
+    <style>
+        /* Body: dark gray background, centered content, subtle text color */
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; /* centers vertically as well */
+            background-color: #2a2a2a;
+            color: #ccc;
+            font-family: sans-serif;
+            height: 100vh; /* ensure body takes full viewport height */
+        }
 
+        h1 {
+            margin-bottom: 0em;
+            font-size: 1.5em;
+            color: #ccc;
+        }
+        h2 {
+            margin-bottom: 1em;
+            font-size: 0.85em;
+            color: dimgrey;
+        }
+        /* This container can hold all file-progress rows + the globe */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Each file's progress row */
+        .file-progress {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .file-name {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+
+        .file-status {
+            margin-top: 4px;
+            font-size: 0.85em;
+            color: #aaa;
+        }
+
+        /* Subtle progress bar styling */
+        progress {
+            width: 300px;
+            height: 8px;
+            appearance: none;
+            -webkit-appearance: none;
+            border-radius: 4px;
+            background-color: #444;
+            overflow: hidden;
+        }
+        progress::-webkit-progress-bar {
+            background-color: #444;
+        }
+        progress::-webkit-progress-value {
+            background-color: #6fa0f6;
+        }
+        progress::-moz-progress-bar {
+            background-color: #6fa0f6;
+        }
+
+        #globe {
+            margin-top: 30px; /* some spacing below the progress bars */
+        }
+    </style>
+
+    <!-- D3 + TopoJSON for the rotating globe -->
+    <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
+    <script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
+</head>
+
+<body>
+<h1>Poleshift is setting up your resources</h1>
+<h2>This takes around three minutes</h2>
+
+<div class="main-container">
+    <!-- 4 distinct progress bars, one per file -->
+    <div class="file-progress" id="file-database-kdb-gz">
+        <div class="file-name">database.kdb.gz</div>
+        <progress id="progress-database-kdb-gz" value="0" max="100"></progress>
+        <div class="file-status" id="status-database-kdb-gz">Waiting...</div>
+    </div>
+
+    <div class="file-progress" id="file-database-kdb-counts-gz">
+        <div class="file-name">database.kdb.counts.gz</div>
+        <progress id="progress-database-kdb-counts-gz" value="0" max="100"></progress>
+        <div class="file-status" id="status-database-kdb-counts-gz">Waiting...</div>
+    </div>
+
+    <div class="file-progress" id="file-database-idx-gz">
+        <div class="file-name">database.idx.gz</div>
+        <progress id="progress-database-idx-gz" value="0" max="100"></progress>
+        <div class="file-status" id="status-database-idx-gz">Waiting...</div>
+    </div>
+
+    <div class="file-progress" id="file-taxdb-gz">
+        <div class="file-name">taxDB.gz</div>
+        <progress id="progress-taxdb-gz" value="0" max="100"></progress>
+        <div class="file-status" id="status-taxdb-gz">Waiting...</div>
+    </div>
+
+    <!-- SVG container for the globe -->
+    <svg id="globe"></svg>
+</div>
+
+<script>
+    // 1) Basic globe setup
+    const width = 400;
+    const height = 400;
+    const rotationSpeed = 0.05;
+
+    const svg = d3.select("#globe")
+        .attr("width", width)
+        .attr("height", height);
+
+    let rotation = [0, 0, 0];
+    const projection = d3.geoOrthographic()
+        .translate([width / 2, height / 2])
+        .scale(width * 0.45)
+        .clipAngle(180)
+        .rotate(rotation);
+
+    const pathGenerator = d3.geoPath(projection);
+
+    svg.append("circle")
+        .attr("cx", width / 2)
+        .attr("cy", height / 2)
+        .attr("r", projection.scale())
+        .attr("fill", "rgba(255,255,255,0.02)")
+        .attr("stroke", "rgba(200,200,200,0.2)");
+
+    fetch("globe-topo.json")
+        .then(res => res.json())
+        .then(topoData => {
+            const geoData = topojson.feature(topoData, topoData.objects.countries);
+            const countryPaths = svg.append("g")
+                .selectAll("path")
+                .data(geoData.features)
+                .enter()
+                .append("path")
+                .attr("fill", "rgba(200,200,200,0.3)")
+                .attr("stroke", "rgba(100,100,100,0.6)");
+
+            function animate() {
+                rotation[0] += rotationSpeed;
+                rotation[1] += rotationSpeed;
+                projection.rotate(rotation);
+                countryPaths.attr("d", pathGenerator);
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })
+        .catch(err => {
+            console.error("Failed to load TopoJSON:", err);
+        });
+
+    // 2) Tauri progress logic
+    const { invoke } = window.__TAURI__.core;
+    const tauriEvent = window.__TAURI__.event;
+
+    // Because file names have dots, we’ll build a helper to map them to our ID strings
+    function fileIdFromName(fileName) {
+        // "database.kdb.gz" -> "file-database-kdb-gz"
+        return "file-" + fileName.replace(/\./g, "-");
+    }
+
+    function progressIdFromName(fileName) {
+        // "database.kdb.gz" -> "progress-database-kdb-gz"
+        return "progress-" + fileName.replace(/\./g, "-");
+    }
+
+    function statusIdFromName(fileName) {
+        // "database.kdb.gz" -> "status-database-kdb-gz"
+        return "status-" + fileName.replace(/\./g, "-");
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        // Listen for "download-progress"
+        tauriEvent.listen("download-progress", (event) => {
+            const { file_name, downloaded, total_size } = event.payload;
+
+            const progressElem = document.getElementById(progressIdFromName(file_name));
+            const statusElem = document.getElementById(statusIdFromName(file_name));
+
+            if (!progressElem || !statusElem) {
+                // If we don’t find the matching element, just ignore
+                return;
+            }
+
+            let percent = 0;
+            if (total_size > 0) {
+                percent = (downloaded / total_size) * 100;
+            }
+
+            progressElem.value = percent;
+            statusElem.textContent = `Downloading: ${percent.toFixed(2)}%`;
+        });
+
+        // Listen for "checksum-progress"
+        tauriEvent.listen("checksum-progress", (event) => {
+            const { file_name, hashed, total_size } = event.payload;
+
+            const progressElem = document.getElementById(progressIdFromName(file_name));
+            const statusElem = document.getElementById(statusIdFromName(file_name));
+
+            if (!progressElem || !statusElem) {
+                return;
+            }
+
+            let percent = 0;
+            if (total_size > 0) {
+                percent = (hashed / total_size) * 100;
+            }
+
+            progressElem.value = percent;
+            statusElem.textContent = `Verifying: ${percent.toFixed(2)}%`;
+        });
+
+        try {
+            await invoke("download_resources");
+            // If everything finishes, you can optionally update statuses or remove bars
+            // For now, we just note success:
+            console.log("All files downloaded and verified.");
+
+            // Close the splashscreen and show main window
+            await invoke("close_splashscreen");
+        } catch (err) {
+            console.error("Failed to download resources:", err);
+        }
+    });
+</script>
 </body>
 </html>

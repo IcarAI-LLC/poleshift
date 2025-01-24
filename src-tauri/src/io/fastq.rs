@@ -1,6 +1,5 @@
 // io/fastq.rs
-use super::{FastqError, FastqRecord, ParseError, Validate};
-use rayon::prelude::*;
+use super::{FastqError, FastqRecord, ParseError};
 use std::io::{BufRead, BufReader, Read};
 
 /// Reads FASTQ records from any source implementing the Read trait
@@ -70,38 +69,5 @@ impl<R: Read> FastqReader<R> {
         }
 
         Ok(records)
-    }
-}
-
-pub struct QualityStats {
-    pub min: u8,
-    pub max: u8,
-    pub avg: f64,
-    pub count: usize,
-}
-
-impl QualityStats {
-    fn combine(stats: &[QualityStats]) -> Self {
-        if stats.is_empty() {
-            return QualityStats {
-                min: 0,
-                max: 0,
-                avg: 0.0,
-                count: 0,
-            };
-        }
-
-        let min = stats.iter().map(|s| s.min).min().unwrap();
-        let max = stats.iter().map(|s| s.max).max().unwrap();
-        let total_count: usize = stats.iter().map(|s| s.count).sum();
-        let weighted_avg: f64 =
-            stats.iter().map(|s| s.avg * s.count as f64).sum::<f64>() / total_count as f64;
-
-        QualityStats {
-            min,
-            max,
-            avg: weighted_avg,
-            count: total_count,
-        }
     }
 }

@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-latest, windows-latest]
+        os: [ubuntu-22.04, macos-latest, windows-latest-l]
 
     env:
       NODE_OPTIONS: "--max-old-space-size=8192"
@@ -56,6 +56,11 @@ jobs:
       VITE_AYD_API_KEY:  ${{secrets.VITE_AYD_API_KEY}}
 
     steps:
+      - run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+        if: runner.os == 'Windows'
+      - run: vcpkg install openssl:x64-windows-static-md
+        if: runner.os == 'Windows'
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
@@ -106,7 +111,7 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             pnpm tauri build --target aarch64-apple-darwin
-          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+          elif [ "${{ matrix.os }}" == "windows-latest-l" ]; then
             pnpm tauri build --verbose
           else
             pnpm tauri build --verbose --bundles appimage deb updater

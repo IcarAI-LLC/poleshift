@@ -1,65 +1,65 @@
-import * as React from "react"
-import { RefreshCw, Loader2 } from "lucide-react"
+import * as React from 'react';
+import { RefreshCw, Loader2 } from 'lucide-react';
 
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button';
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { useToast } from "@/hooks/use-toast.ts"
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast.ts';
 
 interface ResetComponentProps {
-    onReset: () => Promise<void>
+  onReset: () => Promise<void>;
 }
 
 export default function ResetComponent({ onReset }: ResetComponentProps) {
-    const [isResetting, setIsResetting] = React.useState(false)
-    const { toast } = useToast()
-    const handleReset = async () => {
-        setIsResetting(true)
-        try {
-            // Execute your reset function
-            await onReset()
+  const [isResetting, setIsResetting] = React.useState(false);
+  const { toast } = useToast();
+  const handleReset = async () => {
+    setIsResetting(true);
+    try {
+      // Execute your reset function
+      await onReset();
 
-            // Notify the user upon successful completion
-            toast({
-                title: "Reset completed successfully",
-            })
-        } catch (error) {
-            console.error("Reset failed:", error)
-            toast({
-                title: "Reset failed. Please try again.",
-                variant: "destructive",
-            })
-        } finally {
-            setIsResetting(false)
-        }
+      // Notify the user upon successful completion
+      toast({
+        title: 'Reset completed successfully',
+      });
+    } catch (error) {
+      console.error('Reset failed:', error);
+      toast({
+        title: 'Reset failed. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResetting(false);
     }
+  };
 
-    return (
-        <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        variant="ghost"
-                        onClick={handleReset}
-                        disabled={isResetting}
-                        autoFocus={false}
-                        aria-label="Reset Application"
-                    >
-                        {isResetting ? (
-                            <Loader2 className="ml-2 mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <RefreshCw className="ml-2 mr-2 h-4 w-4" />
-                        )}
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                    <p>Reset Application</p>
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
-    )
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant='ghost'
+            onClick={handleReset}
+            disabled={isResetting}
+            autoFocus={false}
+            aria-label='Reset Application'
+          >
+            {isResetting ? (
+              <Loader2 className='ml-2 mr-2 h-4 w-4 animate-spin' />
+            ) : (
+              <RefreshCw className='ml-2 mr-2 h-4 w-4' />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Reset Application</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }

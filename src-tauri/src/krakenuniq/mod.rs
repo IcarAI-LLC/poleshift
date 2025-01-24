@@ -6,9 +6,9 @@ mod parse_fastq_files;
 
 #[derive(Debug, Serialize)]
 pub struct KrakenUniqResult {
-    processedKrakenUniqReport: Vec<ProcessedKrakenUniqReport>,
-    processedKrakenUniqStdout: Vec<ProcessedKrakenUniqStdout>,
-    rawSequences: Vec<RawSequence>,
+    processed_kraken_uniq_report: Vec<ProcessedKrakenUniqReport>,
+    processed_kraken_uniq_stdout: Vec<ProcessedKrakenUniqStdout>,
+    raw_sequences: Vec<RawSequence>,
 }
 
 #[derive(Debug, Serialize)]
@@ -90,5 +90,4 @@ pub struct RawSequence {
     pub org_id: String,
     pub sample_id: String,
     pub raw_data_id: String,
-    pub sync_flag_id: bool,
 }

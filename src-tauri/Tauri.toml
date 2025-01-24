@@ -1,6 +1,6 @@
 '$schema' = "https://schema.tauri.app/config/2"
 productName = "poleshift"
-version = "0.1.10"
+version = "0.1.11"
 identifier = "io.icarai.poleshift"
 
 [build]
@@ -18,20 +18,22 @@ withGlobalTauri = true
 title = "poleshift"
 width = 1_920
 height = 1_080
-
-#[[app.windows]]
-#title = "Initializing poleshift"
-#width = 800
-#height = 800
-#url = "splashscreen.html"
-#label = "splashscreen"
+label = "main"
+visible = false
+[[app.windows]]
+title = "Initializing poleshift"
+width = 600
+height = 800
+url = "splashscreen.html"
+label = "splashscreen"
+decorations = false
 
 [bundle]
 active = true
 targets = "all"
 createUpdaterArtifacts = true
 category = "Utility"
-resources = [ "resources/checksum", "resources/checksum_decompressed" ]
+resources = [ "resources/taxdb_config.toml" ]
 copyright = "IcarAI LLC 2025"
 licenseFile = "../LICENSE"
 publisher = "IcarAI LLC"

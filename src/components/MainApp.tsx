@@ -1,31 +1,29 @@
-"use client";
+'use client';
 
-import React, { Suspense, useEffect } from "react";
-import { FileNodeType } from "@/lib/powersync/DrizzleSchema.ts";
-import { useAuth, useData, useUI } from "@/hooks";
+import React, { Suspense, useEffect } from 'react';
+import { FileNodeType } from '@/lib/powersync/DrizzleSchema.ts';
+import { useAuth, useData, useUI } from '@/hooks';
 
-import LeftSidebar from "./LeftSidebar/LeftSidebar";
-import RightSidebar from "./RightSidebar";
-import MergedDropBoxes from "@/components/SampleGroupView/MergedDropboxes.tsx";
-import SampleGroupMetadataComponent from "@/components/SampleGroupView/SampleGroupMetadataComponent.tsx";
-import ContainerScreen from "@/components/Container/ContainerScreen";
-import GlobeComponent from "@/components/GlobeComponent.tsx";
-import AccountModal from "./LeftSidebar/Modals/AccountModal.tsx";
+import LeftSidebar from './LeftSidebar/LeftSidebar';
+import RightSidebar from './RightSidebar';
+import MergedDropBoxes from '@/components/SampleGroupView/MergedDropboxes.tsx';
+import SampleGroupMetadataComponent from '@/components/SampleGroupView/SampleGroupMetadataComponent.tsx';
+import ContainerScreen from '@/components/Container/ContainerScreen';
+import GlobeComponent from '@/components/GlobeComponent.tsx';
+import AccountModal from './LeftSidebar/Modals/AccountModal.tsx';
 // Remove: import ErrorMessage from "./ErrorMessage";
 
-import ChatWidget from "@/components/Chatbot/ChatWidget";
-import CheckResourceFiles from "@/components/CheckResourceFiles.tsx";
-import { Loader2 } from "lucide-react";
+import ChatWidget from '@/components/Chatbot/ChatWidget';
+import { Loader2 } from 'lucide-react';
 
 // 1) Import useToast from your shadcn toast utility
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from '@/hooks/use-toast';
 
 const MainApp: React.FC = () => {
   // ---- Hooks & Setup ----
   const auth = useAuth();
   const data = useData();
   const ui = useUI();
-  CheckResourceFiles({});
 
   const { error: authError, setError: setAuthError } = auth;
   const { error: dataError } = data;
@@ -46,9 +44,9 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     if (displayedError) {
       toast({
-        title: "Error",
+        title: 'Error',
         description: String(displayedError),
-        variant: "destructive",
+        variant: 'destructive',
         // If you want a custom duration or action, specify them here:
         // duration: 5000, // 5 seconds
       });
@@ -63,24 +61,24 @@ const MainApp: React.FC = () => {
 
   // ---- Determine which content to show (Globe vs. Non-Globe) ----
   const isGlobe =
-      !selectedLeftItem ||
-      (selectedLeftItem.type !== FileNodeType.SampleGroup &&
-          selectedLeftItem.type !== FileNodeType.Container);
+    !selectedLeftItem ||
+    (selectedLeftItem.type !== FileNodeType.SampleGroup &&
+      selectedLeftItem.type !== FileNodeType.Container);
 
   function renderNonGlobeContent() {
     switch (selectedLeftItem?.type) {
       case FileNodeType.SampleGroup:
         return (
-            <div className="w-full h-full overflow-auto">
-              <SampleGroupMetadataComponent />
-              <MergedDropBoxes onError={setErrorMessage} />
-            </div>
+          <div className='w-full h-full overflow-auto'>
+            <SampleGroupMetadataComponent />
+            <MergedDropBoxes onError={setErrorMessage} />
+          </div>
         );
       case FileNodeType.Container:
         return (
-            <div className="w-full h-full overflow-auto">
-              <ContainerScreen />
-            </div>
+          <div className='w-full h-full overflow-auto'>
+            <ContainerScreen />
+          </div>
         );
       default:
         return null;
@@ -89,43 +87,43 @@ const MainApp: React.FC = () => {
 
   // ---- Render ----
   return (
-      <div className="w-screen h-screen">
-        {isGlobe && (
-            <div className="absolute">
-              <Suspense
-                  fallback={
-                    <div style={{ marginBottom: "1rem" }}>
-                      <Loader2 className="animate-spin" />
-                    </div>
-                  }
-              >
-                <GlobeComponent />
-              </Suspense>
-            </div>
-        )}
-
-        <div className="z-10 w-full h-full flex">
-          <div className="overflow-auto pointer-events-auto">
-            <LeftSidebar />
-          </div>
-
-          {isGlobe ? (
-              <div className={"pointer-events-auto"}>
-                <RightSidebar />
+    <div className='w-screen h-screen'>
+      {isGlobe && (
+        <div className='absolute'>
+          <Suspense
+            fallback={
+              <div style={{ marginBottom: '1rem' }}>
+                <Loader2 className='animate-spin' />
               </div>
-          ) : (
-              <div className="flex-1 pointer-events-auto">
-                {renderNonGlobeContent()}
-              </div>
-          )}
+            }
+          >
+            <GlobeComponent />
+          </Suspense>
+        </div>
+      )}
+
+      <div className='z-10 w-full h-full flex'>
+        <div className='overflow-auto pointer-events-auto'>
+          <LeftSidebar />
         </div>
 
-        {/* Chat Widget */}
-        <ChatWidget />
-
-        {/* Account Modal */}
-        {showAccountActions && <AccountModal />}
+        {isGlobe ? (
+          <div className={'pointer-events-auto'}>
+            <RightSidebar />
+          </div>
+        ) : (
+          <div className='flex-1 pointer-events-auto'>
+            {renderNonGlobeContent()}
+          </div>
+        )}
       </div>
+
+      {/* Chat Widget */}
+      <ChatWidget />
+
+      {/* Account Modal */}
+      {showAccountActions && <AccountModal />}
+    </div>
   );
 };
 
