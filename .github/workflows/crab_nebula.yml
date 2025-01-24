@@ -56,6 +56,11 @@ jobs:
       VITE_AYD_API_KEY:  ${{secrets.VITE_AYD_API_KEY}}
 
     steps:
+      - run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+        if: runner.os == 'Windows'
+      - run: vcpkg install openssl:x64-windows-static-md
+        if: runner.os == 'Windows'
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
@@ -97,11 +102,6 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           rustup target add x86_64-apple-darwin aarch64-apple-darwin
-
-      - name: Install openssl on Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          powershell.exe ./.github/workflows/Install-OpenSSL.ps1
 
       - name: Install Node Modules
         run: pnpm install
