@@ -36,7 +36,6 @@ const resourcesToEnsure = [
         url: "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/application-dist/taxdb_v01/taxDB.gz",
         headers: { "Content-Type": "application/x-gzip" },
     }
-    // Add more files as needed
 ];
 
 function toHeaderMap(obj?: Record<string, string>): Map<string, string> {

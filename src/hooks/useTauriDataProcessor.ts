@@ -220,7 +220,7 @@ export function useTauriDataProcessor() {
                 throw new Error(`CTD processing failed: ${result.status}`);
             }
 
-            if (!result.report.rawData || result.report.rawData.length === 0) {
+            if (!result.report.raw_data || result.report.raw_data.length === 0) {
                 throw new Error('CTD file is empty or invalid.');
             }
 
@@ -237,16 +237,16 @@ export function useTauriDataProcessor() {
             await drizzleDB.insert(raw_data_improved).values(rawDataEntry).run();
 
             // Insert raw data in batches
-            const { rawData, processedData } = result.report;
+            const { raw_data, processed_data } = result.report;
 
-            for (let i = 0; i < rawData.length; i += BATCH_SIZE) {
-                const batch = rawData.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < raw_data.length; i += BATCH_SIZE) {
+                const batch = raw_data.slice(i, i + BATCH_SIZE);
                 await drizzleDB.insert(raw_ctd_rbr_data_values).values(batch).run();
             }
 
             // Insert processed data in batches
-            for (let i = 0; i < processedData.length; i += BATCH_SIZE) {
-                const batch = processedData.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < processed_data.length; i += BATCH_SIZE) {
+                const batch = processed_data.slice(i, i + BATCH_SIZE);
                 await drizzleDB.insert(processed_ctd_rbr_data_values).values(batch).run();
             }
 
@@ -436,14 +436,14 @@ export function useTauriDataProcessor() {
             await drizzleDB.insert(raw_data_improved).values(rawDataEntry).run();
 
             // Insert raw FASTQ data in batches
-            const { rawSequences, processedKrakenUniqReport, processedKrakenUniqStdout } = report;
+            const { raw_sequences, processed_kraken_uniq_report, processed_kraken_uniq_stdout } = report;
 
             // Bulk insert raw FASTQ data
-            await bulkInsertJSON1('raw_fastq_data', ['id', 'feature_id', 'sequence', 'quality', 'run_id', 'read', 'ch', 'start_time', 'sample_id_fastq', 'barcode', 'barcode_alias', 'parent_read_id', 'basecall_model_version_id', 'quality_median', 'flow_cell_id', 'protocol_group_id', 'raw_data_id', 'user_id', 'org_id', 'sample_id'], rawSequences);
+            await bulkInsertJSON1('raw_fastq_data', ['id', 'feature_id', 'sequence', 'quality', 'run_id', 'read', 'ch', 'start_time', 'sample_id_fastq', 'barcode', 'barcode_alias', 'parent_read_id', 'basecall_model_version_id', 'quality_median', 'flow_cell_id', 'protocol_group_id', 'raw_data_id', 'user_id', 'org_id', 'sample_id'], raw_sequences);
 
-            await bulkInsertJSON1('processed_kraken_uniq_report', ['id', 'percentage', 'reads', 'tax_reads', 'kmers', 'duplication', 'coverage', 'tax_id', 'rank', 'tax_name', 'parent_id', 'children_ids', 'processed_data_id', 'user_id', 'org_id', 'sample_id', 'e_score'], processedKrakenUniqReport);
+            await bulkInsertJSON1('processed_kraken_uniq_report', ['id', 'percentage', 'reads', 'tax_reads', 'kmers', 'duplication', 'coverage', 'tax_id', 'rank', 'tax_name', 'parent_id', 'children_ids', 'processed_data_id', 'user_id', 'org_id', 'sample_id', 'e_score'], processed_kraken_uniq_report);
 
-            await bulkInsertJSON1('processed_kraken_uniq_stdout', ['id', 'user_id', 'org_id', 'sample_id', 'processed_data_id', 'classified', 'feature_id', 'tax_id', 'read_length', 'hit_data'], processedKrakenUniqStdout);
+            await bulkInsertJSON1('processed_kraken_uniq_stdout', ['id', 'user_id', 'org_id', 'sample_id', 'processed_data_id', 'classified', 'feature_id', 'tax_id', 'read_length', 'hit_data'], processed_kraken_uniq_stdout);
 
             // Finally set to "Complete"
             await updateProcessingState(

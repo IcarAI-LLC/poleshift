@@ -17,8 +17,8 @@ export interface HandleCtdDataResult {
     status: string;
     report:
         {
-            rawData: RawCtdRbrDataValues[]
-            processedData: ProcessedCtdRbrDataValues[]
+            raw_data: RawCtdRbrDataValues[]
+            processed_data: ProcessedCtdRbrDataValues[]
         }
 }
 
@@ -26,9 +26,9 @@ export interface HandleSequenceDataResult {
     status: string;
     report:
         {
-            processedKrakenUniqReport: ProcessedKrakenUniqReport[]
-            processedKrakenUniqStdout: ProcessedKrakenUniqStdout[]
-            rawSequences: RawFastqData[]
+            processed_kraken_uniq_report: ProcessedKrakenUniqReport[]
+            processed_kraken_uniq_stdout: ProcessedKrakenUniqStdout[]
+            raw_sequences: RawFastqData[]
         }
 }
 

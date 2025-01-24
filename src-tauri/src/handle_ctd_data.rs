@@ -13,14 +13,14 @@ use uuid::Uuid;
 #[derive(Serialize)]
 pub struct CTDReport {
     /// The raw data from each channel, combining all channels by timestamp
-    pub rawData: Vec<RawDataRow>,
+    pub raw_data: Vec<RawDataRow>,
     /// The final processed data rows after combining channels and applying filters
-    pub processedData: Vec<ProcessedDataRow>,
+    pub processed_data: Vec<ProcessedDataRow>,
 }
 
 /// A single row of “raw” data combining multiple channel values.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-struct RawDataRow {
+pub struct RawDataRow {
     // Required base fields
     tstamp: Option<i64>,
     depth: Option<f64>,
@@ -63,7 +63,7 @@ struct Channel {
 
 /// A single row of “processed” data combining multiple channel values.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-struct ProcessedDataRow {
+pub struct ProcessedDataRow {
     // Required base fields
     tstamp: Option<i64>,
     depth: Option<f64>,
@@ -342,7 +342,7 @@ pub async fn handle_ctd_data(
     // 4. Now build PROCESSED data rows by applying a monotonic filter on depth
     // -----------------------------------------------------------------------
     // We'll clone from raw_rows into processed_rows, then do monotonic filtering:
-    let mut processed_rows: Vec<ProcessedDataRow> = raw_rows
+    let processed_rows: Vec<ProcessedDataRow> = raw_rows
         .clone()
         .iter()
         .map(|rr| {
@@ -394,8 +394,8 @@ pub async fn handle_ctd_data(
     // 5. Build and return the final CTDReport
     // -----------------------------------------------------------------------
     let report = CTDReport {
-        rawData: raw_rows.clone(),
-        processedData: monotonic_filtered.clone(),
+        raw_data: raw_rows.clone(),
+        processed_data: monotonic_filtered.clone(),
     };
 
     emit_progress(&window, 50, "Processing complete...", "processing")?;

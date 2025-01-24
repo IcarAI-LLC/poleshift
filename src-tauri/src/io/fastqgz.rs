@@ -2,12 +2,8 @@
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
-use std::path::Path;
-
 use flate2::read::MultiGzDecoder;
-use rayon::prelude::*;
-
-use super::{FastqError, FastqRecord, ParseError, Validate};
+use super::{FastqError, FastqRecord, ParseError};
 
 /// A reader specifically for gzipped FASTQ files.
 ///
@@ -108,52 +104,5 @@ impl<R: Read> FastqGzReader<R> {
         }
 
         Ok(records)
-    }
-}
-
-/// Aggregated statistics over quality scores.
-pub struct QualityStats {
-    pub min: u8,
-    pub max: u8,
-    pub avg: f64,
-    pub count: usize,
-}
-
-impl QualityStats {
-    /// Combine an array of `QualityStats` into one aggregate.
-    pub fn combine(stats: &[QualityStats]) -> Self {
-        if stats.is_empty() {
-            return Self {
-                min: 0,
-                max: 0,
-                avg: 0.0,
-                count: 0,
-            };
-        }
-
-        let total_count: usize = stats.iter().map(|s| s.count).sum();
-        if total_count == 0 {
-            // All records had empty quality lines
-            return Self {
-                min: 0,
-                max: 0,
-                avg: 0.0,
-                count: 0,
-            };
-        }
-
-        let min_quality = stats.iter().map(|s| s.min).min().unwrap();
-        let max_quality = stats.iter().map(|s| s.max).max().unwrap();
-
-        // Weighted average: (sum of (avg_i * count_i)) / total_count
-        let weighted_avg: f64 =
-            stats.iter().map(|s| s.avg * (s.count as f64)).sum::<f64>() / (total_count as f64);
-
-        Self {
-            min: min_quality,
-            max: max_quality,
-            avg: weighted_avg,
-            count: total_count,
-        }
     }
 }

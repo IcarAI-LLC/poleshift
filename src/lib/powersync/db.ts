@@ -33,14 +33,7 @@ export class PowerSyncDB {
                         dbFilename: 'powersync2',
                         vfs: vfsImplementation,
                         dbLocation: './powersync2/',
-                        flags: {
-                            enableMultiTabs: false
-                        }
                     }),
-                    flags: {
-                        enableMultiTabs: false,
-                        useWebWorker: false
-                    }
                 });
             }
         }

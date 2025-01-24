@@ -179,7 +179,6 @@ pub fn parse_fastq_files(
                 org_id: org_id.clone(),
                 sample_id: sample_id.clone(),
                 raw_data_id: raw_data_id.clone(),
-                sync_flag_id: false,
             };
 
             all_sequences.push(raw_seq);
