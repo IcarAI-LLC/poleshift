@@ -19,7 +19,7 @@ title = "poleshift"
 width = 1_920
 height = 1_080
 label = "main"
-visible = false
+
 [[app.windows]]
 title = "Initializing poleshift"
 width = 600
