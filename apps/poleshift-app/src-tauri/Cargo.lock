@@ -3203,7 +3203,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "poleshift"
+name = "poleshift-app"
 version = "0.1.11"
 dependencies = [
  "flate2",

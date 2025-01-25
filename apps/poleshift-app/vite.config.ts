@@ -78,7 +78,7 @@ const main = async (ReactCompilerConfig: string | boolean | object) => {
 
 const ReactCompilerConfig = {
   sources: (filename: string | string[]) => {
-    return filename.indexOf('src') !== -1;
+    return filename.indexOf('./src') !== -1;
   },
 };
 
