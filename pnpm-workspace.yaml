@@ -3,4 +3,3 @@ packages:
   - "apps/**"
   # if required, exclude some directories
   - '!**/src-tauri/**'
-  - '!**/node-modules/**'

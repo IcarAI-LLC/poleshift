@@ -6,12 +6,38 @@ use std::{
 };
 
 use flate2::read::GzDecoder;
-use futures_util::{StreamExt, future::join_all};
+use futures_util::{future::join_all, StreamExt};
 use reqwest::header::CONTENT_TYPE;
 use openssl::sha;
-use tauri::{AppHandle, Emitter, Manager, Window};
+use serde::Deserialize;
+use tauri::{AppHandle, Manager, Window};
+use tauri::Emitter;
+// -----------------------------------------------------------------------------
+// 1. Data structures & error types
+// -----------------------------------------------------------------------------
 
-use crate::poleshift_common::types::PoleshiftError;
+/// Example error type for demonstration. You can modify as you wish.
+#[derive(Debug)]
+pub enum PoleshiftError {
+    PathResolution(String),
+    Other(String),
+}
+
+/// TOML wrapper for your [[resource]] array
+#[derive(Debug, Deserialize)]
+struct ResourceConfig {
+    resource: Vec<ResourceTomlEntry>,
+}
+
+/// Represents each [[resource]] table in the TOML
+#[derive(Debug, Deserialize)]
+struct ResourceTomlEntry {
+    file_name: String,
+    file_url: String,
+    checksum_compressed: String,
+    checksum_decompressed: String,
+    compressed: bool,
+}
 
 /// Describes a resource file to download & verify.
 #[derive(Debug, Clone)]
@@ -46,6 +72,10 @@ struct ChecksumProgress {
     total_size: u64,
 }
 
+// -----------------------------------------------------------------------------
+// 2. Commands exposed to Tauri
+// -----------------------------------------------------------------------------
+
 /// Closes the splashscreen window and shows the main window.
 #[tauri::command]
 pub async fn close_splashscreen(window: Window) {
@@ -57,97 +87,28 @@ pub async fn close_splashscreen(window: Window) {
     }
 }
 
-/// Computes the SHA-256 hash of a file with OpenSSL, **emitting** partial progress events.
-fn sha256_of_file_with_progress(
-    path: &Path,
-    file_name: &str,
-    app_handle: &AppHandle,
-) -> Result<String, std::io::Error> {
-    let file = File::open(path)?;
-    let metadata = file.metadata()?;
-    let total_size = metadata.len();
-
-    let mut reader = BufReader::new(file);
-    let mut buffer = [0u8; 8192];
-    let mut hasher = sha::Sha256::new();
-    let mut hashed = 0u64;
-
-    loop {
-        let n = reader.read(&mut buffer)?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buffer[..n]);
-        hashed += n as u64;
-
-        // partial progress
-        let payload = ChecksumProgress {
-            file_name: file_name.to_string(),
-            hashed,
-            total_size,
-        };
-        let _ = app_handle.emit("checksum-progress", payload);
-    }
-
-    // Convert final digest to hex
-    let digest = hasher.finish();
-    Ok(hex::encode(digest))
-}
-
 /// Main command: downloads, decompresses (if needed), and verifies multiple resources in parallel.
-/// Uses "_unchecked" suffix for newly created files until checksums pass.
 #[tauri::command]
 pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
     // 1) Find/create the resource directory
     let resource_dir = app_handle
         .path()
         .resource_dir()
-        .map_err(|e| PoleshiftError::PathResolution(e.to_string())).unwrap()
+        .map_err(|e| PoleshiftError::PathResolution(e.to_string()))
+        .map_err(|e| format!("Failed to get resource dir: {:?}", e))?
         .join("resources");
 
     fs::create_dir_all(&resource_dir)
         .map_err(|e| format!("Failed to create resource directory: {e}"))?;
 
-    // 2) Define all the resources
-    let resources = vec![
-        ResourceFiles {
-            file_name: "database.kdb.gz".into(),
-            file_url: "https://pr2.poleshift.cloud/database.kdb.gz".into(),
-            file_path: resource_dir.join("database.kdb").to_string_lossy().to_string(),
-            checksum_compressed: "d01c990394bb7dd3e55ec3bcffd82f20194b4045bec88d503fbb9db5da9254c8".into(),
-            checksum_decompressed: "b1b5322ad305ea92da0c9e22fea04b848271812e11a4b2b63adf176ff8b584de".into(),
-            compressed: true,
-        },
-        ResourceFiles {
-            file_name: "database.kdb.counts.gz".into(),
-            file_url: "https://pr2.poleshift.cloud/database.kdb.counts.gz".into(),
-            file_path: resource_dir.join("database.kdb.counts").to_string_lossy().to_string(),
-            checksum_compressed: "a66bcb659953a9793e75d62ec07fe99fcc1ee9c6d408f6d0b588caaf6afa4991".into(),
-            checksum_decompressed: "7823e77c3bc89539c9c0f104c9cc728e16b60b4f6bc8718a2d072ff951f217b7".into(),
-            compressed: true,
-        },
-        ResourceFiles {
-            file_name: "database.idx.gz".into(),
-            file_url: "https://pr2.poleshift.cloud/database.idx.gz".into(),
-            file_path: resource_dir.join("database.idx").to_string_lossy().to_string(),
-            checksum_compressed: "ecb678053d571f3fad38a67f15b72e10bd820f54d4c97fa4be919a5eba075395".into(),
-            checksum_decompressed: "64eeb6e6cc4684f6b196bd17713103fb242768d1dafec471e395cc6489584e83".into(),
-            compressed: true,
-        },
-        ResourceFiles {
-            file_name: "taxDB.gz".into(),
-            file_url: "https://pr2.poleshift.cloud/taxDB.gz".into(),
-            file_path: resource_dir.join("taxDB").to_string_lossy().to_string(),
-            checksum_compressed: "0b0bde984ccce9d903d91c05306ed209901858adc73f0b8ca460a8333c372959".into(),
-            checksum_decompressed: "1a067cb6c1a512e27bc131ced0e39d72b688bd4eccf31b51e9d08468638edd1a".into(),
-            compressed: true,
-        },
-    ];
+    // 2) Load the resources from TOML
+    let resources = load_resource_configs(&resource_dir)
+        .map_err(|e| format!("Could not load resource config: {e}"))?;
 
+    // 3) Build a future for each resource
     let client = Arc::new(reqwest::Client::new());
     let app_handle = Arc::new(app_handle);
 
-    // 3) Build a future for each resource
     let tasks = resources.into_iter().map(|res| {
         let client = client.clone();
         let app_handle = app_handle.clone();
@@ -162,33 +123,34 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
             let final_unchecked_path =
                 PathBuf::from(format!("{}_unchecked", final_path.display()));
 
-            // ---------------------
-            // A) Handle Compressed File
-            // ---------------------
-            //
-            // Logic order:
-            //   1) If "compressed_unchecked_path" exists, it was not verified -> re-verify it.
-            //   2) Else if "compressed_path" exists, assume it's already verified -> skip everything.
-            //   3) Otherwise, we have no file -> download to "_unchecked", then verify, rename.
-
+            // -- A) Handle the compressed file (download / verify) --
             let need_compressed_verification = compressed_unchecked_path.exists();
-            let already_verified_compressed = compressed_path.exists() && !need_compressed_verification;
+            let already_verified_compressed =
+                compressed_path.exists() && !need_compressed_verification;
 
             if need_compressed_verification {
-                // We have an "_unchecked" file => try verifying
+                // We have an "_unchecked" file => re-verify it
                 if !res.checksum_compressed.is_empty() {
-                    match sha256_of_file_with_progress(&compressed_unchecked_path, &res.file_name, &app_handle) {
+                    match sha256_of_file_with_progress(
+                        &compressed_unchecked_path,
+                        &res.file_name,
+                        &app_handle,
+                    ) {
                         Ok(hash) => {
                             if hash != res.checksum_compressed {
-                                // If mismatch, remove the partial file and force re-download
                                 println!("✘ Compressed checksum mismatch for {} => re-download", res.file_name);
                                 let _ = fs::remove_file(&compressed_unchecked_path);
                             } else {
-                                // Verified OK => rename to final
-                                println!("✔ Compressed checksum OK for {} => rename", res.file_name);
-                                fs::rename(&compressed_unchecked_path, &compressed_path)
-                                    .map_err(|e| format!("Failed to rename {} to {}: {e}",
-                                                         compressed_unchecked_path.display(), compressed_path.display()))?;
+                                println!("✔ Compressed checksum OK => rename {}", res.file_name);
+                                fs::rename(&compressed_unchecked_path, &compressed_path).map_err(
+                                    |e| {
+                                        format!(
+                                            "Failed to rename {} to {}: {e}",
+                                            compressed_unchecked_path.display(),
+                                            compressed_path.display()
+                                        )
+                                    },
+                                )?;
                             }
                         }
                         Err(e) => {
@@ -198,16 +160,20 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
                     }
                 } else {
                     // no checksum => just rename
-                    fs::rename(&compressed_unchecked_path, &compressed_path)
-                        .map_err(|e| format!("Failed to rename {} to {}: {e}",
-                                             compressed_unchecked_path.display(), compressed_path.display()))?;
+                    fs::rename(&compressed_unchecked_path, &compressed_path).map_err(|e| {
+                        format!(
+                            "Failed to rename {} to {}: {e}",
+                            compressed_unchecked_path.display(),
+                            compressed_path.display()
+                        )
+                    })?;
                 }
             } else if already_verified_compressed {
-                // We have a final "compressed_path" and no "_unchecked" => do nothing
                 println!("Skipping compressed re-check: {} is verified", res.file_name);
             } else {
-                // No file => must download
+                // Must download
                 println!("Downloading new compressed: {}", res.file_name);
+
                 let response = client
                     .get(&res.file_url)
                     .header(CONTENT_TYPE, "application/x-gzip")
@@ -226,82 +192,109 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
                 let total_size = response.content_length().unwrap_or(0);
                 let mut downloaded = 0u64;
 
-                // Write to "_unchecked"
                 let mut writer = BufWriter::new(
-                    File::create(&compressed_unchecked_path)
-                        .map_err(|e| format!("Cannot create {}: {e}", compressed_unchecked_path.display()))?,
+                    File::create(&compressed_unchecked_path).map_err(|e| {
+                        format!(
+                            "Cannot create {}: {e}",
+                            compressed_unchecked_path.display()
+                        )
+                    })?,
                 );
 
                 let mut stream = response.bytes_stream();
                 while let Some(chunk_result) = stream.next().await {
                     let chunk = chunk_result
                         .map_err(|e| format!("Error reading chunk for {}: {e}", res.file_name))?;
-                    writer
-                        .write_all(&chunk)
-                        .map_err(|e| format!("Failed to write chunk for {}: {e}", res.file_name))?;
+                    writer.write_all(&chunk).map_err(|e| {
+                        format!("Failed to write chunk for {}: {e}", res.file_name)
+                    })?;
 
+                    // Emit partial download progress
                     downloaded += chunk.len() as u64;
                     let payload = DownloadProgress {
                         file_name: res.file_name.clone(),
                         downloaded,
                         total_size,
                     };
-                    app_handle.emit("download-progress", payload)
+                    app_handle
+                        .emit("download-progress", payload)
                         .map_err(|e| format!("Failed to emit download progress: {e}"))?;
                 }
                 drop(writer);
 
                 // Verify => rename
                 if !res.checksum_compressed.is_empty() {
-                    match sha256_of_file_with_progress(&compressed_unchecked_path, &res.file_name, &app_handle) {
+                    match sha256_of_file_with_progress(
+                        &compressed_unchecked_path,
+                        &res.file_name,
+                        &app_handle,
+                    ) {
                         Ok(hash) => {
                             if hash != res.checksum_compressed {
-                                // mismatch => remove partial, fail or re-download
                                 let _ = fs::remove_file(&compressed_unchecked_path);
                                 return Err(format!(
-                                    "Compressed checksum mismatch for {}. Expected: {}\nFound: {}",
+                                    "Compressed checksum mismatch for {}.\nExpected: {}\nFound: {}",
                                     res.file_name, res.checksum_compressed, hash
                                 ));
                             } else {
                                 println!("✔ Compressed checksum OK => rename {}", res.file_name);
-                                fs::rename(&compressed_unchecked_path, &compressed_path)
-                                    .map_err(|e| format!("Failed to rename {} to {}: {e}",
-                                                         compressed_unchecked_path.display(), compressed_path.display()))?;
+                                fs::rename(&compressed_unchecked_path, &compressed_path).map_err(
+                                    |e| {
+                                        format!(
+                                            "Failed to rename {} to {}: {e}",
+                                            compressed_unchecked_path.display(),
+                                            compressed_path.display()
+                                        )
+                                    },
+                                )?;
                             }
                         }
                         Err(e) => {
                             let _ = fs::remove_file(&compressed_unchecked_path);
-                            return Err(format!("Error computing compressed checksum for {}: {e}", res.file_name));
+                            return Err(format!(
+                                "Error computing compressed checksum for {}: {e}",
+                                res.file_name
+                            ));
                         }
                     }
                 } else {
                     // no compressed checksum => assume it's good
-                    fs::rename(&compressed_unchecked_path, &compressed_path)
-                        .map_err(|e| format!("Failed to rename {} to {}: {e}",
-                                             compressed_unchecked_path.display(), compressed_path.display()))?;
+                    fs::rename(&compressed_unchecked_path, &compressed_path).map_err(|e| {
+                        format!(
+                            "Failed to rename {} to {}: {e}",
+                            compressed_unchecked_path.display(),
+                            compressed_path.display()
+                        )
+                    })?;
                 }
             }
 
-            // ---------------------
-            // B) Handle Decompressed (if compressed = true)
-            // ---------------------
+            // -- B) Handle the final decompressed file (if compressed = true) --
             if res.compressed {
                 let need_final_verification = final_unchecked_path.exists();
                 let already_verified_final = final_path.exists() && !need_final_verification;
 
                 if need_final_verification {
-                    // We have a final_unchecked => verify
+                    // We have final_unchecked => verify
                     if !res.checksum_decompressed.is_empty() {
-                        match sha256_of_file_with_progress(&final_unchecked_path, &res.file_name, &app_handle) {
+                        match sha256_of_file_with_progress(
+                            &final_unchecked_path,
+                            &res.file_name,
+                            &app_handle,
+                        ) {
                             Ok(hash) => {
                                 if hash != res.checksum_decompressed {
-                                    println!("✘ Decompressed mismatch => removing {}, forcing re-decompress", final_unchecked_path.display());
+                                    println!("✘ Decompressed mismatch => removing {}", final_unchecked_path.display());
                                     let _ = fs::remove_file(&final_unchecked_path);
                                 } else {
                                     println!("✔ Decompressed file OK => rename {}", final_unchecked_path.display());
-                                    fs::rename(&final_unchecked_path, &final_path)
-                                        .map_err(|e| format!("Failed to rename {} to {}: {e}",
-                                                             final_unchecked_path.display(), final_path.display()))?;
+                                    fs::rename(&final_unchecked_path, &final_path).map_err(|e| {
+                                        format!(
+                                            "Failed to rename {} to {}: {e}",
+                                            final_unchecked_path.display(),
+                                            final_path.display()
+                                        )
+                                    })?;
                                 }
                             }
                             Err(e) => {
@@ -310,18 +303,21 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
                             }
                         }
                     } else {
-                        // no final checksum => rename
-                        fs::rename(&final_unchecked_path, &final_path)
-                            .map_err(|e| format!("Failed to rename {} to {}: {e}",
-                                                 final_unchecked_path.display(), final_path.display()))?;
+                        // no final checksum => just rename
+                        fs::rename(&final_unchecked_path, &final_path).map_err(|e| {
+                            format!(
+                                "Failed to rename {} to {}: {e}",
+                                final_unchecked_path.display(),
+                                final_path.display()
+                            )
+                        })?;
                     }
                 } else if already_verified_final {
                     println!("Skipping final re-check: {} is verified", final_path.display());
                 } else {
                     // We must decompress
-                    println!("Decompressing new final: {}", final_path.display());
+                    println!("Decompressing to final: {}", final_path.display());
 
-                    // Ensure compressed_path is present
                     if !compressed_path.exists() {
                         return Err(format!(
                             "Cannot decompress {} because compressed file is missing",
@@ -329,19 +325,26 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
                         ));
                     }
 
-                    let compressed_file = File::open(&compressed_path)
-                        .map_err(|e| format!("Cannot open {}: {e}", compressed_path.display()))?;
+                    let compressed_file = File::open(&compressed_path).map_err(|e| {
+                        format!("Cannot open {}: {e}", compressed_path.display())
+                    })?;
                     let mut gz_decoder = GzDecoder::new(compressed_file);
 
-                    let mut output_file = File::create(&final_unchecked_path)
-                        .map_err(|e| format!("Cannot create {}: {e}", final_unchecked_path.display()))?;
+                    let mut output_file =
+                        File::create(&final_unchecked_path).map_err(|e| {
+                            format!("Cannot create {}: {e}", final_unchecked_path.display())
+                        })?;
 
                     std::io::copy(&mut gz_decoder, &mut output_file)
                         .map_err(|e| format!("Error decompressing {}: {e}", res.file_name))?;
 
-                    // verify => rename
+                    // Verify => rename
                     if !res.checksum_decompressed.is_empty() {
-                        match sha256_of_file_with_progress(&final_unchecked_path, &res.file_name, &app_handle) {
+                        match sha256_of_file_with_progress(
+                            &final_unchecked_path,
+                            &res.file_name,
+                            &app_handle,
+                        ) {
                             Ok(hash) => {
                                 if hash != res.checksum_decompressed {
                                     let _ = fs::remove_file(&final_unchecked_path);
@@ -351,20 +354,34 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
                                     ));
                                 } else {
                                     println!("✔ Final decompressed OK => rename {}", final_unchecked_path.display());
-                                    fs::rename(&final_unchecked_path, &final_path)
-                                        .map_err(|e| format!("Failed to rename {} to {}: {e}",
-                                                             final_unchecked_path.display(), final_path.display()))?;
+                                    fs::rename(&final_unchecked_path, &final_path).map_err(
+                                        |e| {
+                                            format!(
+                                                "Failed to rename {} to {}: {e}",
+                                                final_unchecked_path.display(),
+                                                final_path.display()
+                                            )
+                                        },
+                                    )?;
                                 }
                             }
                             Err(e) => {
                                 let _ = fs::remove_file(&final_unchecked_path);
-                                return Err(format!("Error computing decompressed checksum for {}: {e}", res.file_name));
+                                return Err(format!(
+                                    "Error computing decompressed checksum for {}: {e}",
+                                    res.file_name
+                                ));
                             }
                         }
                     } else {
-                        fs::rename(&final_unchecked_path, &final_path)
-                            .map_err(|e| format!("Failed to rename {} to {}: {e}",
-                                                 final_unchecked_path.display(), final_path.display()))?;
+                        // no final checksum => just rename
+                        fs::rename(&final_unchecked_path, &final_path).map_err(|e| {
+                            format!(
+                                "Failed to rename {} to {}: {e}",
+                                final_unchecked_path.display(),
+                                final_path.display()
+                            )
+                        })?;
                     }
                 }
             }
@@ -384,4 +401,86 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+// -----------------------------------------------------------------------------
+// 3. Support utilities: config loader + hashing with progress
+// -----------------------------------------------------------------------------
+
+/// Reads `taxdb_config.toml` in the given `resource_dir`.
+fn load_resource_configs(
+    resource_dir: &Path,
+) -> Result<Vec<ResourceFiles>, Box<dyn std::error::Error>> {
+    // We expect a file `taxdb_config.toml` in the `resources` directory
+    let config_path = resource_dir.join("taxdb_config.toml");
+    if !config_path.exists() {
+        return Err(format!("Config file not found at {}", config_path.display()).into());
+    }
+
+    // Read entire TOML
+    let toml_content = fs::read_to_string(&config_path)?;
+    let parsed: ResourceConfig = toml::from_str(&toml_content)?;
+
+    // Convert each TOML entry into the final ResourceFiles
+    let resource_files = parsed
+        .resource
+        .into_iter()
+        .map(|entry| {
+            // We'll remove the trailing ".gz" from file_name if compressed
+            let decompressed_name = if entry.compressed && entry.file_name.ends_with(".gz") {
+                // e.g. "database.kdb.gz" => "database.kdb"
+                entry.file_name.trim_end_matches(".gz").to_string()
+            } else {
+                entry.file_name.clone()
+            };
+
+            ResourceFiles {
+                file_name: entry.file_name,
+                file_url: entry.file_url,
+                file_path: resource_dir.join(decompressed_name).to_string_lossy().to_string(),
+                checksum_compressed: entry.checksum_compressed,
+                checksum_decompressed: entry.checksum_decompressed,
+                compressed: entry.compressed,
+            }
+        })
+        .collect();
+
+    Ok(resource_files)
+}
+
+/// Computes the SHA-256 hash of a file with OpenSSL, **emitting** partial progress events.
+fn sha256_of_file_with_progress(
+    path: &Path,
+    file_name: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<String, std::io::Error> {
+    let file = File::open(path)?;
+    let metadata = file.metadata()?;
+    let total_size = metadata.len();
+
+    let mut reader = BufReader::new(file);
+    let mut buffer = [0u8; 8192];
+    let mut hasher = sha::Sha256::new();
+    let mut hashed = 0u64;
+
+    loop {
+        let n = reader.read(&mut buffer)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buffer[..n]);
+        hashed += n as u64;
+
+        // partial progress: emit "checksum-progress"
+        let payload = ChecksumProgress {
+            file_name: file_name.to_string(),
+            hashed,
+            total_size,
+        };
+        let _ = app_handle.emit("checksum-progress", payload);
+    }
+
+    // Convert final digest to hex
+    let digest = hasher.finish();
+    Ok(hex::encode(digest))
 }

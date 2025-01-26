@@ -19,6 +19,8 @@ title = "poleshift"
 width = 1_920
 height = 1_080
 label = "main"
+url = "index.html"
+visible = false
 
 [[app.windows]]
 title = "Initializing poleshift"

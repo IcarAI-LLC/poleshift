@@ -27,7 +27,7 @@
             font-size: 0.85em;
             color: dimgrey;
         }
-        /* This container can hold all file-progress rows + the globe */
+
         .main-container {
             display: flex;
             flex-direction: column;
@@ -79,17 +79,17 @@
         }
     </style>
 
-    <!-- D3 + TopoJSON for the rotating globe -->
+    <!-- D3 + TopoJSON for the rotating globe animation -->
     <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
     <script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
 </head>
-
 <body>
 <h1>Poleshift is setting up your resources</h1>
-<h2>This takes around three minutes</h2>
+<h2>This may take a few minutes</h2>
 
 <div class="main-container">
-    <!-- 4 distinct progress bars, one per file -->
+    <!-- Example: multiple file progress entries.
+         Adjust IDs to match your actual file names from the TOML config. -->
     <div class="file-progress" id="file-database-kdb-gz">
         <div class="file-name">database.kdb.gz</div>
         <progress id="progress-database-kdb-gz" value="0" max="100"></progress>
@@ -119,7 +119,7 @@
 </div>
 
 <script>
-    // 1) Basic globe setup
+    // 1) Basic rotating globe setup
     const width = 400;
     const height = 400;
     const rotationSpeed = 0.05;
@@ -137,6 +137,7 @@
 
     const pathGenerator = d3.geoPath(projection);
 
+    // Draw a sphere outline
     svg.append("circle")
         .attr("cx", width / 2)
         .attr("cy", height / 2)
@@ -144,6 +145,7 @@
         .attr("fill", "rgba(255,255,255,0.02)")
         .attr("stroke", "rgba(200,200,200,0.2)");
 
+    // Load any small topojson of countries, e.g. "globe-topo.json"
     fetch("globe-topo.json")
         .then(res => res.json())
         .then(topoData => {
@@ -174,16 +176,10 @@
     const tauriEvent = window.__TAURI__.event;
 
     // Because file names have dots, we’ll build a helper to map them to our ID strings
-    function fileIdFromName(fileName) {
-        // "database.kdb.gz" -> "file-database-kdb-gz"
-        return "file-" + fileName.replace(/\./g, "-");
-    }
-
     function progressIdFromName(fileName) {
         // "database.kdb.gz" -> "progress-database-kdb-gz"
         return "progress-" + fileName.replace(/\./g, "-");
     }
-
     function statusIdFromName(fileName) {
         // "database.kdb.gz" -> "status-database-kdb-gz"
         return "status-" + fileName.replace(/\./g, "-");
@@ -193,20 +189,15 @@
         // Listen for "download-progress"
         tauriEvent.listen("download-progress", (event) => {
             const { file_name, downloaded, total_size } = event.payload;
-
             const progressElem = document.getElementById(progressIdFromName(file_name));
             const statusElem = document.getElementById(statusIdFromName(file_name));
 
-            if (!progressElem || !statusElem) {
-                // If we don’t find the matching element, just ignore
-                return;
-            }
+            if (!progressElem || !statusElem) return;
 
             let percent = 0;
             if (total_size > 0) {
                 percent = (downloaded / total_size) * 100;
             }
-
             progressElem.value = percent;
             statusElem.textContent = `Downloading: ${percent.toFixed(2)}%`;
         });
@@ -214,30 +205,25 @@
         // Listen for "checksum-progress"
         tauriEvent.listen("checksum-progress", (event) => {
             const { file_name, hashed, total_size } = event.payload;
-
             const progressElem = document.getElementById(progressIdFromName(file_name));
             const statusElem = document.getElementById(statusIdFromName(file_name));
 
-            if (!progressElem || !statusElem) {
-                return;
-            }
+            if (!progressElem || !statusElem) return;
 
             let percent = 0;
             if (total_size > 0) {
                 percent = (hashed / total_size) * 100;
             }
-
             progressElem.value = percent;
             statusElem.textContent = `Verifying: ${percent.toFixed(2)}%`;
         });
 
         try {
+            // Invoke the Rust command to download+verify
             await invoke("download_resources");
-            // If everything finishes, you can optionally update statuses or remove bars
-            // For now, we just note success:
             console.log("All files downloaded and verified.");
 
-            // Close the splashscreen and show main window
+            // Close the splashscreen and show the main window
             await invoke("close_splashscreen");
         } catch (err) {
             console.error("Failed to download resources:", err);
