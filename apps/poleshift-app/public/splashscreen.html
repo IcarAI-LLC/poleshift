@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Splashscreen with Rotating Globe</title>
+    <style>
+        /* Body: dark gray background, centered content, subtle text color */
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; /* centers vertically as well */
+            background-color: #2a2a2a;
+            color: #ccc;
+            font-family: sans-serif;
+            height: 100vh; /* ensure body takes full viewport height */
+        }
+        h1 {
+            margin-bottom: 0em;
+            font-size: 1.5em;
+            color: #ccc;
+        }
+        h2 {
+            margin-bottom: 1em;
+            font-size: 0.85em;
+            color: dimgrey;
+        }
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        /* Each file's progress row */
+        .file-progress {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .file-name {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+        .file-status {
+            margin-top: 4px;
+            font-size: 0.85em;
+            color: #aaa;
+        }
+        /* Subtle progress bar styling */
+        progress {
+            width: 300px;
+            height: 8px;
+            appearance: none;
+            -webkit-appearance: none;
+            border-radius: 4px;
+            background-color: #444;
+            overflow: hidden;
+        }
+        progress::-webkit-progress-bar {
+            background-color: #444;
+        }
+        progress::-webkit-progress-value {
+            background-color: #6fa0f6;
+        }
+        progress::-moz-progress-bar {
+            background-color: #6fa0f6;
+        }
+        #globe {
+            margin-top: 30px; /* some spacing below the progress bars */
+        }
+    </style>
+</head>
+<body>
+<h1>Poleshift is setting up your resources</h1>
+<h2>This may take a few minutes</h2>
+
+<div class="main-container">
+    <div class="file-progress" id="file-database-kdb-gz">
+        <div class="file-name">database.kdb.gz</div>
+        <progress id="progress-database-kdb-gz" value="0" max="100"></progress>
+        <div class="file-status" id="status-database-kdb-gz">Waiting...</div>
+    </div>
+
+    <div class="file-progress" id="file-database-kdb-counts-gz">
+        <div class="file-name">database.kdb.counts.gz</div>
+        <progress id="progress-database-kdb-counts-gz" value="0" max="100"></progress>
+        <div class="file-status" id="status-database-kdb-counts-gz">Waiting...</div>
+    </div>
+
+    <div class="file-progress" id="file-database-idx-gz">
+        <div class="file-name">database.idx.gz</div>
+        <progress id="progress-database-idx-gz" value="0" max="100"></progress>
+        <div class="file-status" id="status-database-idx-gz">Waiting...</div>
+    </div>
+
+    <div class="file-progress" id="file-taxdb-gz">
+        <div class="file-name">taxDB.gz</div>
+        <progress id="progress-taxdb-gz" value="0" max="100"></progress>
+        <div class="file-status" id="status-taxdb-gz">Waiting...</div>
+    </div>
+
+    <!-- SVG container for the globe -->
+    <svg id="globe"></svg>
+</div>
+
+<!-- Load the D3 & TopoJSON scripts locally instead of from CDN -->
+<script src="./libs/d3.min.js"></script>
+<script src="./libs/topojson-client.min.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        // Access Tauri
+        const { invoke } = window.__TAURI__.core;
+        const tauriEvent = window.__TAURI__.event;
+
+        // Because file names have dots, we'll build a helper to map them to our ID strings
+        function progressIdFromName(fileName) {
+            // "database.kdb.gz" -> "progress-database-kdb-gz"
+            return "progress-" + fileName.replace(/\./g, "-");
+        }
+        function statusIdFromName(fileName) {
+            // "database.kdb.gz" -> "status-database-kdb-gz"
+            return "status-" + fileName.replace(/\./g, "-");
+        }
+
+        // Listen for "download-progress" events
+        tauriEvent.listen("download-progress", (event) => {
+            const { file_name, downloaded, total_size } = event.payload;
+            const progressElem = document.getElementById(progressIdFromName(file_name));
+            const statusElem = document.getElementById(statusIdFromName(file_name));
+            if (!progressElem || !statusElem) return;
+
+            let percent = 0;
+            if (total_size > 0) {
+                percent = (downloaded / total_size) * 100;
+            }
+            progressElem.value = percent;
+            statusElem.textContent = `Downloading: ${percent.toFixed(2)}%`;
+        });
+
+        // Listen for "checksum-progress" events
+        tauriEvent.listen("checksum-progress", (event) => {
+            const { file_name, hashed, total_size } = event.payload;
+            const progressElem = document.getElementById(progressIdFromName(file_name));
+            const statusElem = document.getElementById(statusIdFromName(file_name));
+            if (!progressElem || !statusElem) return;
+
+            let percent = 0;
+            if (total_size > 0) {
+                percent = (hashed / total_size) * 100;
+            }
+            progressElem.value = percent;
+            statusElem.textContent = `Verifying: ${percent.toFixed(2)}%`;
+        });
+
+        // Listen for "decompression-progress" events
+        tauriEvent.listen("decompression-progress", (event) => {
+            const { file_name, compressed_read, total_compressed_size } = event.payload;
+            const progressElem = document.getElementById(progressIdFromName(file_name));
+            const statusElem = document.getElementById(statusIdFromName(file_name));
+            if (!progressElem || !statusElem) return;
+
+            let percent = 0;
+            if (total_compressed_size > 0) {
+                percent = (compressed_read / total_compressed_size) * 100;
+            }
+            progressElem.value = percent;
+            statusElem.textContent = `Decompressing: ${percent.toFixed(2)}%`;
+        });
+
+        // If we are offline, skip attempts to download
+        if (!navigator.onLine) {
+            console.warn("No internet connection detected. Skipping download.");
+            // You could display a message or proceed with local/offline logic
+            return;
+        }
+
+        // Otherwise, attempt to download and verify the resources
+        try {
+            await invoke("download_resources");
+            console.log("All files downloaded, verified, and decompressed.");
+
+            // Close the splashscreen and show the main window
+            await invoke("close_splashscreen");
+        } catch (err) {
+            console.error("Failed to download resources:", err);
+        }
+    });
+</script>
+
+<!-- Now always run the globe code, using local copies of D3 & TopoJSON -->
+<script>
+    window.addEventListener('load', () => {
+        // Now that D3 & TopoJSON are loaded from local files:
+        if (typeof d3 === 'undefined' || typeof topojson === 'undefined') {
+            console.error("D3 or topojson not loaded. Skipping globe rendering.");
+            return;
+        }
+
+        const width = 400;
+        const height = 400;
+        const rotationSpeed = 0.05;
+
+        const svg = d3.select("#globe")
+            .attr("width", width)
+            .attr("height", height);
+
+        let rotation = [0, 0, 0];
+        const projection = d3.geoOrthographic()
+            .translate([width / 2, height / 2])
+            .scale(width * 0.45)
+            .clipAngle(180)
+            .rotate(rotation);
+
+        const pathGenerator = d3.geoPath(projection);
+
+        // Draw sphere outline
+        svg.append("circle")
+            .attr("cx", width / 2)
+            .attr("cy", height / 2)
+            .attr("r", projection.scale())
+            .attr("fill", "rgba(255,255,255,0.02)")
+            .attr("stroke", "rgba(200,200,200,0.2)");
+
+        // Load globe-topo.json (can be local)
+        fetch("globe-topo.json")
+            .then(res => res.json())
+            .then(topoData => {
+                const geoData = topojson.feature(topoData, topoData.objects.countries);
+                const countryPaths = svg.append("g")
+                    .selectAll("path")
+                    .data(geoData.features)
+                    .enter()
+                    .append("path")
+                    .attr("fill", "rgba(200,200,200,0.3)")
+                    .attr("stroke", "rgba(100,100,100,0.6)");
+
+                function animate() {
+                    rotation[0] += rotationSpeed;
+                    rotation[1] += rotationSpeed;
+                    projection.rotate(rotation);
+                    countryPaths.attr("d", pathGenerator);
+                    requestAnimationFrame(animate);
+                }
+                animate();
+            })
+            .catch(err => {
+                console.error("Failed to load TopoJSON:", err);
+            });
+    });
+</script>
+
+</body>
+</html>

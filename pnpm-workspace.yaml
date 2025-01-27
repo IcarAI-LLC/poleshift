@@ -1,5 +1,5 @@
 packages:
   # include packages in subfolders (e.g. apps/ and packages/)
-  - "src/**"
+  - "apps/**"
   # if required, exclude some directories
   - '!**/src-tauri/**'
