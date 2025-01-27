@@ -3210,7 +3210,6 @@ dependencies = [
  "futures-util",
  "hex",
  "krakenuniq-rs",
- "openssl",
  "rayon",
  "reqwest",
  "rusqlite",
