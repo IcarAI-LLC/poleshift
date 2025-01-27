@@ -7,7 +7,9 @@
     "dev:app": "pnpm --filter poleshift-app tauri dev",
     "dev:site": "pnpm --filter poleshift-site dev",
     "build:app": "pnpm --filter poleshift-app tauri build",
-    "build:site": "pnpm --filter poleshift-site build"
+    "build:site": "pnpm --filter poleshift-site build",
+    "docker:build": "pnpm --filter poleshift-site build:docker",
+    "docker:push": "pnpm --filter poleshift-site push:docker"
   },
   "engines": {
     "node": "23"
