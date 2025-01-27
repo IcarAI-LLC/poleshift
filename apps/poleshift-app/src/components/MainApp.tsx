@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { FileNodeType } from '@/lib/powersync/DrizzleSchema.ts';
 import { useAuth, useData, useUI } from '@/hooks';
 
@@ -14,7 +14,6 @@ import AccountModal from './LeftSidebar/Modals/AccountModal.tsx';
 // Remove: import ErrorMessage from "./ErrorMessage";
 
 import ChatWidget from '@/components/Chatbot/ChatWidget';
-import { Loader2 } from 'lucide-react';
 
 // 1) Import useToast from your shadcn toast utility
 import { useToast } from '@/hooks/use-toast';
@@ -90,15 +89,7 @@ const MainApp: React.FC = () => {
     <div className='w-screen h-screen'>
       {isGlobe && (
         <div className='absolute'>
-          <Suspense
-            fallback={
-              <div style={{ marginBottom: '1rem' }}>
-                <Loader2 className='animate-spin' />
-              </div>
-            }
-          >
-            <GlobeComponent />
-          </Suspense>
+          <GlobeComponent />
         </div>
       )}
 
@@ -108,7 +99,7 @@ const MainApp: React.FC = () => {
         </div>
 
         {isGlobe ? (
-          <div className={'pointer-events-auto'}>
+          <div className={'pointer-events-none'}>
             <RightSidebar />
           </div>
         ) : (

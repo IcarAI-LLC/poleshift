@@ -7,16 +7,16 @@ use std::{
 
 use flate2::read::GzDecoder;
 use futures_util::{future::join_all, StreamExt};
-use reqwest::header::CONTENT_TYPE;
 use openssl::sha;
+use reqwest::header::CONTENT_TYPE;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager, Window};
 use tauri::Emitter;
+
 // -----------------------------------------------------------------------------
 // 1. Data structures & error types
 // -----------------------------------------------------------------------------
 
-/// Example error type for demonstration. You can modify as you wish.
 #[derive(Debug)]
 pub enum PoleshiftError {
     PathResolution(String),
@@ -72,8 +72,65 @@ struct ChecksumProgress {
     total_size: u64,
 }
 
+/// Progress event payload for decompression (we track compressed bytes read)
+#[derive(serde::Serialize, Clone)]
+struct DecompressionProgress {
+    file_name: String,
+    compressed_read: u64,
+    total_compressed_size: u64,
+}
+
 // -----------------------------------------------------------------------------
-// 2. Commands exposed to Tauri
+// 2. A custom "CountingReader" to measure compressed bytes read
+// -----------------------------------------------------------------------------
+
+/// A wrapper around a `Read` that counts how many bytes have been read,
+/// and emits "decompression-progress" events via Tauri.
+struct CountingReader<R> {
+    inner: R,
+    bytes_read: u64,
+    total_size: u64,
+    file_name: String,
+    app_handle: AppHandle,
+}
+
+impl<R: Read> CountingReader<R> {
+    fn new(
+        inner: R,
+        total_size: u64,
+        file_name: String,
+        app_handle: AppHandle,
+    ) -> Self {
+        CountingReader {
+            inner,
+            bytes_read: 0,
+            total_size,
+            file_name,
+            app_handle,
+        }
+    }
+}
+
+impl<R: Read> Read for CountingReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        if n > 0 {
+            self.bytes_read += n as u64;
+
+            // Emit an event for each chunk read
+            let payload = DecompressionProgress {
+                file_name: self.file_name.clone(),
+                compressed_read: self.bytes_read,
+                total_compressed_size: self.total_size,
+            };
+            let _ = self.app_handle.emit("decompression-progress", payload);
+        }
+        Ok(n)
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 3. Commands exposed to Tauri
 // -----------------------------------------------------------------------------
 
 /// Closes the splashscreen window and shows the main window.
@@ -123,7 +180,7 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
             let final_unchecked_path =
                 PathBuf::from(format!("{}_unchecked", final_path.display()));
 
-            // -- A) Handle the compressed file (download / verify) --
+            // ----- A) Handle the compressed file (download / verify) -----
             let need_compressed_verification = compressed_unchecked_path.exists();
             let already_verified_compressed =
                 compressed_path.exists() && !need_compressed_verification;
@@ -269,7 +326,7 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
                 }
             }
 
-            // -- B) Handle the final decompressed file (if compressed = true) --
+            // ----- B) Handle the final decompressed file (if compressed = true) -----
             if res.compressed {
                 let need_final_verification = final_unchecked_path.exists();
                 let already_verified_final = final_path.exists() && !need_final_verification;
@@ -325,16 +382,29 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
                         ));
                     }
 
+                    // Instead of simple std::io::copy, wrap the compressed file in CountingReader:
                     let compressed_file = File::open(&compressed_path).map_err(|e| {
                         format!("Cannot open {}: {e}", compressed_path.display())
                     })?;
-                    let mut gz_decoder = GzDecoder::new(compressed_file);
+                    let compressed_metadata = compressed_file.metadata().map_err(|e| {
+                        format!("Cannot read metadata of {}: {e}", compressed_path.display())
+                    })?;
+                    let total_size = compressed_metadata.len();
 
+                    let counting_reader = CountingReader::new(
+                        BufReader::new(compressed_file),
+                        total_size,
+                        res.file_name.clone(),
+                        app_handle.as_ref().clone(),
+                    );
+
+                    let mut gz_decoder = GzDecoder::new(counting_reader);
                     let mut output_file =
-                        File::create(&final_unchecked_path).map_err(|e| {
+                        BufWriter::new(File::create(&final_unchecked_path).map_err(|e| {
                             format!("Cannot create {}: {e}", final_unchecked_path.display())
-                        })?;
+                        })?);
 
+                    // Decompress in chunks; the CountingReader emits progress
                     std::io::copy(&mut gz_decoder, &mut output_file)
                         .map_err(|e| format!("Error decompressing {}: {e}", res.file_name))?;
 
@@ -404,7 +474,7 @@ pub async fn download_resources(app_handle: AppHandle) -> Result<(), String> {
 }
 
 // -----------------------------------------------------------------------------
-// 3. Support utilities: config loader + hashing with progress
+// 4. Support utilities: config loader + hashing with progress
 // -----------------------------------------------------------------------------
 
 /// Reads `taxdb_config.toml` in the given `resource_dir`.
@@ -426,9 +496,8 @@ fn load_resource_configs(
         .resource
         .into_iter()
         .map(|entry| {
-            // We'll remove the trailing ".gz" from file_name if compressed
+            // We'll remove the trailing ".gz" if entry is compressed
             let decompressed_name = if entry.compressed && entry.file_name.ends_with(".gz") {
-                // e.g. "database.kdb.gz" => "database.kdb"
                 entry.file_name.trim_end_matches(".gz").to_string()
             } else {
                 entry.file_name.clone()

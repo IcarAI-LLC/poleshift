@@ -335,16 +335,16 @@ const RightSidebar: React.FC = () => {
   // Render with shadcn/ui <Sidebar> structure
   // ─────────────────────────────────────────────────────────────
   return (
-    <SidebarProvider
-      open={!isRightSidebarCollapsed}
-      onOpenChange={toggleRightSidebar}
-      style={{
-        //@ts-expect-error: Not my component
-        '--sidebar-width': '20rem',
-        '--sidebar-width-mobile': '20rem',
-      }}
+      <SidebarProvider
+          open={!isRightSidebarCollapsed}
+          onOpenChange={toggleRightSidebar}
+          style={{
+            //@ts-expect-error: Not my component
+            "--sidebar-width": "24rem",
+            "--sidebar-width-mobile": "24rem"
+          }}
     >
-      <Sidebar side='right' variant='sidebar'>
+      <Sidebar side='right' variant='floating' collapsible={"offcanvas"} className={"pointer-events-auto"}>
         {/* Header with close button */}
 
         {/* Main content area */}

@@ -36,4 +36,15 @@ cargoToml = cargoToml.replace(
 );
 fs.writeFileSync(cargoPath, cargoToml);
 
-console.log(`Synced version to ${newVersion} in sub-packages + Cargo.toml`);
+// 5. Update Tauri config (tauri.toml)
+const tauriConfigPath = path.join(__dirname, '..', 'apps/poleshift-app/src-tauri/tauri.toml');
+let tauriToml = fs.readFileSync(tauriConfigPath, 'utf8');
+
+// Same approach with a simple regex replacement:
+tauriToml = tauriToml.replace(
+    /(version\s*=\s*")[^"]+(")/,
+    `$1${newVersion}$2`
+);
+fs.writeFileSync(tauriConfigPath, tauriToml);
+
+console.log(`Synced version to ${newVersion} in sub-packages, Cargo.toml, and tauri.toml`);
