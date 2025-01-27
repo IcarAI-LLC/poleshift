@@ -110,11 +110,11 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            pnpm run app:build --target aarch64-apple-darwin
+            pnpm run build:app --target aarch64-apple-darwin
           elif [ "${{ matrix.os }}" == "windows-latest-l" ]; then
-            pnpm run app:build --verbose
+            pnpm run build:app --verbose
           else
-            pnpm run app:build --verbose --bundles appimage deb updater
+            pnpm run build:app --verbose --bundles appimage deb updater
           fi
 
       - name: Upload Assets
