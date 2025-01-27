@@ -18,15 +18,15 @@ function getUserPlatform() {
 
 // Pre-load your platform logic
 const DMG = new URL(
-    "https://releases.poleshift.cloud/poleshift_0.1.11_aarch64.dmg",
+    "https://releases.poleshift.cloud/poleshift_0.2.0_aarch64.dmg",
     import.meta.url
 ).href;
 const AppImage = new URL(
-    "https://releases.poleshift.cloud/poleshift_0.1.11_amd64.AppImage",
+    "https://releases.poleshift.cloud/poleshift_0.2.0_amd64.AppImage",
     import.meta.url
 ).href;
 const NSIS = new URL(
-    "https://releases.poleshift.cloud/poleshift_0.1.11_x64_en-US.msi",
+    "https://releases.poleshift.cloud/poleshift_0.2.0_x64_en-US.msi",
     import.meta.url
 ).href;
 
