@@ -34,7 +34,6 @@ reqwest = "0.12.12"
 futures-util = "0.3.31"
 sha2 = "0.10.8"
 hex = "0.4.3"
-openssl = "0.10.68"
 toml = "0.8.19"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
