@@ -7,7 +7,7 @@ use std::{
 
 use flate2::read::GzDecoder;
 use futures_util::{future::join_all, StreamExt};
-use openssl::sha;
+use sha2::{Digest, Sha256};
 use reqwest::header::CONTENT_TYPE;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager, Window};
@@ -517,19 +517,22 @@ fn load_resource_configs(
     Ok(resource_files)
 }
 
-/// Computes the SHA-256 hash of a file with OpenSSL, **emitting** partial progress events.
+/// Computes the SHA-256 hash of a file, emitting partial progress events.
 fn sha256_of_file_with_progress(
-    path: &Path,
+    path: &std::path::Path,
     file_name: &str,
     app_handle: &tauri::AppHandle,
 ) -> Result<String, std::io::Error> {
+    use std::io::{BufReader, Read};
+    use std::fs::File;
+
     let file = File::open(path)?;
     let metadata = file.metadata()?;
     let total_size = metadata.len();
 
     let mut reader = BufReader::new(file);
     let mut buffer = [0u8; 8192];
-    let mut hasher = sha::Sha256::new();
+    let mut hasher = Sha256::new();
     let mut hashed = 0u64;
 
     loop {
@@ -540,7 +543,7 @@ fn sha256_of_file_with_progress(
         hasher.update(&buffer[..n]);
         hashed += n as u64;
 
-        // partial progress: emit "checksum-progress"
+        // Emit partial progress: "checksum-progress"
         let payload = ChecksumProgress {
             file_name: file_name.to_string(),
             hashed,
@@ -550,6 +553,6 @@ fn sha256_of_file_with_progress(
     }
 
     // Convert final digest to hex
-    let digest = hasher.finish();
+    let digest = hasher.finalize();
     Ok(hex::encode(digest))
 }
