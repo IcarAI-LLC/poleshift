@@ -20,15 +20,15 @@ width = 1_920
 height = 1_080
 label = "main"
 url = "index.html"
-visible = false
+#visible = false
 
-[[app.windows]]
-title = "Initializing poleshift"
-width = 600
-height = 800
-url = "splashscreen.html"
-label = "splashscreen"
-decorations = false
+#[[app.windows]]
+#title = "Initializing poleshift"
+#width = 600
+#height = 800
+#url = "splashscreen.html"
+#label = "splashscreen"
+#decorations = false
 
 [bundle]
 active = true
