@@ -25,7 +25,7 @@ const AppImage = new URL(
     "https://releases.poleshift.cloud/poleshift_0.2.0_amd64.AppImage",
     import.meta.url
 ).href;
-const NSIS = new URL(
+const MSI = new URL(
     "https://releases.poleshift.cloud/poleshift_0.2.0_x64_en-US.msi",
     import.meta.url
 ).href;
@@ -43,7 +43,7 @@ interface Platform {
 
 // All possible platforms
 const allPlatforms: Platform[] = [
-    { id: "windows", label: "Download for Windows", link: NSIS },
+    { id: "windows", label: "Download for Windows", link: MSI },
     { id: "mac",     label: "Download for Mac",     link: DMG },
     { id: "linux",   label: "Download for Linux",   link: AppImage },
     { id: "snap",    label: "Download from Snap Store", link: SNAP_STORE_LINK },
