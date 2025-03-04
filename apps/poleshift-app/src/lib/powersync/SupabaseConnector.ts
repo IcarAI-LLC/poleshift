@@ -165,6 +165,10 @@ export class SupabaseConnector {
         if (response.error) {
           console.warn('License activation during signup failed:', response.error);
           // We don't throw here to allow signup to complete even if license activation fails
+          // If the error is related to the constraint, we can consider it a non-critical error
+          if (response.error.message && response.error.message.includes('constraint')) {
+            console.log('Constraint error during license activation - this may be expected if the user is already associated with the organization');
+          }
         } else {
           console.log('License activation successful:', response.data);
         }
