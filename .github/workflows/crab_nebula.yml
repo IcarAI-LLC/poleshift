@@ -90,7 +90,7 @@ jobs:
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: './apps/poleshift-app/src-tauri -> target'
 
       - name: Install Dependencies on Ubuntu
         if: matrix.os == 'ubuntu-22.04'
@@ -116,13 +116,14 @@ jobs:
           else
             pnpm run app:build --verbose --bundles appimage deb
           fi
+        working-directory: ./apps/poleshift-app
 
       - name: Upload Assets
         uses: crabnebula-dev/cloud-release@v0
         with:
           command: release upload ${{ env.CN_APPLICATION }} --framework tauri
           api-key: ${{ secrets.CN_API_KEY }}
-          path: ./src-tauri
+          path: ./apps/poleshift-app/src-tauri
 
   publish:
     needs: build
