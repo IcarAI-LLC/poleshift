@@ -2,7 +2,7 @@ import { useAuthStore } from '@/stores/authStore.ts';
 import { supabaseConnector } from '../lib/powersync/SupabaseConnector.ts';
 import { useCallback, useMemo } from 'react';
 import { usePowerSync, useQuery } from '@powersync/react';
-import { Organizations, UserProfiles } from '../types';
+import { Organizations, UserProfiles } from '@/types';
 import {
   toCompilableQuery,
   wrapPowerSyncWithDrizzle,
@@ -90,7 +90,7 @@ export const useAuth = () => {
       try {
         setLoading(true);
         const response = await supabaseConnector.client.functions.invoke(
-          'signUpWithLicense',
+          'sign_up_with_license',
           {
             body: { userId: user.id, licenseKey },
           }

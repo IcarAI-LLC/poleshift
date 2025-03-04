@@ -153,12 +153,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           <TooltipContent>Max depth to query for taxonomic data</TooltipContent>
         </Tooltip>
 
-        {/*
-          REMOVED:
-          <Label htmlFor="taxonomic_starburst_min_rank">Min Rank</Label>
-          // old min rank code...
-        */}
-
         {/* ======== Globe Section ======== */}
         <div className='flex items-center gap-2 mt-4'>
           <GlobeIcon className='h-5 w-5' />

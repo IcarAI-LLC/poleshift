@@ -16,7 +16,6 @@ import { Input } from '@/components/ui/input';
 
 // lucide-react icon
 import { Loader2 } from 'lucide-react';
-
 const ActivateLicense: FC = () => {
   const { activateLicense, loading, error } = useAuth();
   const [licenseKey, setLicenseKey] = useState('');

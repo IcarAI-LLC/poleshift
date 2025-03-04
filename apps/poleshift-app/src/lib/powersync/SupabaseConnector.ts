@@ -143,9 +143,38 @@ export class SupabaseConnector {
     if (error) throw error;
   }
 
-  async signUp(email: string, password: string) {
-    const { error } = await this.client.auth.signUp({ email, password });
+  async signUp(email: string, password: string, licenseKey?: string) {
+    // First sign up the user
+    const { data, error } = await this.client.auth.signUp({ email, password });
     if (error) throw error;
+    
+    // If a license key was provided and signup was successful, activate it
+    if (licenseKey && data.user) {
+      try {
+        console.log("Activating license with user ID:", data.user.id);
+        const response = await this.client.functions.invoke(
+          'sign_up_with_license',
+          {
+            body: { 
+              userId: data.user.id, 
+              licenseKey: licenseKey 
+            },
+          }
+        );
+        
+        if (response.error) {
+          console.warn('License activation during signup failed:', response.error);
+          // We don't throw here to allow signup to complete even if license activation fails
+        } else {
+          console.log('License activation successful:', response.data);
+        }
+      } catch (err) {
+        console.warn('License activation during signup failed:', err);
+        // We don't throw here to allow signup to complete even if license activation fails
+      }
+    }
+    
+    return data;
   }
 
   async logout() {
@@ -158,26 +187,22 @@ export class SupabaseConnector {
     if (error) throw error;
   }
 
-  // In SupabaseConnector.ts
   async validateLicenseKey(licenseKey: string) {
-    // This would call a backend function or table query
-    // returning { valid: boolean; organizationName?: string; errorMessage?: string }
     const { data, error } = await this.client.functions.invoke(
-      'validateLicenseKey',
+      'validate_license_key',
       {
         body: { licenseKey },
       }
     );
 
     if (error) {
-      // For example, if license is not found or an error occurred
+      // If license is not found or an error occurred
       return {
         valid: false,
         errorMessage: error.message ?? 'License validation failed',
       };
     }
 
-    // data might look like: { valid: true, organizationName: "My Org" }
     return data;
   }
 
@@ -322,8 +347,6 @@ export class SupabaseConnector {
         console.error(
           `Max retry attempts (${maxAttempts}) reached. Not discarding transaction, but will not retry again.`
         );
-        // IMPORTANT: We do NOT call transaction.complete() here
-        // so that the transaction remains in the queue for another future attempt
       }
     }
   }

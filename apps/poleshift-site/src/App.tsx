@@ -18,19 +18,18 @@ function getUserPlatform() {
 
 // Pre-load your platform logic
 const DMG = new URL(
-    "https://releases.poleshift.cloud/poleshift_0.2.0_aarch64.dmg",
+    "https://releases.poleshift.cloud/poleshift_0.2.1_aarch64.dmg",
     import.meta.url
 ).href;
 const AppImage = new URL(
-    "https://releases.poleshift.cloud/poleshift_0.2.0_amd64.AppImage",
+    "https://releases.poleshift.cloud/poleshift_0.2.1_amd64.AppImage",
     import.meta.url
 ).href;
-const NSIS = new URL(
-    "https://releases.poleshift.cloud/poleshift_0.2.0_x64_en-US.msi",
+const MSI = new URL(
+    "https://releases.poleshift.cloud/poleshift_0.2.1_x64_en-US.msi",
     import.meta.url
 ).href;
 
-// (Example link) Replace with your Snap store URL
 const SNAP_STORE_LINK = "https://snapcraft.io/poleshift";
 
 // Define platforms
@@ -43,7 +42,7 @@ interface Platform {
 
 // All possible platforms
 const allPlatforms: Platform[] = [
-    { id: "windows", label: "Download for Windows", link: NSIS },
+    { id: "windows", label: "Download for Windows", link: MSI },
     { id: "mac",     label: "Download for Mac",     link: DMG },
     { id: "linux",   label: "Download for Linux",   link: AppImage },
     { id: "snap",    label: "Download from Snap Store", link: SNAP_STORE_LINK },

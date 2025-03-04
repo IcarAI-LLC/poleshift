@@ -1,7 +1,7 @@
 import { text, integer, real, sqliteTable } from 'drizzle-orm/sqlite-core';
 import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
-import { UserRole } from '../../types';
+import { UserRole } from '@/types';
 
 export enum DataType {
   CTD = 'ctd',
@@ -73,7 +73,7 @@ export const organizations = sqliteTable('organizations', {
 export const user_profiles = sqliteTable('user_profiles', {
   // Single "id" column that is both the PK and references "users.id"
   id: text('id').notNull().primaryKey(),
-  organization_id: text('organization_id').references(() => organizations.id),
+  org_id: text('org_id').references(() => organizations.id),
   created_at: text('created_at').default(DateTime.now().toISO()).notNull(),
   user_role: text('user_role' /* user-defined type */)
     .$type<UserRole>()
@@ -147,8 +147,8 @@ export const file_nodes = sqliteTable('file_nodes', {
  *  ────────────────────────────────────────────────────────────────────────────**/
 export const license_keys = sqliteTable('license_keys', {
   id: text('id').notNull().primaryKey().default(uuidv4()),
-  organization_id: text('organization_id').references(() => organizations.id),
-  key: text('key').notNull().default(uuidv4()),
+  org_id: text('org_id').references(() => organizations.id),
+  key: text('key').notNull(),
   is_active: integer('is_active').default(1),
   created_at: text('created_at').default(DateTime.now().toISO()),
 });
