@@ -4,12 +4,12 @@
   "version": "0.2.0",
   "scripts": {
     "sync-versions": "node scripts/sync-versions.mjs",
-    "dev:app": "pnpm --filter poleshift-app tauri dev",
-    "dev:site": "pnpm --filter poleshift-site dev",
-    "build:app": "pnpm --filter poleshift-app tauri build",
-    "build:site": "pnpm --filter poleshift-site build",
-    "docker:build": "pnpm --filter poleshift-site build:docker",
-    "docker:push": "pnpm --filter poleshift-site push:docker"
+    "app:dev": "pnpm --filter poleshift-app tauri dev",
+    "site:dev": "pnpm --filter poleshift-site dev",
+    "app:build": "pnpm --filter poleshift-app tauri build",
+    "site:build": "pnpm --filter poleshift-site build",
+    "site:docker:build": "pnpm --filter poleshift-site build:docker",
+    "site:docker:push": "pnpm --filter poleshift-site push:docker"
   },
   "engines": {
     "node": "23"

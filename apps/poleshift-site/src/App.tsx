@@ -30,7 +30,6 @@ const MSI = new URL(
     import.meta.url
 ).href;
 
-// (Example link) Replace with your Snap store URL
 const SNAP_STORE_LINK = "https://snapcraft.io/poleshift";
 
 // Define platforms
