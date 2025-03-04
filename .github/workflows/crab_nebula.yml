@@ -110,11 +110,11 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            pnpm run build --target aarch64-apple-darwin
+            pnpm run tauri build --target aarch64-apple-darwin
           elif [ "${{ matrix.os }}" == "windows-latest-l" ]; then
-            pnpm run build --verbose
+            pnpm run tauri build --verbose
           else
-            pnpm run build --verbose --bundles appimage deb
+            pnpm run tauri build --verbose --bundles appimage deb
           fi
         working-directory: ./apps/poleshift-app
 
