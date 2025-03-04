@@ -90,7 +90,7 @@ jobs:
           elif [ "${{ matrix.os }}" == "windows-latest-l" ]; then
             pnpm run app:build --verbose
           else
-            pnpm run app:build --verbose --bundles appimage deb updater
+            pnpm run app:build --verbose --bundles appimage deb
           fi
 
         env:
