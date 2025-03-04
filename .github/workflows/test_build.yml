@@ -86,11 +86,11 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            pnpm run build:app --target aarch64-apple-darwin
+            pnpm run app:build --target aarch64-apple-darwin
           elif [ "${{ matrix.os }}" == "windows-latest-l" ]; then
-            pnpm run build:app --verbose
+            pnpm run app:build --verbose
           else
-            pnpm run build:app --verbose --bundles appimage deb updater
+            pnpm run app:build --verbose --bundles appimage deb updater
           fi
 
         env:
