@@ -1,27 +1,27 @@
 [[resource]]
 file_name = "database.kdb.gz"
-file_url = "https://pr2.poleshift.cloud/database.kdb.gz"
+file_url = "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/dbpr2//database.kdb.gz"
 checksum_compressed = "d01c990394bb7dd3e55ec3bcffd82f20194b4045bec88d503fbb9db5da9254c8"
 checksum_decompressed = "b1b5322ad305ea92da0c9e22fea04b848271812e11a4b2b63adf176ff8b584de"
 compressed = true
 
 [[resource]]
 file_name = "database.kdb.counts.gz"
-file_url = "https://pr2.poleshift.cloud/database.kdb.counts.gz"
+file_url = "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/dbpr2//database.idx.gz"
 checksum_compressed = "a66bcb659953a9793e75d62ec07fe99fcc1ee9c6d408f6d0b588caaf6afa4991"
 checksum_decompressed = "7823e77c3bc89539c9c0f104c9cc728e16b60b4f6bc8718a2d072ff951f217b7"
 compressed = true
 
 [[resource]]
 file_name = "database.idx.gz"
-file_url = "https://pr2.poleshift.cloud/database.idx.gz"
+file_url = "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/dbpr2//database.idx.gz"
 checksum_compressed = "ecb678053d571f3fad38a67f15b72e10bd820f54d4c97fa4be919a5eba075395"
 checksum_decompressed = "64eeb6e6cc4684f6b196bd17713103fb242768d1dafec471e395cc6489584e83"
 compressed = true
 
 [[resource]]
 file_name = "taxDB.gz"
-file_url = "https://pr2.poleshift.cloud/taxDB.gz"
+file_url = "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/dbpr2//taxDB.gz"
 checksum_compressed = "0b0bde984ccce9d903d91c05306ed209901858adc73f0b8ca460a8333c372959"
 checksum_decompressed = "1a067cb6c1a512e27bc131ced0e39d72b688bd4eccf31b51e9d08468638edd1a"
 compressed = true
