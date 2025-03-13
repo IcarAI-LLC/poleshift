@@ -7,7 +7,7 @@ compressed = true
 
 [[resource]]
 file_name = "database.kdb.counts.gz"
-file_url = "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/dbpr2//database.idx.gz"
+file_url = "https://pvikwknnxcuuhiwungqh.supabase.co/storage/v1/object/public/dbpr2//database.kdb.counts.gz"
 checksum_compressed = "a66bcb659953a9793e75d62ec07fe99fcc1ee9c6d408f6d0b588caaf6afa4991"
 checksum_decompressed = "7823e77c3bc89539c9c0f104c9cc728e16b60b4f6bc8718a2d072ff951f217b7"
 compressed = true
